@@ -238,7 +238,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 23:02</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 23:05</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -365,7 +365,12 @@
         </div>
       </div>
       <div class="abschnitt">
-        <h3>Notenliste</h3>
+        <h3>Namen und Notenliste</h3>
+        <div class="reihe" style="margin-bottom:10px">
+          <label class="feld">Namen anzeigen als
+            <select data-einst="namen"><option value="nachname">Nachname, Vorname</option><option value="vorname">Vorname Nachname</option></select>
+          </label>
+        </div>
         <div class="optionen">
           <label><input type="checkbox" data-einst="spalten.fehlend"> Nicht Mitgeschriebene aufführen</label>
         </div>
@@ -420,6 +425,7 @@ const STANDARD_EINST = {
   rundung: 0.5,
   tendenzen: { an: true, einsPlus: false, sechs: false, art: "drittel", abstand: 2 },
   spalten: { fehlend: true },
+  namen: "nachname",
   sortierung: "eingabe",
   diagramm: { kreuze: true, mittel: true, fit: true, legende: true, anzahl: true, xTitel: "Notenstufen [Punkte; Prozent]", yTitel: "Häufigkeit" },
   word: { ueberschrift: "Notenliste", diagramm: true, statistik: true },
@@ -676,6 +682,16 @@ function statistik(e, tendenzen) {
   }) : [];
   return { verteilung, kennzahlen, klassen, n };
 }
+
+// Anzeige der Namen: gespeichert wird "Nachname, Vorname", angezeigt auf Wunsch "Vorname Nachname".
+// Namen ohne Komma bleiben, wie sie sind.
+function nameAnzeigen(name, art) {
+  if (art !== "vorname") return name;
+  const m = /^([^,]+),\s*(.+)$/.exec(name || "");
+  return m ? `${m[2].trim()} ${m[1].trim()}` : name;
+}
+// Gleiche Person unabhängig von Reihenfolge und Komma ("Ahmeti, Lara" = "Lara Ahmeti")
+const namensSchluessel = (n) => String(n || "").toLowerCase().split(/[\s,]+/).filter(Boolean).sort().join(" ");
 
 function notenspiegelZeile(anzahl, schnitt) {
   return anzahl.map((c, i) => `${i + 1}: ${c}`).join(" | ") + ` | Ø ${schnitt.toFixed(2).replace(".", ",")}`;
@@ -1972,6 +1988,7 @@ if (typeof document !== "undefined") {
   const einstSpeichern = () => schreiben(EINST_KEY, einst);
   const kurseSpeichern = () => { schreiben(KURSE_KEY, kurse); schreiben(KURSE_KEY + "-aktiv", aktiverKurs || null); };
   const kurs = () => kurse.find((k) => k.id === aktiverKurs) || null;
+  const anzeige = (name) => nameAnzeigen(name, einst.namen);
   const punkteVon = (k) => { if (!punkte.has(k.id)) punkte.set(k.id, new Map()); return punkte.get(k.id); };
 
   // ----- Thema -----
@@ -2046,7 +2063,7 @@ if (typeof document !== "undefined") {
     const werte = punkteVon(k);
     const tbody = el("tbody");
     eingabeReihenfolge(k).forEach((s, idx) => {
-      const eingabe = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", "aria-label": `Punkte ${s.name}`, "data-idx": idx });
+      const eingabe = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", "aria-label": `Punkte ${anzeige(s.name)}`, "data-idx": idx });
       eingabe.value = werte.get(s.id) || "";
       const noteZelle = el("td", { klasse: "note" });
       eingabe.addEventListener("input", () => { werte.set(s.id, eingabe.value); ungesichert = true; zeileAktualisieren(); pruefe(); });
@@ -2074,7 +2091,7 @@ if (typeof document !== "undefined") {
       zeileAktualisieren();
       tbody.append(el("tr", {},
         el("td", { klasse: "nr", text: String(idx + 1) }),
-        el("td", { text: s.name }),
+        el("td", { text: anzeige(s.name) }),
         el("td", { klasse: "klasse", text: s.klasse || "" }),
         el("td", { klasse: "punkte" }, eingabe),
         noteZelle));
@@ -2089,7 +2106,7 @@ if (typeof document !== "undefined") {
     const werte = punkteVon(k), max = notenspiegel(einst).maxPunkte;
     const zeilen = k.schueler.map((s, i) => {
       const l = leseEingabe(werte.get(s.id), max);
-      return { s, nr: i + 1, name: s.name, klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert };
+      return { s, nr: i + 1, name: anzeige(s.name), klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert };
     });
     const name = (a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }) || a.nr - b.nr;
     const leerHinten = (f) => (a, b) => (a.punkte == null) - (b.punkte == null) || (a.punkte == null ? a.nr - b.nr : f(a, b));
@@ -2204,7 +2221,7 @@ if (typeof document !== "undefined") {
     ];
   }
   const noteText = (z) => `${z.note + 1}${z.tendenz}`;
-  const listenZeilen = (e) => sortiere(e.zeilen, einst.sortierung).filter((z) => !z.fehlt || einst.spalten.fehlend);
+  const listenZeilen = (e) => sortiere(e.zeilen.map((z) => ({ ...z, name: anzeige(z.name) })), einst.sortierung).filter((z) => !z.fehlt || einst.spalten.fehlend);
 
   function ergebnisAnzeigen() {
     const e = ergebnis;
@@ -2383,7 +2400,8 @@ if (typeof document !== "undefined") {
     let fehlen = 0;
     a.punkte.forEach((p) => {
       const s = k.schueler.find((x) => x.id === p.id) ||
-        k.schueler.find((x) => vergleich(x.name) === vergleich(p.name) && vergleich(x.klasse) === vergleich(p.klasse));
+        k.schueler.find((x) => vergleich(x.name) === vergleich(p.name) && vergleich(x.klasse) === vergleich(p.klasse)) ||
+        k.schueler.find((x) => namensSchluessel(x.name) === namensSchluessel(p.name) && vergleich(x.klasse) === vergleich(p.klasse));
       if (s) werte.set(s.id, p.punkte || ""); else if (p.punkte) fehlen++;
     });
     ungesichert = false;
@@ -2496,7 +2514,7 @@ if (typeof document !== "undefined") {
     } });
     ed.append(el("div", { klasse: "reihe", stil: "margin:14px 0 6px" },
       el("label", { klasse: "feld", stil: "flex:1 1 260px" }, "Kursname", nameFeld), sortierKnopf, loeschen));
-    ed.append(el("p", { klasse: "hint", text: "Name und Klasse eintragen. Enter springt weiter, in der letzten Zeile entsteht automatisch eine neue. Die Klasse wird aus der Zeile darüber übernommen." }));
+    ed.append(el("p", { klasse: "hint", text: "Namen als „Nachname, Vorname“ eintragen, die Anzeige lässt sich in den Einstellungen umdrehen. Enter springt weiter, in der letzten Zeile entsteht automatisch eine neue. Die Klasse wird aus der Zeile darüber übernommen." }));
 
     const klassenListe = el("datalist", { id: "klassen-vorschlag" });
     [...new Set(kurse.flatMap((x) => x.schueler.map((s) => s.klasse)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }))
@@ -2709,7 +2727,8 @@ if (typeof document !== "undefined") {
   function schonDa(k, e) {
     if (!k) return null;
     return k.schueler.find((s) => vergleich(s.name) === vergleich(e.name) && vergleich(s.klasse) === vergleich(e.klasse)) ||
-      k.schueler.find((s) => vergleich(s.name) === vergleich(e.name) && (!s.klasse || !e.klasse)) || null;
+      k.schueler.find((s) => vergleich(s.name) === vergleich(e.name) && (!s.klasse || !e.klasse)) ||
+      k.schueler.find((s) => namensSchluessel(s.name) === namensSchluessel(e.name) && (vergleich(s.klasse) === vergleich(e.klasse) || !s.klasse || !e.klasse)) || null;
   }
 
   function importZeigen() {
@@ -2777,7 +2796,7 @@ if (typeof document !== "undefined") {
       boxen.push(box);
       tbody.append(el("tr", {},
         el("td", { klasse: "kz" }, box),
-        el("td", {}, e.name, schonDa(k, e) ? el("span", { klasse: "marke", text: "  schon im Kurs" }) : null),
+        el("td", {}, anzeige(e.name), schonDa(k, e) ? el("span", { klasse: "marke", text: "  schon im Kurs" }) : null),
         el("td", { text: e.klasse }),
         mitPunkten ? el("td", { klasse: "zahl", text: e.punkte == null ? "" : deG(e.punkte) }) : null));
     });
@@ -2974,7 +2993,7 @@ if (typeof document !== "undefined") {
   });
   einstDialog.addEventListener("close", () => {
     $("gesamt-start").value = einst.gesamt;
-    alleZeilenAktualisieren();
+    if (!$("eingabe").hidden) eintragAufbauen(); else alleZeilenAktualisieren();
     pruefe();
     if (ergebnis && !$("ergebnis").hidden) {
       if (pruefe()) { ergebnis = auswertungErstellen(); ergebnisAnzeigen(); }
