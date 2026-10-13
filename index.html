@@ -1334,6 +1334,11 @@ function htmlLesen(text) {
   const tabellen = [...dok.querySelectorAll("table")].map((t, i) => ({
     name: `Tabelle ${i + 1}`, zeilen: [...t.rows].map((r) => [...r.cells].map((c) => leerzeichen(c.textContent))),
   }));
+  for (let i = 0, n = tabellen.length; i + 1 < n; i++) {
+    const a = tabellen[i], b = tabellen[i + 1];
+    if (a.zeilen.length <= 2 && a.zeilen.some((z) => z.some((c) => kopfTyp(c))) && b.zeilen.length > 1 && !b.zeilen.slice(0, 3).some((z) => z.some((c) => kopfTyp(c))))
+      tabellen.push({ name: `${a.name} mit ${b.name}`, zeilen: [...a.zeilen, ...b.zeilen] });
+  }
   const reihen = [...dok.querySelectorAll('[role="row"]')].filter((r) => !r.closest("table"));
   if (reihen.length) tabellen.push({ name: "Liste", zeilen: reihen.map((r) => [...r.querySelectorAll('[role="cell"],[role="gridcell"],[role="columnheader"],[role="rowheader"]')].map((c) => leerzeichen(c.textContent))) });
   return { tabellen, meta: {}, text: [] };
@@ -1403,26 +1408,77 @@ function textLesen(text) {
 // Webseiten ohne echte Tabelle liefern beim Kopieren oft jede Zelle in einer eigenen Zeile.
 // Stehen die Spaltenköpfe untereinander am Anfang, gibt ihre Anzahl die Zeilenlänge vor.
 const EXTRA_KOPF = /^(geschlecht|geburtsdatum|gebdatum|geb|geboren|kurzname|status|bemerkung|bemerkungen|email|mail|foto|bild|fehlstunden|fehlzeiten|abwesenheiten|eintritt|austritt|eintrittsdatum|austrittsdatum|alter|id|schülerid|externeid|kurs|fach|gruppe|religion|konfession|telefon)$/;
+const GESCHLECHT_RE = /^(m|w|d|x|männlich|weiblich|divers)$/i;
+const DATUM_RE = /^\d{1,2}\.\d{1,2}\.\d{2,4}$/;
+function spaltenArt(kopf) {
+  const t = kopfTyp(kopf), n = String(kopf).toLowerCase().replace(/[^a-zäöüß]/g, "");
+  if (t && t.typ === "klasse") return "klasse";
+  if (t && (t.typ === "nr" || t.typ === "punkte")) return "zahl";
+  if (/geschlecht/.test(n)) return "geschlecht";
+  if (/datum|geboren|eintritt|austritt|^geb/.test(n)) return "datum";
+  return t ? "name" : "frei";
+}
+function passtZu(art, s) {
+  if (art === "klasse") return istKlasse(s);
+  if (art === "geschlecht") return GESCHLECHT_RE.test(s);
+  if (art === "datum") return DATUM_RE.test(s);
+  if (art === "zahl") return /^\d+(?:[.,]\d+)?$/.test(s);
+  if (art === "name") return /\p{L}/u.test(s) && !istKlasse(s) && !GESCHLECHT_RE.test(s) && !DATUM_RE.test(s);
+  return true;
+}
 function kopfBlock(zeilen) {
-  const t = zeilen.map(leerzeichen);
+  const t = zeilen.map(leerzeichen).filter(Boolean);
   const istKopf = (s) => !!kopfTyp(s) || EXTRA_KOPF.test(s.toLowerCase().replace(/[^a-zäöüß]/g, ""));
   for (let start = 0; start < Math.min(t.length, 12); start++) {
     let k = 0;
     while (start + k < t.length && istKopf(t[start + k])) k++;
     const typen = t.slice(start, start + k).map(kopfTyp);
     if (k < 2 || !typen.some((x) => x && (x.typ === "nachname" || x.typ === "vorname"))) continue;
+    const arten = t.slice(start, start + k).map(spaltenArt);
     const daten = t.slice(start + k);
-    if (daten.length < k || daten.length % k) continue;
+    // Beginnt hier schon die nächste Person? (erste Spalte passt und die zweite auch)
+    const neuePerson = (i) => passtZu(arten[0], daten[i]) && (k < 2 || i + 1 >= daten.length || passtZu(arten[1], daten[i + 1]));
     const reihen = [];
-    for (let i = 0; i < daten.length; i += k) reihen.push(daten.slice(i, i + k));
-    const kl = typen.findIndex((x) => x && x.typ === "klasse");
-    if (kl >= 0 && reihen.filter((r) => istKlasse(r[kl])).length < 0.8 * reihen.length) continue;
-    return [t.slice(start, start + k), ...reihen];
+    let i = 0;
+    while (i < daten.length) {
+      const r = Array(k).fill("");
+      let genommen = 0;
+      for (let j = 0; j < k && i < daten.length; j++) {
+        if (genommen && (arten[j] === "frei" || (arten[j] === "name" && j >= 2)) && neuePerson(i)) break;
+        if (passtZu(arten[j], daten[i])) { r[j] = daten[i]; i++; genommen++; }
+      }
+      if (!genommen) { i++; continue; }
+      reihen.push(r);
+    }
+    const nameSp = arten.indexOf("name"), kl = arten.indexOf("klasse");
+    const gut = reihen.filter((r) => r[nameSp] && (kl < 0 || istKlasse(r[kl]))).length;
+    if (reihen.length && gut >= 0.8 * reihen.length) return [t.slice(start, start + k), ...reihen];
   }
   return null;
 }
 // Sonst: jede Namenszeile beginnt eine Person, eine Zeile nur mit der Klasse gehört dazu
 function freieZeilen(zeilen) {
+  const t = zeilen.map(leerzeichen).filter(Boolean);
+  const art = (s) => (istKlasse(s) ? "k" : GESCHLECHT_RE.test(s) || DATUM_RE.test(s) || /^\d+[.)]?$/.test(s) ? "x" : "n");
+  const arten = t.map(art);
+  const anzK = arten.filter((a) => a === "k").length, anzN = arten.filter((a) => a === "n").length;
+  if (anzK >= 2 && anzN >= 1.5 * anzK) {
+    const klasseZuerst = arten.find((a) => a !== "x") === "k";
+    const gruppen = [];
+    let namen = [], kl = "";
+    const fertig = () => { if (namen.length) gruppen.push([namen, kl]); namen = []; kl = ""; };
+    t.forEach((s, i) => {
+      if (arten[i] === "x") return;
+      if (arten[i] === "n") { namen.push(s); return; }
+      if (klasseZuerst) { fertig(); kl = s; } else { kl = s; fertig(); }
+    });
+    fertig();
+    // übliche Zahl an Namenszeilen je Person (meist Familienname und Vorname), davor stehende Titel weglassen
+    const zaehl = {};
+    gruppen.forEach(([n]) => { zaehl[n.length] = (zaehl[n.length] || 0) + 1; });
+    const c = parseInt(Object.keys(zaehl).sort((a, b) => zaehl[b] - zaehl[a])[0], 10);
+    return gruppen.map(([n, k]) => { const x = n.length > c ? n.slice(-c) : n; return [x.length === 2 ? `${x[0]}, ${x[1]}` : x.join(" "), k]; });
+  }
   const reihen = [];
   let aktuell = null, offen = "";
   for (const roh of zeilen) {
@@ -1574,8 +1630,10 @@ const KOPF_MUSTER = [
   ["nr", /^(nr|nummer|lfdnr|laufendenummer|lnr|pos)$/, 1],
 ];
 function kopfTyp(zelle) {
-  const n = String(zelle || "").toLowerCase().replace(/[^a-zäöüß]/g, "");
-  if (!n || n.length > 30) return null;
+  const roh = String(zelle || "").toLowerCase();
+  // Pfeile und Sortier-Hinweise aus Tabellenköpfen von Webseiten ignorieren
+  const n = roh.replace(/[^a-zäöüß]/g, "").replace(/(sortieren|sortiert|aufsteigend|absteigend|filtern|filter)+$/, "");
+  if (!n || roh.length > 40) return null;
   for (const [typ, re, prio] of KOPF_MUSTER) if (re.test(n)) return { typ, prio };
   return null;
 }
@@ -1652,7 +1710,8 @@ function besteTabelle(tabellen) {
   let best = 0, wert = -1;
   tabellen.forEach((t, i) => {
     const d = tabelleDeuten(t.zeilen);
-    const w = d.wert * 1000 + eintraegeBauen(t.zeilen, d).length;
+    const n = eintraegeBauen(t.zeilen, d).length;
+    const w = n ? d.wert * 1000 + n : 0;
     if (w > wert) { wert = w; best = i; }
   });
   return best;
