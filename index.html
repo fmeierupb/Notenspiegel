@@ -236,7 +236,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:38</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:43</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -384,14 +384,10 @@
       </div>
       <div class="abschnitt">
         <h3>Word-Export</h3>
-        <p class="hint">Seite 1: Kopf mit den wichtigsten Werten und die Notenliste. Seite 2: Diagramm und alle Kennzahlen.</p>
-        <div class="reihe">
-          <label class="feld" style="flex:1 1 240px">Kleine Überschrift<input type="text" data-einst="word.ueberschrift"></label>
-        </div>
-        <div class="optionen" style="margin-top:10px">
+        <p class="hint">Seite 1: Titel, Teilnehmer, Notenschnitt, Mittelwert und die Notenliste in Graustufen. Seite 2: Diagramm und Kennzahlen in Farbe.</p>
+        <div class="optionen">
           <label><input type="checkbox" data-einst="word.diagramm"> Diagramm auf Seite 2</label>
           <label><input type="checkbox" data-einst="word.statistik"> Kennzahlen auf Seite 2</label>
-          <label><input type="checkbox" data-einst="word.grau"> Diagramm in Graustufen</label>
         </div>
       </div>
     </div>
@@ -424,7 +420,7 @@ const STANDARD_EINST = {
   spalten: { fehlend: true },
   sortierung: "eingabe",
   diagramm: { kreuze: true, mittel: true, fit: true, legende: true, anzahl: true, xTitel: "Notenstufen [Punkte; Prozent]", yTitel: "Häufigkeit" },
-  word: { ueberschrift: "Notenliste", diagramm: true, statistik: true, grau: true },
+  word: { ueberschrift: "Notenliste", diagramm: true, statistik: true },
 };
 
 const kopie = (o) => JSON.parse(JSON.stringify(o));
@@ -642,6 +638,7 @@ function statistik(e, tendenzen) {
   const kennzahlen = [];
   kennzahlen.push(["Teilnehmer", `${n} von ${stat.gesamtZahl}`]);
   if (stat.fehlend) kennzahlen.push(["Nicht mitgeschrieben", String(stat.fehlend)]);
+  kennzahlen.push(["Gesamtpunktzahl", `${deG(max)} P`]);
   kennzahlen.push(["Notenschnitt", komma2(stat.notenSchnitt)]);
   if (tendenzen && tendenzen.an) {
     const mitT = mit.reduce((s, z) => s + z.note + 1 + (z.tendenz === "+" ? -1 / 3 : z.tendenz === "−" ? 1 / 3 : 0), 0) / n;
@@ -671,7 +668,7 @@ function statistik(e, tendenzen) {
     const zz = mit.filter((z) => z.klasse === k), w = zz.map((z) => z.punkte);
     return {
       klasse: k, n: zz.length, gesamt: zeilen.filter((z) => z.klasse === k).length,
-      schnitt: zz.length ? komma2(schnitt(zz)) : "", mittel: zz.length ? `${de(w.reduce((s, x) => s + x, 0) / w.length)} P` : "",
+      schnitt: zz.length ? komma2(schnitt(zz)) : "", schnittWert: zz.length ? schnitt(zz) : null, mittel: zz.length ? `${de(w.reduce((s, x) => s + x, 0) / w.length)} P` : "",
       median: zz.length ? `${p1(median(w))} P` : "",
     };
   }) : [];
@@ -1021,16 +1018,15 @@ function wTab(spalten, zeilen, o = {}) {
     `<w:tblGrid>${spalten.map((c) => `<w:gridCol w:w="${c.breite}"/>`).join("")}</w:tblGrid>` + zeilen.map(zeile).join("") + "</w:tbl>";
 }
 const W_KOPF = { kopf: true, caps: true, gr: 7.5, farbe: W_GRAU, fett: true, unten: { sz: 8, farbe: W_DUNKEL } };
-const wKleinzeile = (text, o = {}) => wP(wR(text, { caps: true, sperren: 30, gr: 8, farbe: W_GRAU, fett: true }), { nach: 60, ...o });
-const wAbschnitt = (titel) => wP(wR(titel, { caps: true, sperren: 30, gr: 8.5, fett: true }),
-  { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 } });
+const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr: 8.5, fett: true }),
+  { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
 function wordDokument(info) {
-  const { kopfzeile, titel, datumText, grundwerte, liste, bild, verteilung, kennzahlen, klassen, tendenzen, meta } = info;
-  // ----- Seite 1: Kopf, Grundwerte, Liste -----
-  let body = wKleinzeile(kopfzeile);
-  body += wP(wR(titel, { fett: true, gr: 22 }), { nach: 40 });
-  if (datumText) body += wP(wR(datumText, { gr: 10.5, farbe: W_GRAU }), { nach: 0 });
+  const { titel, unterzeile, grundwerte, liste, bild, verteilung, kennzahlen, klassen, tendenzen, farben, meta } = info;
+  const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
+  // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
+  let body = wP(wR(titel, { fett: true, gr: 22 }), { nach: 40 });
+  if (unterzeile) body += wP(wR(unterzeile, { gr: 10.5, farbe: W_GRAU }), { nach: 0 });
   body += wP("", { nach: 180 });
   const kachelB = Math.floor(TEXTBREITE / grundwerte.length);
   body += wTab(grundwerte.map(() => ({ breite: kachelB })), [{
@@ -1052,13 +1048,12 @@ function wordDokument(info) {
     })),
   ], { hoehe: 290, rand: [40, 110] });
 
-  // ----- Seite 2: Diagramm und alle Kennzahlen -----
-  if (bild || verteilung) {
-    body += wKleinzeile(info.kopfzeile2, { umbruch: true });
-    body += wP(wR("Auswertung", { fett: true, gr: 16 }), { nach: 140 });
+  // ----- Seite 2: Diagramm und alle Kennzahlen, farbig -----
+  if (bild || verteilung || (kennzahlen && kennzahlen.length)) {
+    let ersteAufSeite2 = !bild;
     if (bild) {
       const cx = TEXTBREITE * 635, cy = Math.round(cx * HOEHE / BREITE);
-      body += '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
+      body += '<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
         `<wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Notenspiegel"/>` +
         '<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
         '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>' +
@@ -1067,8 +1062,9 @@ function wordDokument(info) {
         `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
         "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>";
     }
+    const abschnitt = (t) => { const x = wAbschnitt(t, ersteAufSeite2 ? { umbruch: true, vor: 0 } : {}); ersteAufSeite2 = false; return x; };
     if (verteilung) {
-      body += wAbschnitt("Notenverteilung");
+      body += abschnitt("Notenverteilung");
       const mitT = tendenzen && tendenzen.an;
       const spV = mitT
         ? [{ breite: 2938 }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }]
@@ -1079,7 +1075,7 @@ function wordDokument(info) {
       body += wTab(spV, [
         { ...W_KOPF, zellen: kopf },
         ...verteilung.map((v, i) => {
-          const zellen = [{ laeufe: wR(`${v.nr}`, { fett: true, gr: 9.5 }) + wR(`   ${v.name}`, { gr: 9.5 }) }, deG(v.ab),
+          const zellen = [{ laeufe: wR(`${v.nr}`, { fett: true, gr: 9.5 }) + wR(`   ${v.name}`, { gr: 9.5 }), fuellung: toenung(i) }, deG(v.ab),
             Number.isFinite(v.prozent) ? `${deG(v.prozent)} %` : "", { text: String(v.anzahl), fett: true }, `${de(v.anteil)} %`];
           if (mitT) zellen.push(v.anzahl ? `${v.plus} / ${v.minus}` : "");
           return { fuellung: i % 2 ? W_HELL : null, gr: 9.5, zellen };
@@ -1088,7 +1084,7 @@ function wordDokument(info) {
       ], { hoehe: 270, rand: [35, 110] });
     }
     if (kennzahlen && kennzahlen.length) {
-      body += wAbschnitt("Kennzahlen");
+      body += abschnitt("Kennzahlen");
       const paare = [];
       for (let i = 0; i < kennzahlen.length; i += 2) paare.push([kennzahlen[i], kennzahlen[i + 1]]);
       body += wTab([{ breite: 2500 }, { breite: 2219 }, { breite: 2700 }, { breite: 2219 }], paare.map(([a, b]) => ({
@@ -1097,12 +1093,13 @@ function wordDokument(info) {
       })), { hoehe: 270, rand: [35, 60] });
     }
     if (klassen && klassen.length) {
-      body += wAbschnitt("Nach Klassen");
+      body += abschnitt("Nach Klassen");
       body += wTab([{ breite: 2038 }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }], [
         { ...W_KOPF, zellen: ["Klasse", "Teilnehmer", "Notenschnitt", "Mittelwert", "Median"] },
         ...klassen.map((k, i) => ({
           fuellung: i % 2 ? W_HELL : null, gr: 9.5,
-          zellen: [{ text: k.klasse, fett: true }, `${k.n} von ${k.gesamt}`, { text: k.schnitt, fett: true }, k.mittel, k.median],
+          zellen: [{ text: k.klasse, fett: true }, `${k.n} von ${k.gesamt}`,
+            { text: k.schnitt, fett: true, fuellung: k.schnittWert ? toenung(Math.round(k.schnittWert) - 1) : null }, k.mittel, k.median],
         })),
       ], { hoehe: 270, rand: [35, 110] });
     }
@@ -2178,7 +2175,6 @@ if (typeof document !== "undefined") {
       ["Teilnehmer", `${s.n} von ${s.gesamtZahl}`],
       ["Notenschnitt", s.notenSchnitt.toFixed(2).replace(".", ",")],
       ["Mittelwert", `${de(s.mittel)} P · ${Math.round(s.mittel / max * 100)} %`],
-      ["Gesamtpunktzahl", `${deG(max)} P`],
     ];
   }
   const noteText = (z) => `${z.note + 1}${z.tendenz}`;
@@ -2384,11 +2380,10 @@ if (typeof document !== "undefined") {
       const st = statistik(e, einst.tendenzen);
       const label = leerzeichen(w.ueberschrift) || "Notenliste";
       const datumLang = e.datum ? new Date(e.datum + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }) : "";
-      const bild = w.diagramm ? new Uint8Array(await (await bildBlob(2400, w.grau)).arrayBuffer()) : null;
+      const bild = w.diagramm ? new Uint8Array(await (await bildBlob(2400)).arrayBuffer()) : null;
       const blob = wordDokument({
-        kopfzeile: [label, e.kursName].filter(Boolean).join(" · "),
-        kopfzeile2: [e.kursName, e.arbeit].filter(Boolean).join(" · ") || label,
-        titel: e.arbeit || label, datumText: datumLang, grundwerte: grundwerte(e),
+        titel: e.arbeit || label, unterzeile: [e.kursName, datumLang].filter(Boolean).join(" · "), grundwerte: grundwerte(e),
+        farben: e.ns.noten.map((n) => n.farbe),
         liste: listenZeilen(e).map((z) => ({ name: z.name, klasse: z.klasse, fehlt: z.fehlt, note: z.fehlt ? "" : noteText(z), punkte: z.fehlt ? "" : deG(z.punkte) })),
         bild, verteilung: w.statistik ? st.verteilung : null, kennzahlen: w.statistik ? st.kennzahlen : null,
         klassen: w.statistik ? st.klassen : null, tendenzen: einst.tendenzen,
