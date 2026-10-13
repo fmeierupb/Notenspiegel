@@ -6,7 +6,7 @@ Seite: https://fmeierupb.github.io/Notenspiegel/
 
 ## Daten
 
-Namen, Klassen und Kurse liegen nur im Browserspeicher des Geräts. Punkte werden nie gespeichert. Die Seite verbietet sich per Content Security Policy jede ausgehende Verbindung (`connect-src 'none'`). Der Service Worker lädt nur die Programmdateien dieser Seite für den Offline-Betrieb.
+Namen, Klassen, Kurse und gesicherte Arbeiten (Punkte und Noten) liegen nur im Browserspeicher des Geräts. Eine Arbeit wird beim Word-Export gesichert und lässt sich im Tool wieder löschen. Die Seite verbietet sich per Content Security Policy jede ausgehende Verbindung (`connect-src 'none'`). Der Service Worker lädt nur die Programmdateien dieser Seite für den Offline-Betrieb.
 
 ## Enthaltener Fremdcode
 

@@ -227,7 +227,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:08</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:20</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -1887,6 +1887,8 @@ if (typeof document !== "undefined") {
       pruefe();
       return;
     }
+    const leiste = arbeitenLeiste(k);
+    if (leiste) bereich.append(leiste);
     const werte = punkteVon(k);
     const tbody = el("tbody");
     k.schueler.forEach((s, idx) => {
@@ -1991,7 +1993,7 @@ if (typeof document !== "undefined") {
     const werte = punkteVon(k);
     const eintraege = k.schueler.map((s, i) => {
       const l = leseEingabe(werte.get(s.id), ns.maxPunkte);
-      return { nr: i + 1, name: s.name, klasse: s.klasse || "", punkte: l.leer || l.fehler ? null : l.wert };
+      return { id: s.id, nr: i + 1, name: s.name, klasse: s.klasse || "", punkte: l.leer || l.fehler ? null : l.wert };
     });
     const a = auswertung(eintraege, ns, einst);
     return {
@@ -2178,6 +2180,60 @@ if (typeof document !== "undefined") {
   }
   $("bild-speichern").addEventListener("click", async () => { herunterladen(await bildBlob(2000), dateiname("Notenspiegel", "png")); });
 
+  // ----- Arbeiten im Kurs speichern -----
+  // Eine Arbeit ist durch Kurs, Titel und Datum bestimmt. Gespeichert werden Punkte, Noten und der Notenspiegel von damals.
+  function arbeitSichern() {
+    const k = kurs();
+    if (!k || !ergebnis) return null;
+    const e = ergebnis;
+    const eintrag = {
+      id: neueId(), arbeit: e.arbeit, datum: e.datum, gesichert: new Date().toISOString(),
+      einst: { noten: kopie(einst.noten), gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: kopie(einst.tendenzen) },
+      punkte: e.zeilen.map((z) => ({ id: z.id, name: z.name, klasse: z.klasse || "", punkte: z.fehlt ? "" : deG(z.punkte), note: z.fehlt ? "" : `${z.note + 1}${z.tendenz}` })),
+    };
+    k.arbeiten = Array.isArray(k.arbeiten) ? k.arbeiten : [];
+    const alt = k.arbeiten.findIndex((a) => a.arbeit === eintrag.arbeit && a.datum === eintrag.datum);
+    if (alt >= 0) { eintrag.id = k.arbeiten[alt].id; k.arbeiten[alt] = eintrag; } else k.arbeiten.push(eintrag);
+    k.arbeiten.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
+    kurseSpeichern();
+    return alt >= 0 ? "aktualisiert" : "gespeichert";
+  }
+  const arbeitTitel = (a) => [a.arbeit || "Ohne Titel", datumDE(a.datum)].filter(Boolean).join(" · ");
+  function arbeitLaden(k, a) {
+    if (a.einst) { einst = zusammenfuehren(STANDARD_EINST, { ...einst, ...a.einst }); einstSpeichern(); }
+    $("gesamt-start").value = einst.gesamt;
+    $("arbeit").value = a.arbeit || "";
+    if (a.datum) $("datum").value = a.datum;
+    const werte = punkteVon(k);
+    werte.clear();
+    let fehlen = 0;
+    a.punkte.forEach((p) => {
+      const s = k.schueler.find((x) => x.id === p.id) ||
+        k.schueler.find((x) => vergleich(x.name) === vergleich(p.name) && vergleich(x.klasse) === vergleich(p.klasse));
+      if (s) werte.set(s.id, p.punkte || ""); else if (p.punkte) fehlen++;
+    });
+    eintragAufbauen();
+    if (fehlen) $("datenstatus").textContent = `${fehlen} ${fehlen === 1 ? "Person aus dieser Arbeit ist" : "Personen aus dieser Arbeit sind"} nicht mehr im Kurs.\n` + $("datenstatus").textContent;
+  }
+  function arbeitenLeiste(k) {
+    if (!Array.isArray(k.arbeiten) || !k.arbeiten.length) return null;
+    const wahl = el("select");
+    k.arbeiten.forEach((a) => wahl.append(el("option", { value: a.id, text: arbeitTitel(a) })));
+    wahl.value = k.arbeiten[k.arbeiten.length - 1].id;
+    const gewaehlt = () => k.arbeiten.find((a) => a.id === wahl.value);
+    const laden = el("button", { type: "button", klasse: "zweit", text: "Laden", onclick: () => { const a = gewaehlt(); if (a) arbeitLaden(k, a); } });
+    let stufe = 0;
+    const loeschen = el("button", { type: "button", klasse: "zweit", text: "Löschen" });
+    loeschen.addEventListener("click", () => {
+      if (stufe === 0) { stufe = 1; loeschen.className = "gefahr"; loeschen.textContent = "Wirklich löschen?"; setTimeout(() => { stufe = 0; loeschen.className = "zweit"; loeschen.textContent = "Löschen"; }, 4000); return; }
+      k.arbeiten = k.arbeiten.filter((a) => a.id !== wahl.value);
+      kurseSpeichern();
+      eintragAufbauen();
+    });
+    return el("div", { klasse: "reihe", stil: "margin-top:12px" },
+      el("label", { klasse: "feld", stil: "flex:1 1 260px" }, `Gespeicherte Arbeiten (${k.arbeiten.length})`, wahl), laden, loeschen);
+  }
+
   // ----- Word-Export -----
   $("word").addEventListener("click", async () => {
     const e = ergebnis, noten = e.ns.noten, w = einst.word;
@@ -2200,6 +2256,9 @@ if (typeof document !== "undefined") {
         zeileNs: w.kennzahlen && einst.kennzahlen.zeile ? notenspiegelZeile(e.r.anzahl, e.stat.notenSchnitt) : "",
         spalten: sp, kopf: sp.map((c) => c.titel), zeilen, bild, quer: w.quer,
       });
+      const gesichert = arbeitSichern();
+      $("hinweis").classList.remove("fehler");
+      $("hinweis").textContent = gesichert === "aktualisiert" ? "Die Arbeit ist im Tool gespeichert (vorherigen Stand ersetzt)." : "Die Arbeit ist im Tool gespeichert.";
       herunterladen(blob, dateiname(w.ueberschrift || "Notenliste", "docx"));
     } catch (err) {
       $("hinweis").textContent = "Der Word-Export hat nicht geklappt: " + err.message;
@@ -2329,7 +2388,7 @@ if (typeof document !== "undefined") {
   kursDialog.addEventListener("close", kurseSchliessen);
 
   $("backup-sichern").addEventListener("click", () => {
-    const daten = { programm: "Notenauswertung", version: 1, gesichert: new Date().toISOString(), kurse, einstellungen: einst };
+    const daten = { programm: "Notenauswertung", version: 2, gesichert: new Date().toISOString(), kurse, einstellungen: einst };
     herunterladen(new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" }),
       `Notenauswertung_Backup_${new Date().toISOString().slice(0, 10)}.json`);
     $("kurs-status").textContent = "Backup gespeichert.";
@@ -2340,6 +2399,11 @@ if (typeof document !== "undefined") {
     const geladen = daten.kurse.filter((k) => k && Array.isArray(k.schueler)).map((k) => ({
       id: String(k.id || neueId()), name: String(k.name || ""),
       schueler: k.schueler.filter((s) => s && s.name).map((s) => ({ id: String(s.id || neueId()), name: String(s.name), klasse: String(s.klasse || "") })),
+      arbeiten: (Array.isArray(k.arbeiten) ? k.arbeiten : []).filter((a) => a && Array.isArray(a.punkte)).map((a) => ({
+        id: String(a.id || neueId()), arbeit: String(a.arbeit || ""), datum: String(a.datum || ""), gesichert: String(a.gesichert || ""),
+        einst: a.einst && typeof a.einst === "object" ? a.einst : null,
+        punkte: a.punkte.filter((p) => p && p.name).map((p) => ({ id: String(p.id || ""), name: String(p.name), klasse: String(p.klasse || ""), punkte: p.punkte == null ? "" : String(p.punkte), note: String(p.note || "") })),
+      })),
     }));
     const vorhanden = new Set(kurse.map((k) => k.id));
     geladen.forEach((k) => { if (vorhanden.has(k.id)) kurse = kurse.map((x) => (x.id === k.id ? k : x)); else kurse.push(k); });
