@@ -227,7 +227,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:00</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:08</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -339,7 +339,13 @@
       </div>
       <div class="abschnitt">
         <h3>Tendenzen</h3>
-        <p class="hint">Jeder Notenbereich wird in Drittel geteilt: oberes Drittel „+“, mittleres ohne Zeichen, unteres „−“.</p>
+        <div class="reihe" style="margin-bottom:10px">
+          <label class="feld">Vergabe
+            <select data-einst="tendenzen.art"><option value="drittel">Drittel des Notenbereichs</option><option value="punkte">Abstand zur Notengrenze</option></select>
+          </label>
+          <label class="feld" id="tendenz-abstand">Abstand in Punkten<input type="number" min="0.5" step="0.5" data-einst="tendenzen.abstand" style="width:7em"></label>
+        </div>
+        <p class="hint" id="tendenz-hinweis"></p>
         <div class="optionen">
           <label><input type="checkbox" data-einst="tendenzen.an"> Tendenzen vergeben</label>
           <label><input type="checkbox" data-einst="tendenzen.einsPlus"> 1+ vergeben</label>
@@ -423,7 +429,7 @@ const STANDARD_EINST = {
   ],
   gesamt: 52,
   rundung: 0.5,
-  tendenzen: { an: true, einsPlus: false, sechs: false },
+  tendenzen: { an: true, einsPlus: false, sechs: false, art: "drittel", abstand: 2 },
   spalten: { klasse: true, prozent: true, notenwort: true, bis: true, fehlend: true },
   sortierung: "eingabe",
   kennzahlen: { teilnehmer: true, durchschnitt: true, mittel: true, median: true, std: true, spanne: true, unter: true, zeile: true, grenzen: true },
@@ -567,12 +573,23 @@ function berechne(punkte, noten, maxPunkte) {
   return { links, rechts, mitte, anzahl, mittel, fit, kreuze, noteIndex };
 }
 
-// Tendenz innerhalb eines Notenbereichs nach Dritteln
+// Tendenz innerhalb eines Notenbereichs: nach Dritteln oder nach Abstand zur Notengrenze.
+// Die Grenzen liegen wie im Diagramm auf ,5 (45 Punkte liegen 0,5 über der Grenze zur 1).
 function tendenz(p, i, r, t, letzte) {
   if (!t.an) return "";
   if (i === letzte && !t.sechs) return "";
-  const lo = r.links[i], hi = r.rechts[i], w = hi - lo;
-  if (p >= hi - w / 3) return i === 0 && !t.einsPlus ? "" : "+";
+  const lo = r.links[i], hi = r.rechts[i];
+  const plus = i === 0 && !t.einsPlus ? "" : "+";
+  if (t.art === "punkte") {
+    const x = t.abstand > 0 ? t.abstand : 2;
+    const unten = p - lo, oben = hi - p;
+    if (unten < x && oben < x) return unten < oben ? "−" : oben < unten ? plus : "";
+    if (oben < x) return plus;
+    if (unten < x) return "−";
+    return "";
+  }
+  const w = hi - lo;
+  if (p >= hi - w / 3) return plus;
   if (p < lo + w / 3) return "−";
   return "";
 }
@@ -2653,7 +2670,30 @@ if (typeof document !== "undefined") {
     $("rundung").value = String(einst.rundung);
     $("ns-status").textContent = ns.fehler.join("\n");
   }
+  // Erklärung mit Beispiel aus dem aktuellen Notenspiegel
+  function tendenzHinweis() {
+    const t = einst.tendenzen;
+    $("tendenz-abstand").hidden = t.art !== "punkte";
+    const h = $("tendenz-hinweis");
+    if (t.art !== "punkte") { h.textContent = "Jeder Notenbereich wird in Drittel geteilt: oberes Drittel „+“, mittleres ohne Zeichen, unteres „−“."; return; }
+    const x = t.abstand > 0 ? t.abstand : 2;
+    let text = `„−“ für die untersten ${deG(x)} Punkte einer Note, „+“ für die obersten ${deG(x)} Punkte.`;
+    const ns = notenspiegel(einst);
+    if (!ns.fehler.length && ns.noten.length > 1) {
+      const r = berechne([0], ns.noten, ns.maxPunkte);
+      const liste = (i, zeichen) => {
+        const z = [];
+        for (let q = 0; q <= ns.maxPunkte; q++) if (r.noteIndex(q) === i && tendenz(q, i, r, { ...t, an: true, einsPlus: true }, ns.noten.length - 1) === zeichen) z.push(q);
+        if (!z.length) return "";
+        return z.length === 1 ? String(z[0]) : z.length === 2 ? `${z[0]} und ${z[1]}` : `${z[0]} bis ${z[z.length - 1]}`;
+      };
+      const a = liste(0, "−"), b = liste(1, "+");
+      if (a && b) text += ` Bei ${deG(ns.maxPunkte)} Punkten: ${a} Punkte geben 1−, ${b} Punkte geben 2+.`;
+    }
+    h.textContent = text;
+  }
   function geaendert() {
+    tendenzHinweis();
     const ns = notenspiegel(einst);
     $("ns-status").textContent = ns.fehler.join("\n");
     document.querySelectorAll("#ns-zeilen input[type=number]").forEach((i) => i._zeigen && i._zeigen());
@@ -2676,12 +2716,14 @@ if (typeof document !== "undefined") {
   }
   document.querySelectorAll("#einst-dialog [data-einst]").forEach((f) => {
     f.addEventListener(f.type === "checkbox" || f.tagName === "SELECT" ? "change" : "input", () => {
-      const v = f.type === "checkbox" ? f.checked : f.tagName === "SELECT" && (f.value === "true" || f.value === "false") ? f.value === "true" : f.value;
+      const v = f.type === "checkbox" ? f.checked : f.type === "number" ? parseFloat(String(f.value).replace(",", ".")) :
+        f.tagName === "SELECT" && (f.value === "true" || f.value === "false") ? f.value === "true" : f.value;
       setzen(f.dataset.einst, v);
       einstSpeichern();
+      tendenzHinweis();
     });
   });
-  const einstOeffnen = () => { nsAufbauen(); optionenAufbauen(); einstDialog.showModal(); };
+  const einstOeffnen = () => { nsAufbauen(); optionenAufbauen(); tendenzHinweis(); einstDialog.showModal(); };
   $("einstellungen-oeffnen").addEventListener("click", einstOeffnen);
   $("einstellungen-ergebnis").addEventListener("click", einstOeffnen);
   let standardStufe = 0;
@@ -2689,7 +2731,7 @@ if (typeof document !== "undefined") {
     const k = $("einst-standard");
     if (standardStufe === 0) { standardStufe = 1; k.textContent = "Wirklich alles zurücksetzen?"; setTimeout(() => { standardStufe = 0; k.textContent = "Alles zurücksetzen"; }, 4000); return; }
     standardStufe = 0; k.textContent = "Alles zurücksetzen";
-    einst = kopie(STANDARD_EINST); einstSpeichern(); nsAufbauen(); optionenAufbauen(); $("gesamt-start").value = einst.gesamt;
+    einst = kopie(STANDARD_EINST); einstSpeichern(); nsAufbauen(); optionenAufbauen(); tendenzHinweis(); $("gesamt-start").value = einst.gesamt;
   });
   $("einst-fertig").addEventListener("click", () => {
     if (notenspiegel(einst).fehler.length) { $("ns-status").scrollIntoView({ block: "center" }); return; }
