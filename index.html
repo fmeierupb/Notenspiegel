@@ -227,6 +227,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:00</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -1383,7 +1384,7 @@ function csvZerlegen(text, trenner) {
   if (f !== "" || z.length) { z.push(f); zeilen.push(z); }
   return zeilen.map((r) => r.map(leerzeichen));
 }
-const KLASSE_RE = /^(?:0?[1-9]|1[0-3])\s?[a-zA-Z]{1,3}$|^(?:EF|Q1|Q2|E1|E2|Q11|Q12|J1|J2|J11|J12|J13)$|^[A-ZÄÖÜ]{2,5}\s?\d{1,2}[a-zA-Z]?$/;
+const KLASSE_RE = /^(?:0?[1-9]|1[0-3])\s?[a-zA-Z]{1,3}$|^(?:0?[1-9]|1[0-3])[./-][1-9]$|^(?:EF|Q1|Q2|E1|E2|Q11|Q12|J1|J2|J11|J12|J13)$|^[A-ZÄÖÜ]{2,5}\s?\d{1,2}[a-zA-Z]?$/;
 const istKlasse = (s) => KLASSE_RE.test(leerzeichen(s));
 function freiZeile(zeile) {
   let t = leerzeichen(zeile);
@@ -1648,8 +1649,28 @@ function tabelleDeuten(zeilen) {
     const wert = Object.values(treffer).reduce((s, t) => s + t.prio, 0);
     if ((treffer.nachname || treffer.vorname) && wert > (best ? best.wert : 0)) best = { zeile: i, treffer, wert };
   }
-  const sp = (t) => (best && best.treffer[t] ? best.treffer[t].spalte : -1);
-  if (best) return { kopfzeile: best.zeile, nachname: sp("nachname"), vorname: sp("vorname"), klasse: sp("klasse"), punkte: sp("punkte"), nr: sp("nr"), wert: best.wert };
+  if (best) {
+    // Kopf und Daten können gegeneinander verschoben sein, etwa durch eine leere Symbolspalte nur in den Datenzeilen.
+    // Die Verschiebung wählen, bei der die Werte am besten zu ihren Köpfen passen.
+    const daten = zeilen.slice(best.zeile + 1, best.zeile + 41).filter((z) => z.some(Boolean));
+    const guete = (o) => {
+      let g = 0;
+      for (const [typ, { spalte }] of Object.entries(best.treffer)) {
+        if (spalte + o < 0) return -Infinity;
+        for (const z of daten) {
+          const v = leerzeichen(z[spalte + o]);
+          if (typ === "klasse") g += istKlasse(v) ? 2 : v ? 0 : -1;
+          else if (typ === "nachname" || typ === "vorname") g += /\p{L}{2}/u.test(v) && !istKlasse(v) && !GESCHLECHT_RE.test(v) && !DATUM_RE.test(v) ? 1 : -1;
+          else g += /^\d+(?:[.,]\d+)?$/.test(v) || v === "fehlt" ? 1 : v ? -1 : 0;
+        }
+      }
+      return g;
+    };
+    let versatz = 0, beste = guete(0);
+    for (const o of [1, -1, 2, -2]) { const g = guete(o); if (g > beste) { beste = g; versatz = o; } }
+    const sp = (t) => (best.treffer[t] ? best.treffer[t].spalte + versatz : -1);
+    return { kopfzeile: best.zeile, nachname: sp("nachname"), vorname: sp("vorname"), klasse: sp("klasse"), punkte: sp("punkte"), nr: sp("nr"), wert: best.wert, versatz };
+  }
   // Ohne Kopfzeile nach dem Inhalt raten
   const breite = Math.max(0, ...zeilen.map((z) => z.length));
   const stat = Array.from({ length: breite }, () => ({ voll: 0, klasse: 0, name: 0, komma: 0, laufend: 0 }));
@@ -1667,7 +1688,7 @@ function tabelleDeuten(zeilen) {
   const namen = idx.filter((j) => j !== klasse && quote(j, "name") >= 0.6);
   const nr = idx.find((j) => j !== klasse && quote(j, "laufend") >= 0.8) ?? -1;
   return {
-    kopfzeile: -1, wert: 0, nachname: namen.length ? namen[0] : -1,
+    kopfzeile: -1, wert: 0, versatz: 0, nachname: namen.length ? namen[0] : -1,
     vorname: namen.length > 1 && quote(namen[0], "komma") < 0.5 ? namen[1] : -1,
     klasse, punkte: -1, nr,
   };
@@ -2396,12 +2417,17 @@ if (typeof document !== "undefined") {
     $("import-dateiname").textContent = "";
     const html = eingefuegtHtml;
     importLesen(async () => {
+      const ausText = textLesen(text);
+      const tt = ausText.tabellen[0], dt = tabelleDeuten(tt.zeilen), nt = eintraegeBauen(tt.zeilen, dt).length;
       if (html) {
         const r = htmlLesen(html);
         const t = r.tabellen.filter((x) => x.zeilen.length > 1);
-        if (t.length && eintraegeBauen(t[besteTabelle(t)].zeilen, tabelleDeuten(t[besteTabelle(t)].zeilen)).length) return { ...r, tabellen: t };
+        if (t.length) {
+          const z = t[besteTabelle(t)].zeilen, d = tabelleDeuten(z), n = eintraegeBauen(z, d).length;
+          if (n > nt || (n === nt && d.wert > dt.wert)) return { ...r, tabellen: t };
+        }
       }
-      return textLesen(text);
+      return ausText;
     }, "");
   }
   $("import-text-lesen").addEventListener("click", textLesen_);
@@ -2449,12 +2475,13 @@ if (typeof document !== "undefined") {
       v.append(el("div", { klasse: "reihe", stil: "margin-top:14px" }, el("label", { klasse: "feld", stil: "flex:1 1 260px" }, "Tabelle", s)));
     }
     // Welche Spalte ist was
-    const breite = Math.max(1, ...zeilen.map((z) => z.length));
+    const breite = Math.max(1, ...zeilen.map((z) => z.length), (imp.d.kopfzeile >= 0 ? zeilen[imp.d.kopfzeile].length : 0) + (imp.d.versatz || 0));
     const kopf = imp.d.kopfzeile >= 0 ? zeilen[imp.d.kopfzeile] : null;
     const beispiel = (j) => { const z = zeilen.slice(imp.d.kopfzeile + 1).find((zz) => leerzeichen(zz[j])); return z ? leerzeichen(z[j]) : ""; };
     const optionen = [["-1", "keine"]];
     for (let j = 0; j < breite; j++) {
-      const titel = kopf && leerzeichen(kopf[j]) ? leerzeichen(kopf[j]) : `Spalte ${j + 1}`;
+      const kj = j - (imp.d.versatz || 0);
+      const titel = kopf && leerzeichen(kopf[kj]) ? leerzeichen(kopf[kj]) : `Spalte ${j + 1}`;
       const b = beispiel(j);
       optionen.push([String(j), b && b !== titel ? `${titel}: ${kurz(b, 18)}` : titel]);
     }
@@ -2681,7 +2708,7 @@ if (typeof document !== "undefined") {
   // ----- Start -----
   kurswahlAufbauen();
   eintragAufbauen();
-  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
 }
 </script>
 <!-- pdf.js 3.11.174, Mozilla Foundation, Apache-Lizenz 2.0 -->

@@ -1,5 +1,5 @@
 // Hält die Seite für den Offline-Betrieb vor. Lädt nur die Programmdateien, nie Daten.
-const CACHE = "notenauswertung-94d5812c97";
+const CACHE = "notenauswertung-aa6eebdcc5";
 const DATEIEN = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(DATEIEN)).then(() => self.skipWaiting()));
@@ -11,7 +11,7 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET" || new URL(e.request.url).origin !== self.location.origin) return;
   const ausSpeicher = () => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match("./index.html"));
-  const netz = fetch(e.request).then((r) => {
+  const netz = fetch(e.request, { cache: "no-cache" }).then((r) => {
     if (r.ok) { const kopie = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, kopie)); }
     return r;
   });
