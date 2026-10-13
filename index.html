@@ -15,6 +15,8 @@
 <script>
   // Fehler sichtbar machen, statt dass Knöpfe stumm bleiben
   window.addEventListener("error", (e) => {
+    // Harmlose Browsermeldung beim Neuzeichnen, kein echter Fehler
+    if (/ResizeObserver loop/.test(e.message || "")) return;
     const zeile = document.createElement("div");
     zeile.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99;padding:10px 14px;background:#b3261e;color:#fff;font:14px system-ui,sans-serif";
     zeile.textContent = "Fehler: " + (e.message || e.error || "unbekannt") + (e.lineno ? " (Zeile " + e.lineno + ")" : "");
@@ -236,7 +238,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:43</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 23:02</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -2033,11 +2035,17 @@ if (typeof document !== "undefined") {
       pruefe();
       return;
     }
-    const leiste = arbeitenLeiste(k);
-    if (leiste) bereich.append(leiste);
+    // Sortierung (gilt auch für Notenliste und Word-Export) und gespeicherte Arbeiten
+    const sortWahl = el("select");
+    [["eingabe", "Reihenfolge im Kurs"], ["name", "Name"], ["klasse", "Klasse, dann Name"], ["punkte-ab", "Punkte absteigend"], ["punkte-auf", "Punkte aufsteigend"]]
+      .forEach(([w, t]) => sortWahl.append(el("option", { value: w, text: t })));
+    sortWahl.value = einst.sortierung;
+    sortWahl.addEventListener("change", () => { einst.sortierung = sortWahl.value; einstSpeichern(); eintragAufbauen(); });
+    bereich.append(el("div", { klasse: "reihe", stil: "margin-top:12px" },
+      el("label", { klasse: "feld", stil: "flex:0 1 200px" }, "Sortierung", sortWahl), ...(arbeitenLeiste(k) || [])));
     const werte = punkteVon(k);
     const tbody = el("tbody");
-    k.schueler.forEach((s, idx) => {
+    eingabeReihenfolge(k).forEach((s, idx) => {
       const eingabe = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", "aria-label": `Punkte ${s.name}`, "data-idx": idx });
       eingabe.value = werte.get(s.id) || "";
       const noteZelle = el("td", { klasse: "note" });
@@ -2075,6 +2083,24 @@ if (typeof document !== "undefined") {
       el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Punkte", stil: "text-align:right" }), el("th", { text: "Note" }))),
       tbody));
     pruefe();
+  }
+  // Reihenfolge der Eingabe: leere Punktzahlen stehen beim Sortieren nach Punkten am Ende
+  function eingabeReihenfolge(k) {
+    const werte = punkteVon(k), max = notenspiegel(einst).maxPunkte;
+    const zeilen = k.schueler.map((s, i) => {
+      const l = leseEingabe(werte.get(s.id), max);
+      return { s, nr: i + 1, name: s.name, klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert };
+    });
+    const name = (a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }) || a.nr - b.nr;
+    const leerHinten = (f) => (a, b) => (a.punkte == null) - (b.punkte == null) || (a.punkte == null ? a.nr - b.nr : f(a, b));
+    const vgl = {
+      eingabe: (a, b) => a.nr - b.nr,
+      name,
+      klasse: (a, b) => a.klasse.localeCompare(b.klasse, "de", { numeric: true }) || name(a, b),
+      "punkte-ab": leerHinten((a, b) => b.punkte - a.punkte || name(a, b)),
+      "punkte-auf": leerHinten((a, b) => a.punkte - b.punkte || name(a, b)),
+    }[einst.sortierung] || ((a, b) => a.nr - b.nr);
+    return zeilen.sort(vgl).map((z) => z.s);
   }
   const alleZeilenAktualisieren = () => document.querySelectorAll("#eintragbereich input[data-idx]").forEach((i) => i._aktualisieren && i._aktualisieren());
 
@@ -2304,7 +2330,19 @@ if (typeof document !== "undefined") {
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && box.classList.contains("ersatz")) vollbildAus(); });
   document.addEventListener("fullscreenchange", vollbildGeaendert);
   document.addEventListener("webkitfullscreenchange", vollbildGeaendert);
-  new ResizeObserver(neuZeichnen).observe(box);
+  // Erst im nächsten Bild neu zeichnen und nur bei echter Größenänderung, sonst meldet der Browser eine Schleife
+  let rzGroesse = "", rzGeplant = false;
+  new ResizeObserver(() => {
+    if (rzGeplant) return;
+    rzGeplant = true;
+    requestAnimationFrame(() => {
+      rzGeplant = false;
+      const g = box.clientWidth + "x" + box.clientHeight;
+      if (g === rzGroesse) return;
+      rzGroesse = g;
+      neuZeichnen();
+    });
+  }).observe(box);
 
   const dateiname = (art, endung) => [art, dateiTeil(ergebnis.kursName), dateiTeil(ergebnis.arbeit), ergebnis.datum].filter(Boolean).join("_") + "." + endung;
   function bildBlob(breite, grau = false) {
@@ -2367,8 +2405,7 @@ if (typeof document !== "undefined") {
       kurseSpeichern();
       eintragAufbauen();
     });
-    return el("div", { klasse: "reihe", stil: "margin-top:12px" },
-      el("label", { klasse: "feld", stil: "flex:1 1 260px" }, `Gespeicherte Arbeiten (${k.arbeiten.length})`, wahl), laden, loeschen);
+    return [el("label", { klasse: "feld", stil: "flex:1 1 260px" }, `Gespeicherte Arbeiten (${k.arbeiten.length})`, wahl), laden, loeschen];
   }
 
   // ----- Word-Export -----
