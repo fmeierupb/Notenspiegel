@@ -135,11 +135,22 @@
   }
   #schliessen { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); right: 10px; background: #1f4e8c; color: #fff; font-size: 14px; padding: 6px 12px; }
   #plot { display: block; }
-  .kennzahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-  .kennzahl { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
-  .kennzahl .wert { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .kennzahl .bez { font-size: 13px; color: var(--muted); }
-  .kennzahl .zusatz { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .kacheln { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-top: 2px solid var(--text); border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .kachel { padding: 10px 12px 12px 0; }
+  .kachel .bez { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .kachel .wert { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .abschnitt-titel { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; border-bottom: 2px solid var(--text); padding-bottom: 5px; margin: 26px 0 10px; }
+  .abschnitt-titel:first-child { margin-top: 4px; }
+  .stat { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .stat th { text-align: right; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 6px 10px; border-bottom: 1px solid var(--text); white-space: nowrap; }
+  .stat th:first-child, .stat td:first-child { text-align: left; }
+  .stat td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--linie); }
+  .stat tr.summe td { font-weight: 700; border-top: 1px solid var(--text); border-bottom: 0; }
+  .stat .stark { font-weight: 700; }
+  .raster { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); column-gap: 28px; }
+  .raster div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--linie); font-variant-numeric: tabular-nums; }
+  .raster span { color: var(--muted); }
+  .raster b { text-align: right; }
   .zeile-ns { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
   .zeile-ns code { font: 15px ui-monospace, Consolas, monospace; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
   .listenkopf { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -152,8 +163,6 @@
   .liste .zahl { text-align: right; }
   .liste tr.fehlt td { color: var(--muted); }
   .liste td.name { white-space: normal; min-width: 12em; }
-  .balken { display: inline-block; width: 70px; height: 7px; border-radius: 4px; background: var(--linie); vertical-align: middle; margin-left: 8px; overflow: hidden; }
-  .balken i { display: block; height: 100%; border-radius: 4px; }
   .chip { display: inline-block; min-width: 2.4em; text-align: center; padding: 2px 8px; border-radius: 6px; font-weight: 700; }
   .notenwort { color: var(--muted); font-size: 13px; margin-left: 6px; }
 
@@ -165,7 +174,7 @@
   dialog::backdrop { background: rgba(20, 24, 30, 0.45); }
   .dialog-innen { display: flex; flex-direction: column; max-height: calc(100vh - 40px); }
   .dialog-kopf { padding: 18px 22px 10px; border-bottom: 1px solid var(--border); }
-  .dialog-kopf h2 { font-size: 19px; }
+  .dialog-kopf h2 { font-size: 19px; outline: none; }
   .dialog-inhalt { padding: 14px 22px; overflow: auto; }
   .dialog-fuss { padding: 12px 22px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .abschnitt { padding: 14px 0; border-bottom: 1px solid var(--linie); }
@@ -227,7 +236,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:20</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 22:38</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -243,6 +252,7 @@
     <div class="reiter" role="tablist">
       <button id="reiter-spiegel" role="tab" aria-selected="true" type="button">Notenspiegel</button>
       <button id="reiter-liste" role="tab" aria-selected="false" type="button">Notenliste</button>
+      <button id="reiter-statistik" role="tab" aria-selected="false" type="button">Statistik</button>
     </div>
     <div id="panel-spiegel" role="tabpanel">
       <div id="bildbox">
@@ -255,8 +265,7 @@
       </div>
     </div>
     <div id="panel-liste" role="tabpanel" hidden>
-      <div id="kennzahlen" class="kennzahlen"></div>
-      <div id="zeile-ns" class="zeile-ns"></div>
+      <div id="kennzahlen" class="kacheln"></div>
       <div class="listenkopf">
         <label class="feld">Sortierung
           <select id="sortierung">
@@ -270,13 +279,14 @@
       </div>
       <div class="tabelle-rahmen"><table id="liste" class="liste"></table></div>
     </div>
+    <div id="panel-statistik" role="tabpanel" hidden></div>
     <div id="hinweis" class="status"></div>
   </section>
 </main>
 
 <dialog id="kurse-dialog">
   <div class="dialog-innen">
-    <div class="dialog-kopf"><h2>Kurse verwalten</h2></div>
+    <div class="dialog-kopf"><h2 tabindex="-1" autofocus>Kurse verwalten</h2></div>
     <div class="dialog-inhalt">
       <div class="reihe">
         <label class="feld" style="flex:1 1 220px">Kurs<select id="kurs-bearbeiten"></select></label>
@@ -298,7 +308,7 @@
 
 <dialog id="import-dialog">
   <div class="dialog-innen">
-    <div class="dialog-kopf"><h2>Liste importieren</h2></div>
+    <div class="dialog-kopf"><h2 tabindex="-1" autofocus>Liste importieren</h2></div>
     <div class="dialog-inhalt">
       <p class="hint">Liste in WebUntis markieren, kopieren und hier einsetzen. Oder eine Datei wählen: Excel, PDF, CSV oder eine Word-Datei, die du hier exportiert hast. Alles wird nur hier im Browser gelesen.</p>
       <textarea id="import-text" rows="4" placeholder="Hier einsetzen"></textarea>
@@ -320,7 +330,7 @@
 
 <dialog id="einst-dialog">
   <div class="dialog-innen">
-    <div class="dialog-kopf"><h2>Einstellungen</h2></div>
+    <div class="dialog-kopf"><h2 tabindex="-1" autofocus>Einstellungen</h2></div>
     <div class="dialog-inhalt">
       <div class="abschnitt">
         <h3>Notenspiegel</h3>
@@ -355,25 +365,7 @@
       <div class="abschnitt">
         <h3>Notenliste</h3>
         <div class="optionen">
-          <label><input type="checkbox" data-einst="spalten.klasse"> Spalte Klasse</label>
-          <label><input type="checkbox" data-einst="spalten.prozent"> Spalte Prozent</label>
-          <label><input type="checkbox" data-einst="spalten.notenwort"> Note als Wort</label>
-          <label><input type="checkbox" data-einst="spalten.bis"> Punkte bis zur nächsten Note</label>
           <label><input type="checkbox" data-einst="spalten.fehlend"> Nicht Mitgeschriebene aufführen</label>
-        </div>
-      </div>
-      <div class="abschnitt">
-        <h3>Kennzahlen</h3>
-        <div class="optionen">
-          <label><input type="checkbox" data-einst="kennzahlen.teilnehmer"> Teilnehmer</label>
-          <label><input type="checkbox" data-einst="kennzahlen.durchschnitt"> Notendurchschnitt</label>
-          <label><input type="checkbox" data-einst="kennzahlen.mittel"> Mittelwert Punkte</label>
-          <label><input type="checkbox" data-einst="kennzahlen.median"> Median</label>
-          <label><input type="checkbox" data-einst="kennzahlen.std"> Standardabweichung</label>
-          <label><input type="checkbox" data-einst="kennzahlen.spanne"> Spannweite</label>
-          <label><input type="checkbox" data-einst="kennzahlen.unter"> Unter „Ausreichend“</label>
-          <label><input type="checkbox" data-einst="kennzahlen.zeile"> Notenspiegel-Zeile</label>
-          <label><input type="checkbox" data-einst="kennzahlen.grenzen"> Notengrenzen (nur Word)</label>
         </div>
       </div>
       <div class="abschnitt">
@@ -392,15 +384,14 @@
       </div>
       <div class="abschnitt">
         <h3>Word-Export</h3>
+        <p class="hint">Seite 1: Kopf mit den wichtigsten Werten und die Notenliste. Seite 2: Diagramm und alle Kennzahlen.</p>
         <div class="reihe">
-          <label class="feld" style="flex:1 1 240px">Überschrift<input type="text" data-einst="word.ueberschrift"></label>
-          <label class="feld">Seite mit dem Diagramm
-            <select data-einst="word.quer"><option value="true">Querformat</option><option value="false">Hochformat</option></select>
-          </label>
+          <label class="feld" style="flex:1 1 240px">Kleine Überschrift<input type="text" data-einst="word.ueberschrift"></label>
         </div>
         <div class="optionen" style="margin-top:10px">
-          <label><input type="checkbox" data-einst="word.kennzahlen"> Kennzahlen aufnehmen</label>
-          <label><input type="checkbox" data-einst="word.diagramm"> Diagramm aufnehmen</label>
+          <label><input type="checkbox" data-einst="word.diagramm"> Diagramm auf Seite 2</label>
+          <label><input type="checkbox" data-einst="word.statistik"> Kennzahlen auf Seite 2</label>
+          <label><input type="checkbox" data-einst="word.grau"> Diagramm in Graustufen</label>
         </div>
       </div>
     </div>
@@ -430,11 +421,10 @@ const STANDARD_EINST = {
   gesamt: 52,
   rundung: 0.5,
   tendenzen: { an: true, einsPlus: false, sechs: false, art: "drittel", abstand: 2 },
-  spalten: { klasse: true, prozent: true, notenwort: true, bis: true, fehlend: true },
+  spalten: { fehlend: true },
   sortierung: "eingabe",
-  kennzahlen: { teilnehmer: true, durchschnitt: true, mittel: true, median: true, std: true, spanne: true, unter: true, zeile: true, grenzen: true },
   diagramm: { kreuze: true, mittel: true, fit: true, legende: true, anzahl: true, xTitel: "Notenstufen [Punkte; Prozent]", yTitel: "Häufigkeit" },
-  word: { ueberschrift: "Notenliste", quer: true, kennzahlen: true, diagramm: true },
+  word: { ueberschrift: "Notenliste", diagramm: true, statistik: true, grau: true },
 };
 
 const kopie = (o) => JSON.parse(JSON.stringify(o));
@@ -558,8 +548,9 @@ function berechne(punkte, noten, maxPunkte) {
   let fit = null;
   if (n >= 2) {
     const f = gaussFit(mitte, anzahl, [Math.max(...anzahl), mittel, std]);
+    // Nur sinnvolle Fits zeigen: Zentrum innerhalb der Punkte, Breite nicht größer als ein großer Teil der Skala
     if ([f.a, f.mu, f.sigma].every(Number.isFinite) && f.a > 0 && f.sigma > 0.3 &&
-        f.mu > -maxPunkte && f.mu < 2 * maxPunkte) fit = f;
+        f.mu >= 0 && f.mu <= maxPunkte && f.sigma <= 0.6 * maxPunkte) fit = f;
   }
 
   // Kreuze: gleiche Punktzahlen übereinander
@@ -625,6 +616,68 @@ function auswertung(eintraege, ns, e) {
   return { r, zeilen, stat };
 }
 
+// Alle Kennzahlen einer Auswertung, für Bildschirm und Word gleich
+function statistik(e, tendenzen) {
+  const { r, stat, zeilen, ns } = e;
+  const noten = ns.noten, max = ns.maxPunkte;
+  const mit = zeilen.filter((z) => !z.fehlt);
+  const werte = mit.map((z) => z.punkte).sort((a, b) => a - b);
+  const n = werte.length;
+  const pz = (w) => `${de(w / max * 100)} %`;
+  const p1 = (w) => deG(Math.round(w * 10) / 10);
+  const quantil = (q) => { const pos = (n - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos); return werte[lo] + (werte[hi] - werte[lo]) * (pos - lo); };
+  const aufsteigend = (a, b) => a - b;
+  const median = (w) => { const x = [...w].sort(aufsteigend), m = x.length; return m ? (m % 2 ? x[(m - 1) / 2] : (x[m / 2 - 1] + x[m / 2]) / 2) : NaN; };
+  const schnitt = (zz) => zz.reduce((s, z) => s + z.note + 1, 0) / zz.length;
+  const komma2 = (w) => w.toFixed(2).replace(".", ",");
+
+  const verteilung = noten.map((nt, i) => {
+    const hier = mit.filter((z) => z.note === i);
+    return {
+      nr: i + 1, name: nt.name, ab: nt.ab, prozent: nt.prozent, anzahl: r.anzahl[i], anteil: n ? r.anzahl[i] / n * 100 : 0,
+      plus: hier.filter((z) => z.tendenz === "+").length, minus: hier.filter((z) => z.tendenz === "−").length,
+    };
+  });
+
+  const kennzahlen = [];
+  kennzahlen.push(["Teilnehmer", `${n} von ${stat.gesamtZahl}`]);
+  if (stat.fehlend) kennzahlen.push(["Nicht mitgeschrieben", String(stat.fehlend)]);
+  kennzahlen.push(["Notenschnitt", komma2(stat.notenSchnitt)]);
+  if (tendenzen && tendenzen.an) {
+    const mitT = mit.reduce((s, z) => s + z.note + 1 + (z.tendenz === "+" ? -1 / 3 : z.tendenz === "−" ? 1 / 3 : 0), 0) / n;
+    kennzahlen.push(["Schnitt mit Tendenzen (±⅓)", komma2(mitT)]);
+  }
+  kennzahlen.push(["Mittelwert", `${de(stat.mittel)} P (${pz(stat.mittel)})`]);
+  kennzahlen.push(["Median", `${p1(stat.median)} P (${pz(stat.median)})`]);
+  kennzahlen.push(["Standardabweichung", `${de(stat.std)} P (${pz(stat.std)})`]);
+  if (n >= 4) kennzahlen.push(["Unteres und oberes Quartil", `${p1(quantil(0.25))} P und ${p1(quantil(0.75))} P`]);
+  kennzahlen.push(["Spannweite", `${deG(stat.min)} bis ${deG(stat.max)} P`]);
+  const haeufig = new Map();
+  werte.forEach((w) => haeufig.set(w, (haeufig.get(w) || 0) + 1));
+  const maxH = Math.max(0, ...haeufig.values());
+  if (maxH > 1) {
+    const modi = [...haeufig].filter(([, c]) => c === maxH).map(([w]) => deG(w));
+    if (modi.length <= 3) kennzahlen.push([modi.length > 1 ? "Häufigste Punktzahlen" : "Häufigste Punktzahl",
+      `${modi.join(", ").replace(/, ([^,]*)$/, " und $1")} P (${modi.length > 1 ? "je " : ""}${maxH}-mal)`]);
+  }
+  const grenzeIdx = Math.min(3, noten.length - 1);
+  const bestanden = r.anzahl.slice(0, grenzeIdx + 1).reduce((s, c) => s + c, 0);
+  kennzahlen.push([`${noten[grenzeIdx].name} oder besser`, `${bestanden} (${de(n ? bestanden / n * 100 : 0)} %)`]);
+  kennzahlen.push([`Unter „${noten[grenzeIdx].name}“`, `${n - bestanden} (${de(n ? (n - bestanden) / n * 100 : 0)} %)`]);
+  if (r.fit) kennzahlen.push(["Gaußfit", `${de(r.fit.mu)} P (σ ${de(r.fit.sigma)} P)`]);
+
+  const klassenNamen = [...new Set(zeilen.map((z) => z.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
+  const klassen = klassenNamen.length > 1 ? klassenNamen.map((k) => {
+    const zz = mit.filter((z) => z.klasse === k), w = zz.map((z) => z.punkte);
+    return {
+      klasse: k, n: zz.length, gesamt: zeilen.filter((z) => z.klasse === k).length,
+      schnitt: zz.length ? komma2(schnitt(zz)) : "", mittel: zz.length ? `${de(w.reduce((s, x) => s + x, 0) / w.length)} P` : "",
+      median: zz.length ? `${p1(median(w))} P` : "",
+    };
+  }) : [];
+  return { verteilung, kennzahlen, klassen, n };
+}
+
 function notenspiegelZeile(anzahl, schnitt) {
   return anzahl.map((c, i) => `${i + 1}: ${c}`).join(" | ") + ` | Ø ${schnitt.toFixed(2).replace(".", ",")}`;
 }
@@ -651,11 +704,19 @@ function sortiere(zeilen, art) {
 const BREITE = 720, HOEHE = 396;
 const SCHRIFT = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 // Das Diagramm bleibt auch im Dunkelmodus hell
-const T = {
+const T_FARBE = {
   hintergrund: "#ffffff", text: "#000000", rahmen: "#000000", grenze: "#9aa0a6",
   kreuz: "#0b1f3a", fit: "#1f4e8c", mittel: "#1c1c1c", halo: "#ffffff",
-  legende: "#ffffff", legendeRand: "#cccccc", band: 0.16, balken: 0.45,
+  legende: "#ffffff", legendeRand: "#cccccc", band: 0.16, balken: 0.45, fitStrich: true,
 };
+// Graustufen für den Word-Export: gut druckbar auf Schwarzweißdruckern
+const T_GRAU = {
+  hintergrund: "#ffffff", text: "#111111", rahmen: "#111111", grenze: "#9a9a9a",
+  kreuz: "#000000", fit: "#6e6e6e", mittel: "#111111", halo: "#ffffff",
+  legende: "#ffffff", legendeRand: "#bdbdbd", band: 0.14, balken: 0.42, fitStrich: [0.6, 2.2],
+};
+const GRAUSTUFEN = ["#d6d6d6", "#bdbdbd", "#a1a1a1", "#828282", "#5e5e5e", "#383838"];
+let T = T_FARBE;
 
 const de = (w) => w.toFixed(1).replace(".", ",");
 const deG = (w) => String(Math.round(w * 1000) / 1000).replace(".", ",");
@@ -682,7 +743,7 @@ function schrift(ctx, groesse, fett) {
 function linie(ctx, punkte, farbe, breite, strich) {
   ctx.save();
   ctx.strokeStyle = farbe; ctx.lineWidth = breite;
-  ctx.setLineDash(strich ? [3.7 * breite, 1.6 * breite] : []);
+  ctx.setLineDash(Array.isArray(strich) ? strich.map((x) => x * breite) : strich ? [3.7 * breite, 1.6 * breite] : []);
   ctx.beginPath();
   punkte.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
   ctx.stroke();
@@ -695,6 +756,8 @@ function kreuz(ctx, x, y, farbe) {
 }
 
 function zeichne(ctx, pixelBreite, daten) {
+  T = daten.grau ? T_GRAU : T_FARBE;
+  if (daten.grau) daten = { ...daten, noten: daten.noten.map((n, i) => ({ ...n, farbe: GRAUSTUFEN[Math.min(i, GRAUSTUFEN.length - 1)] })) };
   const k = pixelBreite / BREITE;
   ctx.setTransform(k, 0, 0, k, 0, 0);
   ctx.clearRect(0, 0, BREITE, HOEHE);
@@ -720,7 +783,7 @@ function zeichne(ctx, pixelBreite, daten) {
   const legende = [];
   if (o.kreuze) legende.push({ art: "kreuz", text: "Punktzahl einer Arbeit" });
   if (o.mittel) legende.push({ art: "strich", farbe: T.mittel, text: `Mittelwert: ${de(r.mittel)} P, ${noten[r.noteIndex(r.mittel)].name}` });
-  if (fit) legende.push({ art: "strich", farbe: T.fit, text: `Zentrum Gaußfit: ${de(fit.mu)} P, ${noten[r.noteIndex(fit.mu)].name}` });
+  if (fit) legende.push({ art: "strich", farbe: T.fit, strich: T.fitStrich, text: `Zentrum Gaußfit: ${de(fit.mu)} P, ${noten[r.noteIndex(fit.mu)].name}` });
   const mitLegende = o.legende && legende.length > 0;
   schrift(ctx, 10, false);
   const griff = 35, abstand = 8, rand = 4, zeilenH = 14;
@@ -785,7 +848,7 @@ function zeichne(ctx, pixelBreite, daten) {
     ctx.globalAlpha = 0.85;
     linie(ctx, pts, T.fit, 1.1);
     ctx.globalAlpha = 1;
-    linie(ctx, [[X(fit.mu), ax.y], [X(fit.mu), achseUnten]], T.fit, 1.2, true);
+    linie(ctx, [[X(fit.mu), ax.y], [X(fit.mu), achseUnten]], T.fit, 1.2, T.fitStrich);
   }
   if (o.mittel) linie(ctx, [[X(r.mittel), ax.y], [X(r.mittel), achseUnten]], T.mittel, 1.2, true);
   if (o.kreuze) r.kreuze.forEach((c) => kreuz(ctx, X(c.x), Y(c.y), T.kreuz));
@@ -851,7 +914,7 @@ function zeichne(ctx, pixelBreite, daten) {
     legende.forEach((e, j) => {
       const ym = ly + rand + zeilenH * (j + 0.5);
       if (e.art === "kreuz") kreuz(ctx, lx + rand + griff / 2, ym, T.kreuz);
-      else linie(ctx, [[lx + rand, ym], [lx + rand + griff, ym]], e.farbe, 1.2, true);
+      else linie(ctx, [[lx + rand, ym], [lx + rand + griff, ym]], e.farbe, 1.2, e.strich || true);
       ctx.fillStyle = T.text;
       ctx.fillText(e.text, lx + rand + griff + abstand, ym);
     });
@@ -910,73 +973,142 @@ function zipErstellen(dateien) {
 }
 
 const xml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-function wLauf(text, { fett = false, groesse = null, farbe = null } = {}) {
-  const rpr = (fett ? "<w:b/>" : "") + (farbe ? `<w:color w:val="${farbe}"/>` : "") +
-    (groesse ? `<w:sz w:val="${groesse * 2}"/><w:szCs w:val="${groesse * 2}"/>` : "");
-  return `<w:r>${rpr ? `<w:rPr>${rpr}</w:rPr>` : ""}<w:t xml:space="preserve">${xml(text)}</w:t></w:r>`;
+
+// Schlichte Graustufen: Text fast schwarz, Nebentext grau, Flächen hellgrau
+const W_DUNKEL = "1A1A1A", W_GRAU = "6E6E6E", W_HELL = "F3F3F3", W_LINIE = "CFCFCF";
+const TEXTBREITE = 9638; // A4 hoch mit 2 cm Rand, in Twips
+
+function wR(text, o = {}) {
+  let rpr = "";
+  if (o.fett) rpr += "<w:b/><w:bCs/>";
+  if (o.caps) rpr += "<w:caps/>";
+  rpr += `<w:color w:val="${o.farbe || W_DUNKEL}"/>`;
+  if (o.sperren) rpr += `<w:spacing w:val="${o.sperren}"/>`;
+  if (o.gr) rpr += `<w:sz w:val="${Math.round(o.gr * 2)}"/><w:szCs w:val="${Math.round(o.gr * 2)}"/>`;
+  return `<w:r><w:rPr>${rpr}</w:rPr><w:t xml:space="preserve">${xml(text)}</w:t></w:r>`;
 }
-function wAbsatz(inhalt, { nach = 80, vor = 0, mitte = false, rechtsbuendig = false, keepNext = false } = {}) {
-  const ppr = (keepNext ? "<w:keepNext/>" : "") + `<w:spacing w:before="${vor}" w:after="${nach}"/>` +
-    (mitte ? '<w:jc w:val="center"/>' : rechtsbuendig ? '<w:jc w:val="right"/>' : "");
+function wP(inhalt, o = {}) {
+  let ppr = "";
+  if (o.keepNext) ppr += "<w:keepNext/>";
+  if (o.umbruch) ppr += "<w:pageBreakBefore/>";
+  if (o.linie) ppr += `<w:pBdr><w:bottom w:val="single" w:sz="${o.linie.sz}" w:space="${o.linie.abstand || 3}" w:color="${o.linie.farbe}"/></w:pBdr>`;
+  ppr += `<w:spacing w:before="${o.vor || 0}" w:after="${o.nach || 0}" w:line="${o.zeile || 240}" w:lineRule="auto"/>`;
+  if (o.jc) ppr += `<w:jc w:val="${o.jc}"/>`;
   return `<w:p><w:pPr>${ppr}</w:pPr>${inhalt}</w:p>`;
 }
-function wTabelle(spalten, kopf, zeilen) {
-  const rand = '<w:top w:val="single" w:sz="4" w:space="0" w:color="BFC5CD"/><w:left w:val="single" w:sz="4" w:space="0" w:color="BFC5CD"/>' +
-    '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="BFC5CD"/><w:right w:val="single" w:sz="4" w:space="0" w:color="BFC5CD"/>' +
-    '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="BFC5CD"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="BFC5CD"/>';
-  const zelle = (z, breite, rechtsb, kopfzeile) => {
-    const shd = z.fuellung ? `<w:shd w:val="clear" w:color="auto" w:fill="${z.fuellung}"/>` : kopfzeile ? '<w:shd w:val="clear" w:color="auto" w:fill="E9ECF0"/>' : "";
-    return `<w:tc><w:tcPr><w:tcW w:w="${breite}" w:type="dxa"/>${shd}<w:vAlign w:val="center"/></w:tcPr>` +
-      wAbsatz(wLauf(z.text, { fett: kopfzeile || z.fett, farbe: z.farbe }), { nach: 0, vor: 0, rechtsbuendig: rechtsb }) + "</w:tc>";
+// Tabelle ohne senkrechte Linien. spalten: [{ breite, rechts }], zeilen: [{ zellen, kopf, fuellung, oben, unten }]
+function wTab(spalten, zeilen, o = {}) {
+  const rand = (seite, r) => (r ? `<w:${seite} w:val="single" w:sz="${r.sz}" w:space="0" w:color="${r.farbe}"/>` : `<w:${seite} w:val="nil"/>`);
+  const nil = ["top", "left", "bottom", "right", "insideH", "insideV"].map((x) => `<w:${x} w:val="nil"/>`).join("");
+  const zeile = (z) => {
+    const trpr = (z.kopf ? "<w:tblHeader/>" : "") + "<w:cantSplit/>" + (o.hoehe ? `<w:trHeight w:val="${o.hoehe}"/>` : "");
+    return `<w:tr><w:trPr>${trpr}</w:trPr>` + z.zellen.map((c, i) => {
+      const sp = spalten[i], zelle = typeof c === "object" ? c : { text: c };
+      const fuell = zelle.fuellung || z.fuellung;
+      const tcpr = `<w:tcW w:w="${sp.breite}" w:type="dxa"/>` +
+        (z.oben || z.unten ? `<w:tcBorders>${rand("top", z.oben)}${rand("bottom", z.unten)}</w:tcBorders>` : "") +
+        (fuell ? `<w:shd w:val="clear" w:color="auto" w:fill="${fuell}"/>` : "") + '<w:vAlign w:val="center"/>';
+      const absaetze = zelle.absaetze || [wP(zelle.laeufe || wR(zelle.text == null ? "" : String(zelle.text), {
+        fett: zelle.fett ?? z.fett, farbe: zelle.farbe || z.farbe, gr: zelle.gr || z.gr || o.gr, caps: z.caps, sperren: z.caps ? 16 : 0,
+      }), { jc: sp.rechts ? "right" : null })];
+      return `<w:tc><w:tcPr>${tcpr}</w:tcPr>${absaetze.join("")}</w:tc>`;
+    }).join("") + "</w:tr>";
   };
-  const zeile = (zellen, kopfzeile) => `<w:tr>${kopfzeile ? "<w:trPr><w:tblHeader/></w:trPr>" : "<w:trPr><w:cantSplit/></w:trPr>"}` +
-    zellen.map((z, i) => zelle(typeof z === "object" ? z : { text: z }, spalten[i].breite, spalten[i].rechts, kopfzeile)).join("") + "</w:tr>";
-  return `<w:tbl><w:tblPr><w:tblW w:w="${spalten.reduce((s, c) => s + c.breite, 0)}" w:type="dxa"/><w:tblBorders>${rand}</w:tblBorders>` +
-    '<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="90" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="90" w:type="dxa"/></w:tblCellMar></w:tblPr>' +
-    `<w:tblGrid>${spalten.map((c) => `<w:gridCol w:w="${c.breite}"/>`).join("")}</w:tblGrid>` +
-    (kopf ? zeile(kopf, true) : "") + zeilen.map((z) => zeile(z, false)).join("") + "</w:tbl>";
+  const mar = o.rand || [70, 110];
+  return `<w:tbl><w:tblPr><w:tblW w:w="${spalten.reduce((s, c) => s + c.breite, 0)}" w:type="dxa"/><w:tblBorders>${nil}</w:tblBorders>` +
+    `<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="${mar[0]}" w:type="dxa"/><w:left w:w="${mar[1]}" w:type="dxa"/>` +
+    `<w:bottom w:w="${mar[0]}" w:type="dxa"/><w:right w:w="${mar[1]}" w:type="dxa"/></w:tblCellMar></w:tblPr>` +
+    `<w:tblGrid>${spalten.map((c) => `<w:gridCol w:w="${c.breite}"/>`).join("")}</w:tblGrid>` + zeilen.map(zeile).join("") + "</w:tbl>";
 }
-const SEITE_HOCH = '<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/>';
-const SEITE_QUER = '<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/>';
+const W_KOPF = { kopf: true, caps: true, gr: 7.5, farbe: W_GRAU, fett: true, unten: { sz: 8, farbe: W_DUNKEL } };
+const wKleinzeile = (text, o = {}) => wP(wR(text, { caps: true, sperren: 30, gr: 8, farbe: W_GRAU, fett: true }), { nach: 60, ...o });
+const wAbschnitt = (titel) => wP(wR(titel, { caps: true, sperren: 30, gr: 8.5, fett: true }),
+  { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 } });
 
 function wordDokument(info) {
-  const { ueberschrift, unterzeile, kennzahlen, grenzen, zeileNs, spalten, kopf, zeilen, bild, quer } = info;
-  let body = wAbsatz(wLauf(ueberschrift, { fett: true, groesse: 18 }), { nach: 40 });
-  if (unterzeile) body += wAbsatz(wLauf(unterzeile, { farbe: "5F6670", groesse: 11 }), { nach: 200 });
-  if (kennzahlen.length) {
-    const paare = [];
-    for (let i = 0; i < kennzahlen.length; i += 2) {
-      const a = kennzahlen[i], b = kennzahlen[i + 1];
-      paare.push([{ text: a[0], farbe: "5F6670" }, { text: a[1], fett: true }, { text: b ? b[0] : "", farbe: "5F6670" }, { text: b ? b[1] : "", fett: true }]);
+  const { kopfzeile, titel, datumText, grundwerte, liste, bild, verteilung, kennzahlen, klassen, tendenzen, meta } = info;
+  // ----- Seite 1: Kopf, Grundwerte, Liste -----
+  let body = wKleinzeile(kopfzeile);
+  body += wP(wR(titel, { fett: true, gr: 22 }), { nach: 40 });
+  if (datumText) body += wP(wR(datumText, { gr: 10.5, farbe: W_GRAU }), { nach: 0 });
+  body += wP("", { nach: 180 });
+  const kachelB = Math.floor(TEXTBREITE / grundwerte.length);
+  body += wTab(grundwerte.map(() => ({ breite: kachelB })), [{
+    oben: { sz: 12, farbe: W_DUNKEL }, unten: { sz: 4, farbe: W_LINIE },
+    zellen: grundwerte.map(([bez, wert]) => ({ absaetze: [
+      wP(wR(bez, { caps: true, sperren: 16, gr: 7, fett: true, farbe: W_GRAU }), { nach: 30 }),
+      wP(wR(wert, { fett: true, gr: 15 })),
+    ] })),
+  }], { rand: [100, 0] });
+  body += wP("", { nach: 220 });
+  const sp = [{ breite: 5338 }, { breite: 1500 }, { breite: 1400 }, { breite: 1400, rechts: true }];
+  body += wTab(sp, [
+    { ...W_KOPF, zellen: ["Name", "Klasse", "Note", "Punkte"] },
+    ...liste.map((z, i) => ({
+      fuellung: i % 2 ? W_HELL : null, gr: 10,
+      zellen: z.fehlt
+        ? [{ text: z.name, farbe: W_GRAU }, { text: z.klasse, farbe: W_GRAU }, "", { text: "fehlt", farbe: W_GRAU }]
+        : [z.name, { text: z.klasse, farbe: W_GRAU }, { text: z.note, fett: true }, z.punkte],
+    })),
+  ], { hoehe: 290, rand: [40, 110] });
+
+  // ----- Seite 2: Diagramm und alle Kennzahlen -----
+  if (bild || verteilung) {
+    body += wKleinzeile(info.kopfzeile2, { umbruch: true });
+    body += wP(wR("Auswertung", { fett: true, gr: 16 }), { nach: 140 });
+    if (bild) {
+      const cx = TEXTBREITE * 635, cy = Math.round(cx * HOEHE / BREITE);
+      body += '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
+        `<wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Notenspiegel"/>` +
+        '<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
+        '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>' +
+        '<pic:nvPicPr><pic:cNvPr id="0" name="notenspiegel.png"/><pic:cNvPicPr/></pic:nvPicPr>' +
+        '<pic:blipFill><a:blip r:embed="rIdBild"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+        `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
+        "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>";
     }
-    body += wTabelle([{ breite: 2600 }, { breite: 2219 }, { breite: 2600 }, { breite: 2219 }], null, paare);
-    body += wAbsatz("", { nach: 120 });
+    if (verteilung) {
+      body += wAbschnitt("Notenverteilung");
+      const mitT = tendenzen && tendenzen.an;
+      const spV = mitT
+        ? [{ breite: 2938 }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }]
+        : [{ breite: 3638 }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }];
+      const kopf = ["Note", "ab Punkten", "ab Prozent", "Anzahl", "Anteil"];
+      if (mitT) kopf.push("davon + / −");
+      const summe = verteilung.reduce((s, v) => s + v.anzahl, 0);
+      body += wTab(spV, [
+        { ...W_KOPF, zellen: kopf },
+        ...verteilung.map((v, i) => {
+          const zellen = [{ laeufe: wR(`${v.nr}`, { fett: true, gr: 9.5 }) + wR(`   ${v.name}`, { gr: 9.5 }) }, deG(v.ab),
+            Number.isFinite(v.prozent) ? `${deG(v.prozent)} %` : "", { text: String(v.anzahl), fett: true }, `${de(v.anteil)} %`];
+          if (mitT) zellen.push(v.anzahl ? `${v.plus} / ${v.minus}` : "");
+          return { fuellung: i % 2 ? W_HELL : null, gr: 9.5, zellen };
+        }),
+        { gr: 9.5, fett: true, oben: { sz: 8, farbe: W_DUNKEL }, zellen: ["Gesamt", "", "", String(summe), summe ? "100,0 %" : "", ...(mitT ? [""] : [])] },
+      ], { hoehe: 270, rand: [35, 110] });
+    }
+    if (kennzahlen && kennzahlen.length) {
+      body += wAbschnitt("Kennzahlen");
+      const paare = [];
+      for (let i = 0; i < kennzahlen.length; i += 2) paare.push([kennzahlen[i], kennzahlen[i + 1]]);
+      body += wTab([{ breite: 2500 }, { breite: 2219 }, { breite: 2700 }, { breite: 2219 }], paare.map(([a, b]) => ({
+        gr: 9.5, unten: { sz: 4, farbe: W_LINIE },
+        zellen: [{ text: a[0], farbe: W_GRAU }, { text: a[1], fett: true }, { text: b ? b[0] : "", farbe: W_GRAU }, { text: b ? b[1] : "", fett: true }],
+      })), { hoehe: 270, rand: [35, 60] });
+    }
+    if (klassen && klassen.length) {
+      body += wAbschnitt("Nach Klassen");
+      body += wTab([{ breite: 2038 }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }], [
+        { ...W_KOPF, zellen: ["Klasse", "Teilnehmer", "Notenschnitt", "Mittelwert", "Median"] },
+        ...klassen.map((k, i) => ({
+          fuellung: i % 2 ? W_HELL : null, gr: 9.5,
+          zellen: [{ text: k.klasse, fett: true }, `${k.n} von ${k.gesamt}`, { text: k.schnitt, fett: true }, k.mittel, k.median],
+        })),
+      ], { hoehe: 270, rand: [35, 110] });
+    }
   }
-  if (zeileNs) body += wAbsatz(wLauf("Notenspiegel: ", { fett: true }) + wLauf(zeileNs), { nach: 160 });
-  if (grenzen) {
-    body += wTabelle([{ breite: 2400 }, { breite: 1800, rechts: true }, { breite: 1800, rechts: true }, { breite: 1400, rechts: true }],
-      ["Note", "ab Punkten", "ab Prozent", "Anzahl"], grenzen);
-    body += wAbsatz("", { nach: 200 });
-  }
-  body += wTabelle(spalten, kopf, zeilen);
-  if (bild) {
-    const breiteTw = quer ? 16838 - 2268 : 11906 - 2268;
-    const cx = breiteTw * 635, cy = Math.round(cx * HOEHE / BREITE);
-    body += `<w:p><w:pPr><w:sectPr>${SEITE_HOCH}</w:sectPr></w:pPr></w:p>`;
-    body += wAbsatz(wLauf("Notenspiegel", { fett: true, groesse: 14 }), { nach: 40 });
-    if (unterzeile) body += wAbsatz(wLauf(unterzeile, { farbe: "5F6670", groesse: 11 }), { nach: 160 });
-    body += '<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
-      `<wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Notenspiegel"/>` +
-      '<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
-      '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>' +
-      '<pic:nvPicPr><pic:cNvPr id="0" name="notenspiegel.png"/><pic:cNvPicPr/></pic:nvPicPr>' +
-      '<pic:blipFill><a:blip r:embed="rIdBild"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
-      `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
-      "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>";
-    body += `<w:sectPr>${quer ? SEITE_QUER : SEITE_HOCH}</w:sectPr>`;
-  } else {
-    body += wAbsatz("", { nach: 0 }) + `<w:sectPr>${SEITE_HOCH}</w:sectPr>`;
-  }
+  body += `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>`;
+
   const dokument = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
     'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
@@ -987,8 +1119,8 @@ function wordDokument(info) {
   const stile = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults>' +
     '<w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/>' +
-    '<w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="de-DE"/></w:rPr></w:rPrDefault>' +
-    '<w:pPrDefault><w:pPr><w:spacing w:after="80" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>' +
+    `<w:color w:val="${W_DUNKEL}"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="de-DE"/></w:rPr></w:rPrDefault>` +
+    '<w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>' +
     '<w:style w:type="paragraph" w:default="1" w:styleId="Standard"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>';
   const typen = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
@@ -1007,11 +1139,13 @@ function wordDokument(info) {
     (bild ? '<Relationship Id="rIdBild" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/notenspiegel.png"/>' : "") +
     "</Relationships>";
   const zeitstempel = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  // Titel, Kurs und Notenspiegel (ohne Namen) als Dokumenteigenschaften, damit der Import alles genau wiederherstellt
   const core = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ' +
     'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" ' +
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
-    `<dc:title>${xml(ueberschrift)}</dc:title><dc:creator>Notenauswertung</dc:creator>` +
+    `<dc:title>${xml(titel)}</dc:title><dc:subject>${xml(meta.kurs || "")}</dc:subject><dc:creator>Notenauswertung</dc:creator>` +
+    `<dc:description>${xml("Notenauswertung " + JSON.stringify(meta))}</dc:description>` +
     `<dcterms:created xsi:type="dcterms:W3CDTF">${zeitstempel}</dcterms:created></cp:coreProperties>`;
   const dateien = [
     { name: "[Content_Types].xml", daten: typen },
@@ -1132,6 +1266,20 @@ async function docxLesen(zip) {
       const x = /^\d+\s+(.+)$/.exec(z[0] || "");
       return { name: x ? x[1] : leerzeichen(z[0]), ab: parseFloat(String(z[1]).replace(",", ".")), prozent: parseFloat(String(z[2]).replace(",", ".")) };
     });
+  }
+  // Hier exportierte Dateien tragen Kurs, Arbeit, Datum und Notenspiegel in den Dokumenteigenschaften
+  const coreText = await zip.text("docProps/core.xml");
+  if (coreText) {
+    const beschreibung = alle(xmlDok(coreText), "description").map((d) => d.textContent)[0] || "";
+    if (beschreibung.startsWith("Notenauswertung {")) {
+      try {
+        const m = JSON.parse(beschreibung.slice("Notenauswertung ".length));
+        if (m.kurs) meta.kurs = m.kurs;
+        meta.arbeit = m.arbeit || "";
+        if (m.datum) meta.datum = m.datum;
+        if (m.einst && m.einst.gesamt > 0) { meta.gesamt = m.einst.gesamt; meta.einst = m.einst; }
+      } catch (e) { /* ältere oder fremde Datei */ }
+    }
   }
   const text = kinder(body, "p").map((p) => leerzeichen(wAbsatzText(p))).filter(Boolean);
   return { tabellen, meta, text };
@@ -1818,7 +1966,8 @@ if (typeof document !== "undefined") {
   let einst = zusammenfuehren(STANDARD_EINST, lesen(EINST_KEY));
   let kurse = Array.isArray(lesen(KURSE_KEY)) ? lesen(KURSE_KEY) : [];
   let aktiverKurs = (lesen(KURSE_KEY + "-aktiv") && kurse.find((k) => k.id === lesen(KURSE_KEY + "-aktiv"))) ? lesen(KURSE_KEY + "-aktiv") : (kurse[0] && kurse[0].id);
-  const punkte = new Map(); // Kurs-ID -> Map(Schüler-ID -> Eingabe), wird nie gespeichert
+  const punkte = new Map(); // Kurs-ID -> Map(Schüler-ID -> Eingabe), gespeichert nur als Arbeit beim Word-Export
+  let ungesichert = false;
   let ergebnis = null;
 
   const einstSpeichern = () => schreiben(EINST_KEY, einst);
@@ -1868,7 +2017,7 @@ if (typeof document !== "undefined") {
     const bereich = $("eintragbereich");
     bereich.innerHTML = "";
     const k = kurs();
-    $("testpunkte").hidden = !(k && k.schueler.length);
+    $("testpunkte").hidden = !(k && k.beispiel && k.schueler.length);
     if (!k) {
       bereich.append(el("div", { klasse: "karte leer", stil: "margin-top:14px" },
         el("p", { text: "Noch kein Kurs angelegt. Lege einen Kurs mit seinen Namen an, dann kannst du hier die Punkte eintragen." }),
@@ -1895,7 +2044,7 @@ if (typeof document !== "undefined") {
       const eingabe = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", "aria-label": `Punkte ${s.name}`, "data-idx": idx });
       eingabe.value = werte.get(s.id) || "";
       const noteZelle = el("td", { klasse: "note" });
-      eingabe.addEventListener("input", () => { werte.set(s.id, eingabe.value); zeileAktualisieren(); pruefe(); });
+      eingabe.addEventListener("input", () => { werte.set(s.id, eingabe.value); ungesichert = true; zeileAktualisieren(); pruefe(); });
       eingabe.addEventListener("keydown", (e) => {
         const ziel = e.key === "Enter" || e.key === "ArrowDown" ? idx + 1 : e.key === "ArrowUp" ? idx - 1 : null;
         if (ziel == null) return;
@@ -1983,7 +2132,7 @@ if (typeof document !== "undefined") {
 
   window.addEventListener("beforeunload", (e) => {
     const etwas = [...punkte.values()].some((m) => [...m.values()].some((v) => String(v).trim()));
-    if (etwas) { e.preventDefault(); e.returnValue = ""; }
+    if (etwas && ungesichert) { e.preventDefault(); e.returnValue = ""; }
   });
 
   // ----- Auswerten -----
@@ -2005,6 +2154,8 @@ if (typeof document !== "undefined") {
   $("auswerten").addEventListener("click", () => {
     if (!pruefe()) return;
     ergebnis = auswertungErstellen();
+    $("hinweis").textContent = "";
+    $("hinweis").classList.remove("fehler");
     $("eingabe").hidden = true;
     $("ergebnis").hidden = false;
     ergebnisAnzeigen();
@@ -2018,117 +2169,105 @@ if (typeof document !== "undefined") {
   });
 
   function unterzeile(e) {
-    return [e.kursName, e.arbeit, datumDE(e.datum), `Gesamtpunktzahl ${deG(e.ns.maxPunkte)}`].filter(Boolean).join(" · ");
+    return [e.kursName, datumDE(e.datum), `Gesamtpunktzahl ${deG(e.ns.maxPunkte)}`].filter(Boolean).join(" · ");
   }
-
-  function kennzahlenListe(e) {
-    const s = e.stat, kz = einst.kennzahlen, max = e.ns.maxPunkte;
-    const liste = [];
-    if (kz.teilnehmer) liste.push(["Teilnehmer", `${s.n} von ${s.gesamtZahl}`, s.fehlend ? `${s.fehlend} nicht mitgeschrieben` : "alle mitgeschrieben"]);
-    if (kz.durchschnitt) liste.push(["Notendurchschnitt", s.notenSchnitt.toFixed(2).replace(".", ","), ""]);
-    if (kz.mittel) liste.push(["Mittelwert", `${de(s.mittel)} P`, `${de(s.mittel / max * 100)} %`]);
-    if (kz.median) liste.push(["Median", `${deG(s.median)} P`, `${de(s.median / max * 100)} %`]);
-    if (kz.std) liste.push(["Standardabweichung", `${de(s.std)} P`, ""]);
-    if (kz.spanne) liste.push(["Spannweite", `${deG(s.min)} bis ${deG(s.max)} P`, ""]);
-    if (kz.unter) liste.push([`Unter „${e.ns.noten[3].name}“`, String(s.unter), `${de(s.n ? s.unter / s.n * 100 : 0)} %`]);
-    return liste;
+  // Die wichtigsten Werte für den Kopf der Notenliste, auf dem Bildschirm und in Word
+  function grundwerte(e) {
+    const s = e.stat, max = e.ns.maxPunkte;
+    return [
+      ["Teilnehmer", `${s.n} von ${s.gesamtZahl}`],
+      ["Notenschnitt", s.notenSchnitt.toFixed(2).replace(".", ",")],
+      ["Mittelwert", `${de(s.mittel)} P · ${Math.round(s.mittel / max * 100)} %`],
+      ["Gesamtpunktzahl", `${deG(max)} P`],
+    ];
   }
-
-  function spaltenDef() {
-    const sp = einst.spalten;
-    const d = [{ id: "nr", titel: "Nr.", rechts: true, breite: 600 }, { id: "name", titel: "Name", breite: 3000 }];
-    if (sp.klasse) d.push({ id: "klasse", titel: "Klasse", breite: 1000 });
-    d.push({ id: "punkte", titel: "Punkte", rechts: true, breite: 1000 });
-    if (sp.prozent) d.push({ id: "prozent", titel: "Prozent", rechts: true, breite: 1100 });
-    d.push({ id: "note", titel: "Note", breite: sp.notenwort ? 2000 : 900 });
-    if (sp.bis) d.push({ id: "bis", titel: "bis zur nächsten Note", rechts: true, breite: 1700 });
-    // Breiten für Word auf die Textbreite der Hochformatseite verteilen
-    const summe = d.reduce((s, c) => s + c.breite, 0);
-    d.forEach((c) => { c.breite = Math.round(c.breite * 9638 / summe); });
-    return d;
-  }
-  function zelltext(z, id, noten) {
-    if (id === "nr") return String(z.nr);
-    if (id === "name") return z.name;
-    if (id === "klasse") return z.klasse;
-    if (z.fehlt) return id === "punkte" ? "fehlt" : "";
-    if (id === "punkte") return deG(z.punkte);
-    if (id === "prozent") return `${de(z.prozent)} %`;
-    if (id === "note") return `${z.note + 1}${z.tendenz}` + (einst.spalten.notenwort ? `  ${noten[z.note].name}` : "");
-    if (id === "bis") return z.bis == null ? "" : `+${deG(z.bis)}`;
-    return "";
-  }
+  const noteText = (z) => `${z.note + 1}${z.tendenz}`;
+  const listenZeilen = (e) => sortiere(e.zeilen, einst.sortierung).filter((z) => !z.fehlt || einst.spalten.fehlend);
 
   function ergebnisAnzeigen() {
     const e = ergebnis;
     $("titel").textContent = e.arbeit || "Auswertung";
-    $("untertitel").textContent = unterzeile({ ...e, arbeit: "" });
+    $("untertitel").textContent = unterzeile(e);
     neuZeichnen();
-    // Kennzahlen
     const box = $("kennzahlen");
     box.innerHTML = "";
-    kennzahlenListe(e).forEach(([bez, wert, zusatz]) =>
-      box.append(el("div", { klasse: "kennzahl" }, el("div", { klasse: "bez", text: bez }), el("div", { klasse: "wert", text: wert }), zusatz ? el("div", { klasse: "zusatz", text: zusatz }) : null)));
-    box.hidden = !box.children.length;
-    // Notenspiegel-Zeile
-    const z = $("zeile-ns");
-    z.innerHTML = "";
-    if (einst.kennzahlen.zeile) {
-      const text = notenspiegelZeile(e.r.anzahl, e.stat.notenSchnitt);
-      const knopf = el("button", { type: "button", klasse: "zweit", text: "Kopieren" });
-      knopf.addEventListener("click", async () => {
-        let ok = false;
-        try { await navigator.clipboard.writeText(text); ok = true; } catch (err) {
-          const ta = el("textarea", { stil: "position:fixed;opacity:0" }); ta.value = text; document.body.append(ta); ta.select();
-          try { ok = document.execCommand("copy"); } catch (err2) { ok = false; }
-          ta.remove();
-        }
-        knopf.textContent = ok ? "Kopiert" : "Bitte markieren und kopieren";
-        setTimeout(() => { knopf.textContent = "Kopieren"; }, 1800);
-      });
-      z.append(el("span", { klasse: "bez", stil: "font-weight:600", text: "Notenspiegel" }), el("code", { text }), knopf);
-    }
-    z.hidden = !einst.kennzahlen.zeile;
+    grundwerte(e).forEach(([bez, wert]) => box.append(el("div", { klasse: "kachel" }, el("div", { klasse: "bez", text: bez }), el("div", { klasse: "wert", text: wert }))));
     $("sortierung").value = einst.sortierung;
     listeAnzeigen();
+    statistikAnzeigen();
   }
 
   function listeAnzeigen() {
     const e = ergebnis, noten = e.ns.noten;
-    const sp = spaltenDef();
     const tab = $("liste");
     tab.innerHTML = "";
-    tab.append(el("thead", {}, el("tr", {}, sp.map((c) => el("th", { klasse: c.rechts ? "zahl" : "", text: c.titel })))));
+    tab.append(el("thead", {}, el("tr", {}, el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Note" }), el("th", { klasse: "zahl", text: "Punkte" }))));
     const tbody = el("tbody");
-    sortiere(e.zeilen, einst.sortierung).filter((zz) => !zz.fehlt || einst.spalten.fehlend).forEach((zz) => {
-      const tr = el("tr", { klasse: zz.fehlt ? "fehlt" : "" });
-      sp.forEach((c) => {
-        const td = el("td", { klasse: (c.rechts ? "zahl " : "") + (c.id === "name" ? "name" : "") });
-        if (c.id === "note" && !zz.fehlt) {
-          td.append(noteChip(zz.note, zz.tendenz, noten));
-          if (einst.spalten.notenwort) td.append(el("span", { klasse: "notenwort", text: noten[zz.note].name }));
-        } else if (c.id === "prozent" && !zz.fehlt) {
-          td.append(document.createTextNode(`${de(zz.prozent)} %`));
-          td.append(el("span", { klasse: "balken" }, el("i", { stil: `width:${Math.min(100, zz.prozent)}%;background:${noten[zz.note].farbe}` })));
-        } else td.textContent = zelltext(zz, c.id, noten);
-        tr.append(td);
-      });
-      tbody.append(tr);
+    listenZeilen(e).forEach((z) => {
+      tbody.append(el("tr", { klasse: z.fehlt ? "fehlt" : "" },
+        el("td", { klasse: "name", text: z.name }),
+        el("td", { text: z.klasse }),
+        el("td", {}, z.fehlt ? null : noteChip(z.note, z.tendenz, noten)),
+        el("td", { klasse: "zahl", text: z.fehlt ? "fehlt" : deG(z.punkte) })));
     });
     tab.append(tbody);
   }
   $("sortierung").addEventListener("change", (e) => { einst.sortierung = e.target.value; einstSpeichern(); listeAnzeigen(); });
 
-  function reiter(welcher) {
-    const spiegel = welcher === "spiegel";
-    $("reiter-spiegel").setAttribute("aria-selected", String(spiegel));
-    $("reiter-liste").setAttribute("aria-selected", String(!spiegel));
-    $("panel-spiegel").hidden = !spiegel;
-    $("panel-liste").hidden = spiegel;
-    if (spiegel) neuZeichnen();
+  function kopierKnopf(text) {
+    const knopf = el("button", { type: "button", klasse: "zweit", text: "Kopieren" });
+    knopf.addEventListener("click", async () => {
+      let ok = false;
+      try { await navigator.clipboard.writeText(text); ok = true; } catch (err) {
+        const ta = el("textarea", { stil: "position:fixed;opacity:0" }); ta.value = text; document.body.append(ta); ta.select();
+        try { ok = document.execCommand("copy"); } catch (err2) { ok = false; }
+        ta.remove();
+      }
+      knopf.textContent = ok ? "Kopiert" : "Bitte markieren und kopieren";
+      setTimeout(() => { knopf.textContent = "Kopieren"; }, 1800);
+    });
+    return knopf;
   }
-  $("reiter-spiegel").addEventListener("click", () => reiter("spiegel"));
-  $("reiter-liste").addEventListener("click", () => reiter("liste"));
+
+  function statistikAnzeigen() {
+    const e = ergebnis, noten = e.ns.noten, box = $("panel-statistik");
+    box.innerHTML = "";
+    const st = statistik(e, einst.tendenzen);
+    const mitT = einst.tendenzen.an;
+    const tabelle = (kopf, zeilen) => el("div", { klasse: "tabelle-rahmen", stil: "padding:2px 12px" },
+      el("table", { klasse: "stat" }, el("thead", {}, el("tr", {}, kopf.map((k) => el("th", { text: k })))), el("tbody", {}, zeilen)));
+
+    box.append(el("div", { klasse: "abschnitt-titel", text: "Notenverteilung" }));
+    const zeilen = st.verteilung.map((v, i) => el("tr", {},
+      el("td", {}, noteChip(i, "", noten), el("span", { klasse: "notenwort", text: v.name })),
+      el("td", { text: deG(v.ab) }), el("td", { text: Number.isFinite(v.prozent) ? `${deG(v.prozent)} %` : "" }),
+      el("td", { klasse: "stark", text: String(v.anzahl) }), el("td", { text: `${de(v.anteil)} %` }),
+      mitT ? el("td", { text: v.anzahl ? `${v.plus} / ${v.minus}` : "" }) : null));
+    zeilen.push(el("tr", { klasse: "summe" }, el("td", { text: "Gesamt" }), el("td"), el("td"),
+      el("td", { text: String(st.n) }), el("td", { text: st.n ? "100,0 %" : "" }), mitT ? el("td") : null));
+    box.append(tabelle(["Note", "ab Punkten", "ab Prozent", "Anzahl", "Anteil", ...(mitT ? ["davon + / −"] : [])], zeilen));
+    const zeileNs = notenspiegelZeile(e.r.anzahl, e.stat.notenSchnitt);
+    box.append(el("div", { klasse: "zeile-ns" }, el("code", { text: zeileNs }), kopierKnopf(zeileNs)));
+
+    box.append(el("div", { klasse: "abschnitt-titel", text: "Kennzahlen" }));
+    box.append(el("div", { klasse: "raster" }, st.kennzahlen.map(([b, w]) => el("div", {}, el("span", { text: b }), el("b", { text: w })))));
+
+    if (st.klassen.length) {
+      box.append(el("div", { klasse: "abschnitt-titel", text: "Nach Klassen" }));
+      box.append(tabelle(["Klasse", "Teilnehmer", "Notenschnitt", "Mittelwert", "Median"], st.klassen.map((k) => el("tr", {},
+        el("td", { klasse: "stark", text: k.klasse }), el("td", { text: `${k.n} von ${k.gesamt}` }),
+        el("td", { klasse: "stark", text: k.schnitt }), el("td", { text: k.mittel }), el("td", { text: k.median })))));
+    }
+  }
+
+  function reiter(welcher) {
+    ["spiegel", "liste", "statistik"].forEach((w) => {
+      $("reiter-" + w).setAttribute("aria-selected", String(w === welcher));
+      $("panel-" + w).hidden = w !== welcher;
+    });
+    if (welcher === "spiegel") neuZeichnen();
+  }
+  ["spiegel", "liste", "statistik"].forEach((w) => $("reiter-" + w).addEventListener("click", () => reiter(w)));
 
   // ----- Diagramm -----
   const canvas = $("plot"), box = $("bildbox");
@@ -2172,10 +2311,10 @@ if (typeof document !== "undefined") {
   new ResizeObserver(neuZeichnen).observe(box);
 
   const dateiname = (art, endung) => [art, dateiTeil(ergebnis.kursName), dateiTeil(ergebnis.arbeit), ergebnis.datum].filter(Boolean).join("_") + "." + endung;
-  function bildBlob(breite) {
+  function bildBlob(breite, grau = false) {
     const c = document.createElement("canvas");
     c.width = breite; c.height = Math.round(breite * HOEHE / BREITE);
-    zeichne(c.getContext("2d"), c.width, ergebnis.chart);
+    zeichne(c.getContext("2d"), c.width, { ...ergebnis.chart, grau });
     return new Promise((ok) => c.toBlob(ok, "image/png"));
   }
   $("bild-speichern").addEventListener("click", async () => { herunterladen(await bildBlob(2000), dateiname("Notenspiegel", "png")); });
@@ -2196,6 +2335,7 @@ if (typeof document !== "undefined") {
     if (alt >= 0) { eintrag.id = k.arbeiten[alt].id; k.arbeiten[alt] = eintrag; } else k.arbeiten.push(eintrag);
     k.arbeiten.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
     kurseSpeichern();
+    ungesichert = false;
     return alt >= 0 ? "aktualisiert" : "gespeichert";
   }
   const arbeitTitel = (a) => [a.arbeit || "Ohne Titel", datumDE(a.datum)].filter(Boolean).join(" · ");
@@ -2212,6 +2352,7 @@ if (typeof document !== "undefined") {
         k.schueler.find((x) => vergleich(x.name) === vergleich(p.name) && vergleich(x.klasse) === vergleich(p.klasse));
       if (s) werte.set(s.id, p.punkte || ""); else if (p.punkte) fehlen++;
     });
+    ungesichert = false;
     eintragAufbauen();
     if (fehlen) $("datenstatus").textContent = `${fehlen} ${fehlen === 1 ? "Person aus dieser Arbeit ist" : "Personen aus dieser Arbeit sind"} nicht mehr im Kurs.\n` + $("datenstatus").textContent;
   }
@@ -2236,30 +2377,26 @@ if (typeof document !== "undefined") {
 
   // ----- Word-Export -----
   $("word").addEventListener("click", async () => {
-    const e = ergebnis, noten = e.ns.noten, w = einst.word;
+    const e = ergebnis, w = einst.word;
     $("hinweis").textContent = "";
+    $("hinweis").classList.remove("fehler");
     try {
-      const sp = spaltenDef();
-      const zeilen = sortiere(e.zeilen, einst.sortierung).filter((z) => !z.fehlt || einst.spalten.fehlend).map((z) => sp.map((c) => {
-        const text = zelltext(z, c.id, noten);
-        if (c.id === "note" && !z.fehlt) return { text, fett: true, fuellung: gemischtHex(noten[z.note].farbe, 0.35) };
-        if (z.fehlt && c.id !== "nr" && c.id !== "name" && c.id !== "klasse") return { text, farbe: "8A9099" };
-        return { text };
-      }));
-      const kz = w.kennzahlen ? kennzahlenListe(e).map(([b, v, zu]) => [b, zu ? `${v} (${zu})` : v]) : [];
-      const grenzen = w.kennzahlen && einst.kennzahlen.grenzen ? noten.map((n, i) => [
-        { text: `${i + 1}  ${n.name}`, fett: true, fuellung: gemischtHex(n.farbe, 0.35) },
-        deG(n.ab), Number.isFinite(n.prozent) ? `${deG(n.prozent)} %` : "", String(e.r.anzahl[i])]) : null;
-      const bild = w.diagramm ? new Uint8Array(await (await bildBlob(2400)).arrayBuffer()) : null;
+      const st = statistik(e, einst.tendenzen);
+      const label = leerzeichen(w.ueberschrift) || "Notenliste";
+      const datumLang = e.datum ? new Date(e.datum + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }) : "";
+      const bild = w.diagramm ? new Uint8Array(await (await bildBlob(2400, w.grau)).arrayBuffer()) : null;
       const blob = wordDokument({
-        ueberschrift: w.ueberschrift || "Notenliste", unterzeile: unterzeile(e), kennzahlen: kz, grenzen,
-        zeileNs: w.kennzahlen && einst.kennzahlen.zeile ? notenspiegelZeile(e.r.anzahl, e.stat.notenSchnitt) : "",
-        spalten: sp, kopf: sp.map((c) => c.titel), zeilen, bild, quer: w.quer,
+        kopfzeile: [label, e.kursName].filter(Boolean).join(" · "),
+        kopfzeile2: [e.kursName, e.arbeit].filter(Boolean).join(" · ") || label,
+        titel: e.arbeit || label, datumText: datumLang, grundwerte: grundwerte(e),
+        liste: listenZeilen(e).map((z) => ({ name: z.name, klasse: z.klasse, fehlt: z.fehlt, note: z.fehlt ? "" : noteText(z), punkte: z.fehlt ? "" : deG(z.punkte) })),
+        bild, verteilung: w.statistik ? st.verteilung : null, kennzahlen: w.statistik ? st.kennzahlen : null,
+        klassen: w.statistik ? st.klassen : null, tendenzen: einst.tendenzen,
+        meta: { kurs: e.kursName, arbeit: e.arbeit, datum: e.datum, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen } },
       });
       const gesichert = arbeitSichern();
-      $("hinweis").classList.remove("fehler");
-      $("hinweis").textContent = gesichert === "aktualisiert" ? "Die Arbeit ist im Tool gespeichert (vorherigen Stand ersetzt)." : "Die Arbeit ist im Tool gespeichert.";
-      herunterladen(blob, dateiname(w.ueberschrift || "Notenliste", "docx"));
+      $("hinweis").textContent = gesichert === "aktualisiert" ? "Die Arbeit ist im Tool gespeichert, der vorherige Stand wurde ersetzt." : "Die Arbeit ist im Tool gespeichert.";
+      herunterladen(blob, dateiname(label, "docx"));
     } catch (err) {
       $("hinweis").textContent = "Der Word-Export hat nicht geklappt: " + err.message;
       $("hinweis").classList.add("fehler");
@@ -2290,7 +2427,7 @@ if (typeof document !== "undefined") {
       ["Uysal, Deniz", "7c"], ["Vogel, Ida", "7a"], ["Wagner, Theo", "7b"], ["Xhaferi, Alba", "7c"], ["Yilmaz, Can", "7a"],
       ["Zimmermann, Lotta", "7b"], ["Bauer, Malte", "7c"], ["Koch, Nele", "7a"], ["Schulz, Tim", "7b"], ["Wolf, Greta", "7c"],
     ];
-    const k = { id: neueId(), name: "Beispielkurs (erfundene Namen)", schueler: namen.map(([name, klasse]) => ({ id: neueId(), name, klasse })) };
+    const k = { id: neueId(), name: "Beispielkurs (erfundene Namen)", beispiel: true, schueler: namen.map(([name, klasse]) => ({ id: neueId(), name, klasse })) };
     kurse.push(k);
     aktiverKurs = k.id; bearbeitet = k.id;
     kurseSpeichern();
@@ -2397,7 +2534,7 @@ if (typeof document !== "undefined") {
   function backupEinlesen(daten) {
     if (!daten || !Array.isArray(daten.kurse)) throw new Error("keine Kurse in der Datei");
     const geladen = daten.kurse.filter((k) => k && Array.isArray(k.schueler)).map((k) => ({
-      id: String(k.id || neueId()), name: String(k.name || ""),
+      id: String(k.id || neueId()), name: String(k.name || ""), beispiel: !!k.beispiel,
       schueler: k.schueler.filter((s) => s && s.name).map((s) => ({ id: String(s.id || neueId()), name: String(s.name), klasse: String(s.klasse || "") })),
       arbeiten: (Array.isArray(k.arbeiten) ? k.arbeiten : []).filter((a) => a && Array.isArray(a.punkte)).map((a) => ({
         id: String(a.id || neueId()), arbeit: String(a.arbeit || ""), datum: String(a.datum || ""), gesichert: String(a.gesichert || ""),
@@ -2641,7 +2778,7 @@ if (typeof document !== "undefined") {
     if (mitPunkten) haken("Punkte übernehmen", "punkteNehmen");
     const m = imp.meta;
     if (m.gesamt || m.arbeit || m.datum) haken(["Gesamtpunktzahl", m.arbeit ? "Arbeit" : "", m.datum ? "Datum" : ""].filter(Boolean).join(", ") + " übernehmen", "metaNehmen");
-    if (m.grenzen && m.grenzen.length === einst.noten.length) haken("Notengrenzen übernehmen", "grenzenNehmen");
+    if (m.einst || (m.grenzen && m.grenzen.length === einst.noten.length)) haken("Notengrenzen und Tendenzen übernehmen", "grenzenNehmen");
     if (optionenBox.children.length) v.append(optionenBox);
     zeilenFaerben();
   }
@@ -2665,7 +2802,7 @@ if (typeof document !== "undefined") {
       let s = schonDa(k, e);
       if (s) { da++; if (!s.klasse && e.klasse) s.klasse = e.klasse; }
       else { s = { id: neueId(), name: e.name, klasse: e.klasse }; k.schueler.push(s); neu++; }
-      if (mitPunkten && e.punkte != null) { werte.set(s.id, deG(e.punkte)); punkteZahl++; }
+      if (mitPunkten && e.punkte != null) { werte.set(s.id, deG(e.punkte)); punkteZahl++; ungesichert = true; }
     });
     const m = imp.meta;
     if (imp.metaNehmen) {
@@ -2673,7 +2810,9 @@ if (typeof document !== "undefined") {
       if (m.arbeit) $("arbeit").value = m.arbeit;
       if (m.datum) $("datum").value = m.datum;
     }
-    if (imp.grenzenNehmen && m.grenzen && m.grenzen.length === einst.noten.length) {
+    if (imp.grenzenNehmen && m.einst) {
+      einst = zusammenfuehren(STANDARD_EINST, { ...einst, noten: m.einst.noten, rundung: m.einst.rundung, tendenzen: m.einst.tendenzen });
+    } else if (imp.grenzenNehmen && m.grenzen && m.grenzen.length === einst.noten.length) {
       const letzte = einst.noten.length - 1;
       m.grenzen.forEach((g, i) => {
         const n = einst.noten[i];
