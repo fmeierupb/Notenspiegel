@@ -117,6 +117,7 @@
   .eintrag td.punkte { width: 7.5em; }
   .eintrag td.punkte input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
   .eintrag td.note { width: 8em; }
+  .eintrag td.note input.note-manuell { width: 4.2em; text-align: center; padding: 5px 6px; }
   .leer { text-align: center; padding: 28px 12px; color: var(--muted); }
   .leer .knoepfe { justify-content: center; }
 
@@ -241,7 +242,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 06:15</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 06:23</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -593,6 +594,13 @@ function tendenz(p, i, r, t, letzte) {
   return "";
 }
 
+// Eingetragene Note prüfen und vereinheitlichen: 1 bis 6, wahlweise mit + oder -
+function noteLesen(text) {
+  const t = String(text || "").trim().replace(/\s+/g, "").replace("-", "−");
+  if (!t) return { leer: true };
+  const m = /^([1-6])([+−]?)$/.exec(t);
+  return m ? { note: +m[1] - 1, tendenz: m[2], text: m[1] + m[2] } : { fehler: true };
+}
 // Bewertet ist, wer Punkte hat. "fehlt" heißt nachschreiben, ein Vermerk heißt: schreibt nicht mit
 const bewertet = (z) => !z.fehlt && !z.vermerk;
 
@@ -655,7 +663,7 @@ function statistik(e, tendenzen) {
   const kennzahlen = [];
   kennzahlen.push(["Teilnehmer", `${n} von ${stat.gesamtZahl}`]);
   if (stat.fehlend) kennzahlen.push(["Nicht mitgeschrieben", String(stat.fehlend)]);
-  if (stat.mitVermerk) kennzahlen.push(["Mit Vermerk statt Note", String(stat.mitVermerk)]);
+  if (stat.mitVermerk) kennzahlen.push(["Mit Vermerk, ohne Punkte", String(stat.mitVermerk)]);
   kennzahlen.push(["Gesamtpunktzahl", `${deG(max)} P`]);
   kennzahlen.push(["Notenschnitt", komma2(stat.notenSchnitt)]);
   if (tendenzen && tendenzen.an) {
@@ -1087,7 +1095,10 @@ function wordDokument(info) {
     ] })),
   }], { rand: [100, 0] });
   body += wP("", { nach: 220 });
-  const sp = [{ breite: 5338 }, { breite: 1500 }, { breite: 1400 }, { breite: 1400, rechts: true }];
+  // Mit Vermerken bekommt die Spalte Punkte mehr Platz
+  const sp = liste.some((z) => z.vermerk)
+    ? [{ breite: 4238 }, { breite: 1400 }, { breite: 1200 }, { breite: 2800, rechts: true }]
+    : [{ breite: 5338 }, { breite: 1500 }, { breite: 1400 }, { breite: 1400, rechts: true }];
   body += wTab(sp, [
     { ...W_KOPF, zellen: ["Name", "Klasse", "Note", "Punkte"] },
     ...liste.map((z, i) => ({
@@ -1095,7 +1106,7 @@ function wordDokument(info) {
       zellen: z.fehlt
         ? [{ text: z.name, farbe: W_GRAU }, { text: z.klasse, farbe: W_GRAU }, "", { text: "fehlt", farbe: W_GRAU }]
         : z.vermerk
-        ? [{ text: z.name, farbe: W_GRAU }, { text: z.klasse, farbe: W_GRAU }, { text: z.vermerk, farbe: W_GRAU, spanne: 2 }]
+        ? [z.name, { text: z.klasse, farbe: W_GRAU }, { text: z.note, fett: true }, { text: z.vermerk, farbe: W_GRAU }]
         : [z.name, { text: z.klasse, farbe: W_GRAU }, { text: z.note, fett: true }, z.punkte],
     })),
   ], { hoehe: 290, rand: [40, 110] });
@@ -1931,12 +1942,14 @@ function eintraegeBauen(zeilen, d) {
     if (name.split(/[\s,]+/).filter(Boolean).every((w) => kopfTyp(w))) return;
     const p = zelle(d.punkte);
     const nr = zelle(d.nr);
-    // Ohne Punkte, aber mit Text in der Spalte Note: ein Vermerk aus einer hier exportierten Datei
-    const v = d.note >= 0 ? zelle(d.note) : "";
+    // Vermerk aus einer hier exportierten Datei: Text bei Punkten (ältere Dateien: Text bei Note)
+    const nz = d.note >= 0 ? zelle(d.note) : "";
+    const v = /\p{L}.*\p{L}/u.test(p) && !/^fehlt$/i.test(p) ? p : !p && /\p{L}.*\p{L}/u.test(nz) ? nz : "";
     liste.push({
       name, klasse: d.klasse >= 0 && d.klasse !== d.nachname ? zelle(d.klasse) : "",
       punkte: /^\d+(?:[.,]\d+)?$/.test(p) ? parseFloat(p.replace(",", ".")) : null,
-      vermerk: !p && /\p{L}.*\p{L}/u.test(v) ? v : "",
+      vermerk: v,
+      noteManuell: v && /^[1-6]\s*[+\-−]?$/.test(nz) ? nz.replace(/\s+/g, "").replace("-", "−") : "",
       nr: /^\d+$/.test(nr) ? parseInt(nr, 10) : null,
     });
   });
@@ -2031,6 +2044,9 @@ if (typeof document !== "undefined") {
   const SORTIERUNGEN = [["eingabe", "Reihenfolge im Kurs"], ["nachname", "Nachname"], ["vorname", "Vorname"], ["klasse", "Klasse, dann Nachname"], ["punkte-ab", "Punkte absteigend"], ["punkte-auf", "Punkte aufsteigend"]];
   if (einst.sortierung === "name") einst.sortierung = "nachname";
   const punkteVon = (k) => { if (!punkte.has(k.id)) punkte.set(k.id, new Map()); return punkte.get(k.id); };
+  // Bei einem Vermerk lässt sich eine Note direkt eintragen, etwa aus einer anderen Bewertung
+  const manuell = new Map();
+  const manuellVon = (k) => { if (!manuell.has(k.id)) manuell.set(k.id, new Map()); return manuell.get(k.id); };
 
   // ----- Thema -----
   function themaKnopf() { $("thema").textContent = document.documentElement.dataset.theme === "dark" ? "☀ Hell" : "☾ Dunkel"; }
@@ -2124,7 +2140,14 @@ if (typeof document !== "undefined") {
         noteZelle.innerHTML = "";
         if (l.fehler) noteZelle.append(el("span", { klasse: "fehler", stil: "font-size:13px", text: l.fehler }));
         else if (l.leer) noteZelle.append(el("span", { klasse: "notenwort", stil: "margin:0", text: "fehlt" }));
-        else if (l.vermerk) noteZelle.append(el("span", { klasse: "notenwort", stil: "margin:0", text: "Vermerk" }));
+        else if (l.vermerk) {
+          const nf = el("input", { type: "text", klasse: "note-manuell", placeholder: "Note", autocomplete: "off", "aria-label": `Note ${anzeige(s.name)}` });
+          nf.value = manuellVon(k).get(s.id) || "";
+          const pruefen = () => nf.classList.toggle("ungueltig", !!noteLesen(nf.value).fehler);
+          nf.addEventListener("input", () => { manuellVon(k).set(s.id, nf.value); ungesichert = true; pruefen(); pruefe(); });
+          pruefen();
+          noteZelle.append(nf);
+        }
         else if (!ns.fehler.length) {
           const r = berechne([l.wert], ns.noten, ns.maxPunkte);
           const i = r.noteIndex(l.wert);
@@ -2140,7 +2163,7 @@ if (typeof document !== "undefined") {
         el("td", { klasse: "punkte" }, eingabe),
         noteZelle));
     });
-    bereich.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px", text: "Leer heißt fehlt, schreibt nach. Statt Punkten kannst du einen Vermerk eintippen, etwa einen Grund. Die Person bleibt dann in der Liste, zählt aber nicht in die Statistik." }));
+    bereich.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px", text: "Leer heißt fehlt, schreibt nach. Statt Punkten kannst du einen Vermerk eintippen, etwa einen Grund, und daneben bei Bedarf eine Note. Die Person bleibt dann in der Liste, zählt aber nicht in die Statistik." }));
     bereich.append(el("table", { klasse: "eintrag" },
       el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Punkte", stil: "text-align:right" }), el("th", { text: "Note" }))),
       tbody));
@@ -2175,12 +2198,13 @@ if (typeof document !== "undefined") {
     if (k && k.schueler.length) {
       const werte = punkteVon(k);
       let mit = 0, ohne = 0, falsch = 0, vermerk = 0;
+      const man = manuellVon(k);
       k.schueler.forEach((s) => {
         const l = leseEingabe(werte.get(s.id), ns.maxPunkte);
-        if (l.fehler) falsch++; else if (l.leer) ohne++; else if (l.vermerk) vermerk++; else mit++;
+        if (l.fehler) falsch++; else if (l.leer) ohne++; else if (l.vermerk) { vermerk++; if (noteLesen(man.get(s.id)).fehler) falsch++; } else mit++;
       });
       zeilen.push(`${mit} von ${k.schueler.length - vermerk} Punktzahlen eingetragen` +
-        (vermerk ? `, ${vermerk} mit Vermerk statt Note` : "") +
+        (vermerk ? `, ${vermerk} mit Vermerk` : "") +
         (ohne ? `, ${ohne} ohne Punkte ${ohne === 1 ? "gilt" : "gelten"} als nicht mitgeschrieben.` : "."));
       if (falsch) zeilen.push(`${falsch} ${falsch === 1 ? "Eingabe ist" : "Eingaben sind"} ungültig.`);
       bereit = mit > 0 && !falsch && !ns.fehler.length;
@@ -2228,7 +2252,9 @@ if (typeof document !== "undefined") {
     const werte = punkteVon(k);
     const eintraege = k.schueler.map((s, i) => {
       const l = leseEingabe(werte.get(s.id), ns.maxPunkte);
-      return { id: s.id, nr: i + 1, name: s.name, klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert, vermerk: l.vermerk || "" };
+      const nm = l.vermerk ? noteLesen(manuellVon(k).get(s.id)) : {};
+      return { id: s.id, nr: i + 1, name: s.name, klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert, vermerk: l.vermerk || "",
+        noteManuell: nm.text ? { note: nm.note, tendenz: nm.tendenz, text: nm.text } : null };
     });
     const a = auswertung(eintraege, ns, einst);
     return {
@@ -2300,8 +2326,8 @@ if (typeof document !== "undefined") {
       tbody.append(el("tr", { klasse: bewertet(z) ? "" : "fehlt" },
         el("td", { klasse: "name", text: z.name }),
         el("td", { text: z.klasse }),
-        el("td", { text: z.vermerk || "" }, bewertet(z) ? noteChip(z.note, z.tendenz, noten) : null),
-        el("td", { klasse: "zahl", text: bewertet(z) ? deG(z.punkte) : z.fehlt ? "fehlt" : "" })));
+        el("td", {}, bewertet(z) ? noteChip(z.note, z.tendenz, noten) : z.noteManuell ? noteChip(z.noteManuell.note, z.noteManuell.tendenz, noten) : null),
+        el("td", { klasse: "zahl", text: bewertet(z) ? deG(z.punkte) : z.fehlt ? "fehlt" : z.vermerk })));
     });
     tab.append(tbody);
   }
@@ -2433,7 +2459,8 @@ if (typeof document !== "undefined") {
     const eintrag = {
       id: neueId(), arbeit: e.arbeit, datum: e.datum, gesichert: new Date().toISOString(),
       einst: { noten: kopie(einst.noten), gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: kopie(einst.tendenzen) },
-      punkte: e.zeilen.map((z) => ({ id: z.id, name: z.name, klasse: z.klasse || "", punkte: bewertet(z) ? deG(z.punkte) : z.vermerk || "", note: bewertet(z) ? `${z.note + 1}${z.tendenz}` : "" })),
+      punkte: e.zeilen.map((z) => ({ id: z.id, name: z.name, klasse: z.klasse || "", punkte: bewertet(z) ? deG(z.punkte) : z.vermerk || "",
+        note: bewertet(z) ? `${z.note + 1}${z.tendenz}` : z.noteManuell ? z.noteManuell.text : "" })),
     };
     k.arbeiten = Array.isArray(k.arbeiten) ? k.arbeiten : [];
     const alt = k.arbeiten.findIndex((a) => a.arbeit === eintrag.arbeit && a.datum === eintrag.datum);
@@ -2451,12 +2478,15 @@ if (typeof document !== "undefined") {
     if (a.datum) $("datum").value = a.datum;
     const werte = punkteVon(k);
     werte.clear();
+    const man = manuellVon(k);
+    man.clear();
     let fehlen = 0;
     a.punkte.forEach((p) => {
       const s = k.schueler.find((x) => x.id === p.id) ||
         k.schueler.find((x) => vergleich(x.name) === vergleich(p.name) && vergleich(x.klasse) === vergleich(p.klasse)) ||
         k.schueler.find((x) => namensSchluessel(x.name) === namensSchluessel(p.name) && vergleich(x.klasse) === vergleich(p.klasse));
-      if (s) werte.set(s.id, p.punkte || ""); else if (p.punkte) fehlen++;
+      if (s) { werte.set(s.id, p.punkte || ""); if (/\p{L}.*\p{L}/u.test(p.punkte || "") && p.note) man.set(s.id, p.note); }
+      else if (p.punkte) fehlen++;
     });
     ungesichert = false;
     eintragAufbauen();
@@ -2493,7 +2523,8 @@ if (typeof document !== "undefined") {
       const blob = wordDokument({
         titel: e.arbeit || label, unterzeile: kursMitKlassen(e), datumText: datumLang, grundwerte: grundwerte(e),
         farben: e.ns.noten.map((n) => n.farbe),
-        liste: listenZeilen(e).map((z) => ({ name: z.name, klasse: z.klasse, fehlt: z.fehlt, vermerk: z.vermerk || "", note: bewertet(z) ? noteText(z) : "", punkte: bewertet(z) ? deG(z.punkte) : "" })),
+        liste: listenZeilen(e).map((z) => ({ name: z.name, klasse: z.klasse, fehlt: z.fehlt, vermerk: z.vermerk || "",
+          note: bewertet(z) ? noteText(z) : z.noteManuell ? z.noteManuell.text : "", punkte: bewertet(z) ? deG(z.punkte) : "" })),
         bild, verteilung: w.statistik ? st.verteilung : null, kennzahlen: w.statistik ? st.kennzahlen : null,
         klassen: w.statistik ? st.klassen : null, tendenzen: einst.tendenzen,
         meta: { kurs: e.kursName, arbeit: e.arbeit, datum: e.datum, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen } },
@@ -2558,6 +2589,7 @@ if (typeof document !== "undefined") {
       if (loeschStufe === 0) { loeschStufe = 1; loeschen.className = "gefahr"; loeschen.textContent = "Wirklich löschen?"; setTimeout(() => { loeschStufe = 0; loeschen.className = "zweit"; loeschen.textContent = "Kurs löschen"; }, 4000); return; }
       kurse = kurse.filter((x) => x.id !== k.id);
       punkte.delete(k.id);
+      manuell.delete(k.id);
       if (aktiverKurs === k.id) aktiverKurs = kurse[0] ? kurse[0].id : null;
       bearbeitet = kurse[0] ? kurse[0].id : null;
       kurseSpeichern(); kursEditorAufbauen();
@@ -2908,7 +2940,7 @@ if (typeof document !== "undefined") {
       if (s) { da++; if (!s.klasse && e.klasse) s.klasse = e.klasse; }
       else { s = { id: neueId(), name: e.name, klasse: e.klasse }; k.schueler.push(s); neu++; }
       if (mitPunkten && e.punkte != null) { werte.set(s.id, deG(e.punkte)); punkteZahl++; ungesichert = true; }
-      else if (mitPunkten && e.vermerk) { werte.set(s.id, e.vermerk); ungesichert = true; }
+      else if (mitPunkten && e.vermerk) { werte.set(s.id, e.vermerk); if (e.noteManuell) manuellVon(k).set(s.id, e.noteManuell); ungesichert = true; }
     });
     const m = imp.meta;
     if (imp.metaNehmen) {
