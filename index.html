@@ -242,7 +242,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 06:23</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 09:14</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -729,6 +729,13 @@ function namensVergleich(art) {
   };
 }
 
+// Rang einer eingetragenen Note für die Sortierung: 1+ vor 1 vor 1− vor 2+ ...
+const notenRang = (n) => n && n.note != null ? n.note * 3 + ({ "+": 0, "−": 2 }[n.tendenz] ?? 1) : null;
+const nachNotenRang = (ab, sonst) => (a, b) => {
+  const x = notenRang(a.noteManuell), y = notenRang(b.noteManuell);
+  return (x == null) - (y == null) || (x != null && (ab ? x - y : y - x)) || sonst(a, b);
+};
+
 function sortiere(zeilen, art) {
   const name = namensVergleich(art === "vorname" ? "vorname" : "nachname");
   const vergleich = {
@@ -739,6 +746,9 @@ function sortiere(zeilen, art) {
     "punkte-auf": (a, b) => a.punkte - b.punkte || name(a, b),
   }[art] || ((a, b) => a.nr - b.nr);
   const mit = zeilen.filter(bewertet).sort(vergleich);
+  // nach Punkten: erst Vermerke (nach eingetragener Note), fehlende immer zuletzt
+  if (art === "punkte-ab" || art === "punkte-auf")
+    return [...mit, ...zeilen.filter((z) => !bewertet(z) && !z.fehlt).sort(nachNotenRang(art === "punkte-ab", name)), ...zeilen.filter((z) => z.fehlt).sort(name)];
   const ohne = zeilen.filter((z) => !bewertet(z)).sort(art === "eingabe" ? (a, b) => a.nr - b.nr : art === "klasse" ? vergleich : name);
   return [...mit, ...ohne];
 }
@@ -2174,16 +2184,20 @@ if (typeof document !== "undefined") {
     const werte = punkteVon(k), max = notenspiegel(einst).maxPunkte;
     const zeilen = k.schueler.map((s, i) => {
       const l = leseEingabe(werte.get(s.id), max);
-      return { s, nr: i + 1, roh: s.name, name: anzeige(s.name), klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert };
+      const nm = l.vermerk ? noteLesen(manuellVon(k).get(s.id)) : null;
+      return { s, nr: i + 1, roh: s.name, name: anzeige(s.name), klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert,
+        gruppe: l.wert != null ? 0 : l.leer ? 2 : 1, noteManuell: nm };
     });
     const name = namensVergleich(einst.sortierung === "vorname" ? "vorname" : "nachname");
-    const leerHinten = (f) => (a, b) => (a.punkte == null) - (b.punkte == null) || (a.punkte == null ? a.nr - b.nr : f(a, b));
+    // nach Punkten: Vermerke nach eingetragener Note, leere (fehlt) immer zuletzt
+    const leerHinten = (f, ab) => (a, b) => a.gruppe - b.gruppe ||
+      (a.gruppe === 0 ? f(a, b) : a.gruppe === 1 ? nachNotenRang(ab, (x, y) => x.nr - y.nr)(a, b) : a.nr - b.nr);
     const vgl = {
       eingabe: (a, b) => a.nr - b.nr,
       name, nachname: name, vorname: name,
       klasse: (a, b) => a.klasse.localeCompare(b.klasse, "de", { numeric: true }) || name(a, b),
-      "punkte-ab": leerHinten((a, b) => b.punkte - a.punkte || name(a, b)),
-      "punkte-auf": leerHinten((a, b) => a.punkte - b.punkte || name(a, b)),
+      "punkte-ab": leerHinten((a, b) => b.punkte - a.punkte || name(a, b), true),
+      "punkte-auf": leerHinten((a, b) => a.punkte - b.punkte || name(a, b), false),
     }[einst.sortierung] || ((a, b) => a.nr - b.nr);
     return zeilen.sort(vgl).map((z) => z.s);
   }
