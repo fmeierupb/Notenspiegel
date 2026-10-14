@@ -238,7 +238,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 05:35</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 05:38</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -1055,10 +1055,12 @@ const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr
   { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
 function wordDokument(info) {
-  const { titel, unterzeile, grundwerte, liste, bild, verteilung, kennzahlen, klassen, tendenzen, farben, meta } = info;
+  const { titel, unterzeile, datumText, grundwerte, liste, bild, verteilung, kennzahlen, klassen, tendenzen, farben, meta } = info;
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
-  let body = wP(wR(titel, { fett: true, gr: 22 }), { nach: 40 });
+  // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
+  let body = `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${TEXTBREITE}"/></w:tabs><w:spacing w:before="0" w:after="40"/></w:pPr>` +
+    wR(titel, { fett: true, gr: 22 }) + (datumText ? `<w:r><w:tab/></w:r>` + wR(datumText, { gr: 10.5, farbe: W_GRAU }) : "") + "</w:p>";
   if (unterzeile) body += wP(wR(unterzeile, { gr: 10.5, farbe: W_GRAU }), { nach: 0 });
   body += wP("", { nach: 180 });
   const kachelB = Math.floor(TEXTBREITE / grundwerte.length);
@@ -2225,8 +2227,15 @@ if (typeof document !== "undefined") {
     eintragAufbauen();
   });
 
+  // Kursname und die Klassen, aus denen der Kurs besteht (nicht doppelt, wenn sie schon im Namen stehen)
+  function kursMitKlassen(e) {
+    const klassen = [...new Set(e.zeilen.map((z) => z.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
+    const name = e.kursName || "";
+    const schonDrin = klassen.length && klassen.every((k) => name.toLowerCase().includes(k.toLowerCase()));
+    return [name, klassen.length && !schonDrin ? klassen.join(", ") : ""].filter(Boolean).join(" · ");
+  }
   function unterzeile(e) {
-    return [e.kursName, datumDE(e.datum), `Gesamtpunktzahl ${deG(e.ns.maxPunkte)}`].filter(Boolean).join(" · ");
+    return [kursMitKlassen(e), datumDE(e.datum), `Gesamtpunktzahl ${deG(e.ns.maxPunkte)}`].filter(Boolean).join(" · ");
   }
   // Die wichtigsten Werte für den Kopf der Notenliste, auf dem Bildschirm und in Word
   function grundwerte(e) {
@@ -2454,7 +2463,7 @@ if (typeof document !== "undefined") {
       const datumLang = e.datum ? new Date(e.datum + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }) : "";
       const bild = w.diagramm ? new Uint8Array(await (await bildBlob(2400)).arrayBuffer()) : null;
       const blob = wordDokument({
-        titel: e.arbeit || label, unterzeile: [e.kursName, datumLang].filter(Boolean).join(" · "), grundwerte: grundwerte(e),
+        titel: e.arbeit || label, unterzeile: kursMitKlassen(e), datumText: datumLang, grundwerte: grundwerte(e),
         farben: e.ns.noten.map((n) => n.farbe),
         liste: listenZeilen(e).map((z) => ({ name: z.name, klasse: z.klasse, fehlt: z.fehlt, note: z.fehlt ? "" : noteText(z), punkte: z.fehlt ? "" : deG(z.punkte) })),
         bild, verteilung: w.statistik ? st.verteilung : null, kennzahlen: w.statistik ? st.kennzahlen : null,
