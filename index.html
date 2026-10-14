@@ -70,6 +70,9 @@
   #ergebnis { max-width: 1180px; margin: 0 auto; }
   h1 { font-size: 26px; margin: 0 0 14px; }
   h2 { font-size: 20px; margin: 0; }
+  /* Serifenschrift für Titel und große Zahlen: auf dem iPad Iowan oder Charter, sonst Georgia oder Cambria */
+  h1, #titel, .kachel .wert { font-family: "Iowan Old Style", Charter, "Bitstream Charter", Georgia, Cambria, serif; letter-spacing: 0.005em; }
+  #titel { font-size: 24px; font-weight: 700; }
   .hint { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
   .status { font-size: 14px; color: var(--muted); margin-top: 8px; min-height: 1.4em; white-space: pre-line; }
   .fehler { color: var(--error); }
@@ -140,7 +143,7 @@
   .kacheln { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-top: 2px solid var(--text); border-bottom: 1px solid var(--border); margin-bottom: 16px; }
   .kachel { padding: 10px 12px 12px 0; }
   .kachel .bez { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-  .kachel .wert { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kachel .wert { font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
   .abschnitt-titel { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; border-bottom: 2px solid var(--text); padding-bottom: 5px; margin: 26px 0 10px; }
   .abschnitt-titel:first-child { margin-top: 4px; }
   .stat { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -238,7 +241,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 05:38</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 05:50</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -1009,7 +1012,8 @@ const W_DUNKEL = "1A1A1A", W_GRAU = "6E6E6E", W_HELL = "F3F3F3", W_LINIE = "CFCF
 const TEXTBREITE = 9638; // A4 hoch mit 2 cm Rand, in Twips
 
 function wR(text, o = {}) {
-  let rpr = "";
+  // Serifenschrift Cambria für Titel und große Zahlen, in Word auf allen Geräten vorhanden
+  let rpr = o.serif ? '<w:rFonts w:ascii="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/>' : "";
   if (o.fett) rpr += "<w:b/><w:bCs/>";
   if (o.caps) rpr += "<w:caps/>";
   rpr += `<w:color w:val="${o.farbe || W_DUNKEL}"/>`;
@@ -1060,7 +1064,7 @@ function wordDokument(info) {
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
   // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
   let body = `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${TEXTBREITE}"/></w:tabs><w:spacing w:before="0" w:after="40"/></w:pPr>` +
-    wR(titel, { fett: true, gr: 22 }) + (datumText ? `<w:r><w:tab/></w:r>` + wR(datumText, { gr: 10.5, farbe: W_GRAU }) : "") + "</w:p>";
+    wR(titel, { fett: true, gr: 24, serif: true }) + (datumText ? `<w:r><w:tab/></w:r>` + wR(datumText, { gr: 10.5, farbe: W_GRAU }) : "") + "</w:p>";
   if (unterzeile) body += wP(wR(unterzeile, { gr: 10.5, farbe: W_GRAU }), { nach: 0 });
   body += wP("", { nach: 180 });
   const kachelB = Math.floor(TEXTBREITE / grundwerte.length);
@@ -1068,7 +1072,7 @@ function wordDokument(info) {
     oben: { sz: 12, farbe: W_DUNKEL }, unten: { sz: 4, farbe: W_LINIE },
     zellen: grundwerte.map(([bez, wert]) => ({ absaetze: [
       wP(wR(bez, { caps: true, sperren: 16, gr: 7, fett: true, farbe: W_GRAU }), { nach: 30 }),
-      wP(wR(wert, { fett: true, gr: 15 })),
+      wP(wR(wert, { fett: true, gr: 17, serif: true })),
     ] })),
   }], { rand: [100, 0] });
   body += wP("", { nach: 220 });
