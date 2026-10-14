@@ -238,7 +238,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 13.10.2026 23:05</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 05:35</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -272,8 +272,9 @@
         <label class="feld">Sortierung
           <select id="sortierung">
             <option value="eingabe">Reihenfolge im Kurs</option>
-            <option value="name">Name</option>
-            <option value="klasse">Klasse, dann Name</option>
+            <option value="nachname">Nachname</option>
+            <option value="vorname">Vorname</option>
+            <option value="klasse">Klasse, dann Nachname</option>
             <option value="punkte-ab">Punkte absteigend</option>
             <option value="punkte-auf">Punkte aufsteigend</option>
           </select>
@@ -697,17 +698,31 @@ function notenspiegelZeile(anzahl, schnitt) {
   return anzahl.map((c, i) => `${i + 1}: ${c}`).join(" | ") + ` | Ø ${schnitt.toFixed(2).replace(".", ",")}`;
 }
 
+// Teile eines gespeicherten Namens "Nachname, Vorname"; ohne Komma zählt der ganze Name
+function namensTeile(name) {
+  const m = /^([^,]+),\s*(.+)$/.exec(name || "");
+  return m ? { nach: m[1].trim(), vor: m[2].trim() } : { nach: String(name || ""), vor: String(name || "") };
+}
+// Vergleich nach Nachname oder Vorname. Zeilen tragen den gespeicherten Namen in "roh", sonst in "name".
+function namensVergleich(art) {
+  const cmp = (x, y) => x.localeCompare(y, "de", { sensitivity: "base" });
+  return (a, b) => {
+    const x = namensTeile(a.roh != null ? a.roh : a.name), y = namensTeile(b.roh != null ? b.roh : b.name);
+    return (art === "vorname" ? cmp(x.vor, y.vor) || cmp(x.nach, y.nach) : cmp(x.nach, y.nach) || cmp(x.vor, y.vor)) || a.nr - b.nr;
+  };
+}
+
 function sortiere(zeilen, art) {
-  const name = (a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" });
+  const name = namensVergleich(art === "vorname" ? "vorname" : "nachname");
   const vergleich = {
     eingabe: (a, b) => a.nr - b.nr,
-    name: (a, b) => name(a, b) || a.nr - b.nr,
+    name, nachname: name, vorname: name,
     klasse: (a, b) => (a.klasse || "").localeCompare(b.klasse || "", "de", { numeric: true }) || name(a, b),
     "punkte-ab": (a, b) => b.punkte - a.punkte || name(a, b),
     "punkte-auf": (a, b) => a.punkte - b.punkte || name(a, b),
   }[art] || ((a, b) => a.nr - b.nr);
   const mit = zeilen.filter((z) => !z.fehlt).sort(vergleich);
-  const ohne = zeilen.filter((z) => z.fehlt).sort(art === "eingabe" ? (a, b) => a.nr - b.nr : art === "klasse" ? vergleich : (a, b) => name(a, b) || a.nr - b.nr);
+  const ohne = zeilen.filter((z) => z.fehlt).sort(art === "eingabe" ? (a, b) => a.nr - b.nr : art === "klasse" ? vergleich : name);
   return [...mit, ...ohne];
 }
 
@@ -1989,6 +2004,8 @@ if (typeof document !== "undefined") {
   const kurseSpeichern = () => { schreiben(KURSE_KEY, kurse); schreiben(KURSE_KEY + "-aktiv", aktiverKurs || null); };
   const kurs = () => kurse.find((k) => k.id === aktiverKurs) || null;
   const anzeige = (name) => nameAnzeigen(name, einst.namen);
+  const SORTIERUNGEN = [["eingabe", "Reihenfolge im Kurs"], ["nachname", "Nachname"], ["vorname", "Vorname"], ["klasse", "Klasse, dann Nachname"], ["punkte-ab", "Punkte absteigend"], ["punkte-auf", "Punkte aufsteigend"]];
+  if (einst.sortierung === "name") einst.sortierung = "nachname";
   const punkteVon = (k) => { if (!punkte.has(k.id)) punkte.set(k.id, new Map()); return punkte.get(k.id); };
 
   // ----- Thema -----
@@ -2054,7 +2071,7 @@ if (typeof document !== "undefined") {
     }
     // Sortierung (gilt auch für Notenliste und Word-Export) und gespeicherte Arbeiten
     const sortWahl = el("select");
-    [["eingabe", "Reihenfolge im Kurs"], ["name", "Name"], ["klasse", "Klasse, dann Name"], ["punkte-ab", "Punkte absteigend"], ["punkte-auf", "Punkte aufsteigend"]]
+    SORTIERUNGEN
       .forEach(([w, t]) => sortWahl.append(el("option", { value: w, text: t })));
     sortWahl.value = einst.sortierung;
     sortWahl.addEventListener("change", () => { einst.sortierung = sortWahl.value; einstSpeichern(); eintragAufbauen(); });
@@ -2106,13 +2123,13 @@ if (typeof document !== "undefined") {
     const werte = punkteVon(k), max = notenspiegel(einst).maxPunkte;
     const zeilen = k.schueler.map((s, i) => {
       const l = leseEingabe(werte.get(s.id), max);
-      return { s, nr: i + 1, name: anzeige(s.name), klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert };
+      return { s, nr: i + 1, roh: s.name, name: anzeige(s.name), klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert };
     });
-    const name = (a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }) || a.nr - b.nr;
+    const name = namensVergleich(einst.sortierung === "vorname" ? "vorname" : "nachname");
     const leerHinten = (f) => (a, b) => (a.punkte == null) - (b.punkte == null) || (a.punkte == null ? a.nr - b.nr : f(a, b));
     const vgl = {
       eingabe: (a, b) => a.nr - b.nr,
-      name,
+      name, nachname: name, vorname: name,
       klasse: (a, b) => a.klasse.localeCompare(b.klasse, "de", { numeric: true }) || name(a, b),
       "punkte-ab": leerHinten((a, b) => b.punkte - a.punkte || name(a, b)),
       "punkte-auf": leerHinten((a, b) => a.punkte - b.punkte || name(a, b)),
@@ -2221,7 +2238,7 @@ if (typeof document !== "undefined") {
     ];
   }
   const noteText = (z) => `${z.note + 1}${z.tendenz}`;
-  const listenZeilen = (e) => sortiere(e.zeilen.map((z) => ({ ...z, name: anzeige(z.name) })), einst.sortierung).filter((z) => !z.fehlt || einst.spalten.fehlend);
+  const listenZeilen = (e) => sortiere(e.zeilen.map((z) => ({ ...z, roh: z.name, name: anzeige(z.name) })), einst.sortierung).filter((z) => !z.fehlt || einst.spalten.fehlend);
 
   function ergebnisAnzeigen() {
     const e = ergebnis;
@@ -2594,7 +2611,7 @@ if (typeof document !== "undefined") {
     }));
     const vorhanden = new Set(kurse.map((k) => k.id));
     geladen.forEach((k) => { if (vorhanden.has(k.id)) kurse = kurse.map((x) => (x.id === k.id ? k : x)); else kurse.push(k); });
-    if (daten.einstellungen) { einst = zusammenfuehren(STANDARD_EINST, daten.einstellungen); einstSpeichern(); $("gesamt-start").value = einst.gesamt; }
+    if (daten.einstellungen) { einst = zusammenfuehren(STANDARD_EINST, daten.einstellungen); if (einst.sortierung === "name") einst.sortierung = "nachname"; einstSpeichern(); $("gesamt-start").value = einst.gesamt; }
     if (geladen[0]) { bearbeitet = geladen[0].id; aktiverKurs = geladen[0].id; }
     kurseSpeichern();
     return `${geladen.length} ${geladen.length === 1 ? "Kurs" : "Kurse"} aus dem Backup geladen.`;
