@@ -204,6 +204,7 @@
   .ns-tabelle td.nr { font-weight: 600; width: 1.5em; }
   .ns-tabelle input[type=text] { width: 100%; }
   .ns-tabelle input[type=number] { width: 6.5em; }
+  .ns-tabelle td.bereich { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .manuell { font-size: 12px; color: var(--link); margin-left: 4px; }
   .kurs-tabelle { width: 100%; border-collapse: collapse; }
   .kurs-tabelle th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 4px 6px; }
@@ -253,7 +254,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:14</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:27</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -357,7 +358,7 @@
         <h3>Notenspiegel</h3>
         <p class="hint">Die Punktgrenzen werden aus den Prozentgrenzen berechnet. Eine Punktgrenze lässt sich auch direkt überschreiben, dann gilt dein Wert, bis du die Prozentgrenze oder die Gesamtpunktzahl änderst.</p>
         <table class="ns-tabelle">
-          <thead><tr><th></th><th>Note</th><th>ab Prozent</th><th>ab Punkten</th><th>Farbe</th></tr></thead>
+          <thead><tr><th></th><th>Note</th><th>ab Prozent</th><th>ab Punkten</th><th id="ns-bereich-kopf">Bereich</th><th>Farbe</th></tr></thead>
           <tbody id="ns-zeilen"></tbody>
         </table>
         <div class="reihe" style="margin-top:12px">
@@ -365,6 +366,9 @@
           <label class="feld">Punktgrenzen runden auf
             <select id="rundung"><option value="0.5">halbe Punkte</option><option value="1">ganze Punkte</option></select>
           </label>
+        </div>
+        <div class="optionen" style="margin-top:12px;grid-template-columns:1fr">
+          <label><input type="checkbox" data-einst="notenBereich"> Punkte als Bereich angeben, etwa „9,5 bis 23“ statt „ab 9,5“</label>
         </div>
         <div id="ns-status" class="status fehler"></div>
       </div>
@@ -448,6 +452,7 @@ const STANDARD_EINST = {
   sortierung: "eingabe",
   diagramm: { kreuze: true, mittel: true, fit: true, legende: true, anzahl: true, xTitel: "Notenstufen [Punkte; Prozent]", yTitel: "Häufigkeit" },
   word: { ueberschrift: "Notenliste", diagramm: true, statistik: true },
+  notenBereich: false,
 };
 
 const kopie = (o) => JSON.parse(JSON.stringify(o));
@@ -608,6 +613,18 @@ function tendenz(p, i, r, t, letzte) {
   return "";
 }
 
+// Punktbereich jeder Note: von der eigenen Grenze bis knapp unter die Grenze der nächstbesseren Note
+function notenBereiche(ns, schritt) {
+  const st = schritt > 0 ? schritt : 0.5;
+  const raster = (w) => Math.round(w / st * 1e6) / 1e6;
+  return ns.noten.map((n, i) => {
+    const von = Math.ceil(raster(n.ab)) * st;
+    const bis = i === 0 ? ns.maxPunkte : Math.ceil(raster(ns.noten[i - 1].ab)) * st - st;
+    return { von, bis: Math.max(von, bis) };
+  });
+}
+const bereichText = (b) => (b.von === b.bis ? deG(b.von) : `${deG(b.von)} bis ${deG(b.bis)}`);
+
 // Eingetragene Note prüfen und vereinheitlichen: 1 bis 6, wahlweise mit + oder -
 function noteLesen(text) {
   const t = String(text || "").trim().replace(/\s+/g, "").replace("-", "−");
@@ -665,10 +682,11 @@ function statistik(e, tendenzen) {
   const unter = (zz) => zz.filter((z) => z.note > grenzeIdx).length;
   const unterText = (zz) => `${unter(zz)} (${de(zz.length ? unter(zz) / zz.length * 100 : 0)} %)`;
 
+  const bereiche = notenBereiche(ns, e.schritt);
   const verteilung = noten.map((nt, i) => {
     const hier = mit.filter((z) => z.note === i);
     return {
-      nr: i + 1, name: nt.name, ab: nt.ab, prozent: nt.prozent, anzahl: r.anzahl[i], anteil: n ? r.anzahl[i] / n * 100 : 0,
+      nr: i + 1, name: nt.name, ab: nt.ab, bereich: bereichText(bereiche[i]), prozent: nt.prozent, anzahl: r.anzahl[i], anteil: n ? r.anzahl[i] / n * 100 : 0,
       plus: hier.filter((z) => z.tendenz === "+").length, minus: hier.filter((z) => z.tendenz === "−").length,
     };
   });
@@ -1110,7 +1128,7 @@ const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr
   { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
 function wordDokument(info) {
-  const { titel, unterzeile, datumText, grundwerte, spiegel, liste, bild, verteilung, kennzahlen, klassen, unterBez, grenzfaelle, verlauf, tendenzen, farben, meta } = info;
+  const { titel, unterzeile, datumText, grundwerte, spiegel, notenBereich, liste, bild, verteilung, kennzahlen, klassen, unterBez, grenzfaelle, verlauf, tendenzen, farben, meta } = info;
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
   // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
@@ -1172,16 +1190,19 @@ function wordDokument(info) {
     if (verteilung) {
       body += abschnitt("Notenverteilung");
       const mitT = tendenzen && tendenzen.an;
+      // Als Bereich braucht die Punktespalte mehr Platz
       const spV = mitT
-        ? [{ breite: 2938 }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }]
-        : [{ breite: 3638 }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }];
-      const kopf = ["Note", "ab Punkten", "ab Prozent", "Anzahl", "Anteil"];
+        ? (notenBereich ? [{ breite: 2538 }, { breite: 1800, rechts: true }, { breite: 1300, rechts: true }, { breite: 1300, rechts: true }, { breite: 1350, rechts: true }, { breite: 1350, rechts: true }]
+          : [{ breite: 2938 }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }])
+        : (notenBereich ? [{ breite: 3238 }, { breite: 1900, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }]
+          : [{ breite: 3638 }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }]);
+      const kopf = ["Note", notenBereich ? "Punkte" : "ab Punkten", "ab Prozent", "Anzahl", "Anteil"];
       if (mitT) kopf.push("davon + / −");
       const summe = verteilung.reduce((s, v) => s + v.anzahl, 0);
       body += wTab(spV, [
         { ...W_KOPF, zellen: kopf },
         ...verteilung.map((v, i) => {
-          const zellen = [{ laeufe: wR(`${v.nr}`, { fett: true, gr: 9.5 }) + wR(`   ${v.name}`, { gr: 9.5 }), fuellung: toenung(i) }, deG(v.ab),
+          const zellen = [{ laeufe: wR(`${v.nr}`, { fett: true, gr: 9.5 }) + wR(`   ${v.name}`, { gr: 9.5 }), fuellung: toenung(i) }, notenBereich ? v.bereich : deG(v.ab),
             Number.isFinite(v.prozent) ? `${deG(v.prozent)} %` : "", { text: String(v.anzahl), fett: true }, `${de(v.anteil)} %`];
           if (mitT) zellen.push(v.anzahl ? `${v.plus} / ${v.minus}` : "");
           return { fuellung: i % 2 ? W_HELL : null, gr: 9.5, zellen };
@@ -2381,7 +2402,7 @@ if (typeof document !== "undefined") {
     });
     const a = auswertung(eintraege, ns, einst);
     return {
-      ...a, ns, kursId: k.id, kursName: k.name, arbeit: $("arbeit").value.trim(), datum: $("datum").value,
+      ...a, ns, schritt: einst.rundung, kursId: k.id, kursName: k.name, arbeit: $("arbeit").value.trim(), datum: $("datum").value,
       chart: { noten: ns.noten, maxPunkte: ns.maxPunkte, r: a.r, o: einst.diagramm },
     };
   }
@@ -2486,12 +2507,12 @@ if (typeof document !== "undefined") {
     box.append(el("div", { klasse: "abschnitt-titel", text: "Notenverteilung" }));
     const zeilen = st.verteilung.map((v, i) => el("tr", {},
       el("td", {}, noteChip(i, "", noten), el("span", { klasse: "notenwort", text: v.name })),
-      el("td", { text: deG(v.ab) }), el("td", { text: Number.isFinite(v.prozent) ? `${deG(v.prozent)} %` : "" }),
+      el("td", { text: einst.notenBereich ? v.bereich : deG(v.ab) }), el("td", { text: Number.isFinite(v.prozent) ? `${deG(v.prozent)} %` : "" }),
       el("td", { klasse: "stark", text: String(v.anzahl) }), el("td", { text: `${de(v.anteil)} %` }),
       mitT ? el("td", { text: v.anzahl ? `${v.plus} / ${v.minus}` : "" }) : null));
     zeilen.push(el("tr", { klasse: "summe" }, el("td", { text: "Gesamt" }), el("td"), el("td"),
       el("td", { text: String(st.n) }), el("td", { text: st.n ? "100,0 %" : "" }), mitT ? el("td") : null));
-    box.append(tabelle(["Note", "ab Punkten", "ab Prozent", "Anzahl", "Anteil", ...(mitT ? ["davon + / −"] : [])], zeilen));
+    box.append(tabelle(["Note", einst.notenBereich ? "Punkte" : "ab Punkten", "ab Prozent", "Anzahl", "Anteil", ...(mitT ? ["davon + / −"] : [])], zeilen));
     const zeileNs = notenspiegelZeile(e.r.anzahl, e.stat.notenSchnitt);
     box.append(el("div", { klasse: "zeile-ns" }, el("code", { text: zeileNs }), kopierKnopf(zeileNs)));
 
@@ -2713,7 +2734,7 @@ if (typeof document !== "undefined") {
       const datumLang = e.datum ? new Date(e.datum + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }) : "";
       const bild = w.diagramm ? new Uint8Array(await (await bildBlob(2400)).arrayBuffer()) : null;
       const blob = wordDokument({
-        titel: e.arbeit || label, unterzeile: kursMitKlassen(e), datumText: datumLang, grundwerte: grundwerte(e), spiegel: e.r.anzahl,
+        titel: e.arbeit || label, unterzeile: kursMitKlassen(e), datumText: datumLang, grundwerte: grundwerte(e), spiegel: e.r.anzahl, notenBereich: einst.notenBereich,
         farben: e.ns.noten.map((n) => n.farbe),
         liste: listenZeilen(e).map((z) => ({ name: z.name, klasse: z.klasse, fehlt: z.fehlt, vermerk: z.vermerk || "",
           note: bewertet(z) ? noteText(z) : z.noteManuell ? z.noteManuell.text : "", punkte: bewertet(z) ? deG(z.punkte) : "" })),
@@ -3232,12 +3253,23 @@ if (typeof document !== "undefined") {
       farbeIn.addEventListener("input", () => { n.farbe = farbeIn.value; geaendert(); });
       punkteIn._zeigen = zeigen;
       tb.append(el("tr", {}, el("td", { klasse: "nr", text: String(i + 1) }), el("td", {}, nameIn), el("td", {}, prozentIn),
-        el("td", {}, punkteIn, letzte ? null : zurueckKnopf, letzte ? null : marke), el("td", {}, farbeIn)));
+        el("td", {}, punkteIn, letzte ? null : zurueckKnopf, letzte ? null : marke), el("td", { klasse: "bereich", "data-i": i }), el("td", {}, farbeIn)));
       zeigen();
     });
     $("gesamt").value = einst.gesamt;
     $("rundung").value = String(einst.rundung);
     $("ns-status").textContent = ns.fehler.join("\n");
+    bereicheZeigen();
+  }
+  // Bereichsspalte in der Notentabelle, nur mit eingeschaltetem Schalter
+  function bereicheZeigen() {
+    const an = !!einst.notenBereich, ns = notenspiegel(einst);
+    $("ns-bereich-kopf").hidden = !an;
+    const b = ns.fehler.length ? null : notenBereiche(ns, einst.rundung);
+    document.querySelectorAll("#ns-zeilen td.bereich").forEach((td) => {
+      td.hidden = !an;
+      td.textContent = b ? bereichText(b[+td.dataset.i]) : "";
+    });
   }
   // Erklärung mit Beispiel aus dem aktuellen Notenspiegel
   function tendenzHinweis() {
@@ -3266,6 +3298,7 @@ if (typeof document !== "undefined") {
     const ns = notenspiegel(einst);
     $("ns-status").textContent = ns.fehler.join("\n");
     document.querySelectorAll("#ns-zeilen input[type=number]").forEach((i) => i._zeigen && i._zeigen());
+    bereicheZeigen();
     einstSpeichern();
     $("gesamt-start").value = einst.gesamt;
   }
@@ -3290,6 +3323,7 @@ if (typeof document !== "undefined") {
       setzen(f.dataset.einst, v);
       einstSpeichern();
       tendenzHinweis();
+      bereicheZeigen();
     });
   });
   const einstOeffnen = () => { nsAufbauen(); optionenAufbauen(); tendenzHinweis(); einstDialog.showModal(); };
