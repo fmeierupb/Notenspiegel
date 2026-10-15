@@ -248,7 +248,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 08:21</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 15:54</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -2855,7 +2855,7 @@ if (typeof document !== "undefined") {
     box.hidden = !kurse.some((k) => !k.beispiel && k.schueler.length) || (tage != null && tage < 30);
     box.innerHTML = "";
     if (!box.hidden) box.append(
-      el("p", { text: tage != null ? `Das letzte Backup ist ${tage} Tage alt. Die Kurse liegen nur auf diesem Gerät.` : "Es gibt noch kein Backup. Die Kurse liegen nur auf diesem Gerät." }),
+      el("p", { text: tage != null ? `Letztes Backup vor ${tage} Tagen. Ohne aktuelles Backup sind neuere Kurse und Noten weg, wenn das Gerät zurückgesetzt oder die App gelöscht wird.` : "Noch kein Backup. Ohne Backup sind Kurse und Noten weg, wenn das Gerät zurückgesetzt oder die App gelöscht wird." }),
       el("button", { type: "button", klasse: "zweit", text: "Backup sichern", onclick: backupSichern }));
   }
   $("backup-sichern").addEventListener("click", backupSichern);
