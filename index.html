@@ -149,6 +149,11 @@
   .kachel { padding: 10px 12px 12px 0; }
   .kachel .bez { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
   .kachel .wert { font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .spiegel { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 22px; padding: 10px 0 12px; margin: -16px 0 16px; border-bottom: 1px solid var(--border); }
+  .spiegel .bez { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; min-width: 8.5em; }
+  .spiegel .zelle { display: flex; align-items: center; gap: 8px; }
+  .spiegel .zelle .chip { min-width: 1.8em; padding: 1px 6px; font-size: 13px; }
+  .spiegel .wert { font-family: "Iowan Old Style", Charter, "Bitstream Charter", Georgia, Cambria, serif; font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .abschnitt-titel { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; border-bottom: 2px solid var(--text); padding-bottom: 5px; margin: 26px 0 10px; }
   .abschnitt-titel:first-child { margin-top: 4px; }
   .stat { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -248,7 +253,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 15:59</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:14</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -279,6 +284,7 @@
     </div>
     <div id="panel-liste" role="tabpanel" hidden>
       <div id="kennzahlen" class="kacheln"></div>
+      <div id="spiegel" class="spiegel"></div>
       <div class="listenkopf">
         <label class="feld">Sortierung
           <select id="sortierung">
@@ -404,7 +410,7 @@
       </div>
       <div class="abschnitt">
         <h3>Word-Export</h3>
-        <p class="hint">Seite 1: Titel, Teilnehmer, Notenschnitt, Mittelwert und die Notenliste in Graustufen. Ab Seite 2: Diagramm und Statistik in Farbe.</p>
+        <p class="hint">Seite 1: Titel, Teilnehmer, Notenschnitt, Mittelwert, Notenspiegel und die Notenliste in Graustufen. Ab Seite 2: Diagramm und Statistik in Farbe.</p>
         <div class="optionen">
           <label><input type="checkbox" data-einst="word.diagramm"> Diagramm auf Seite 2</label>
           <label><input type="checkbox" data-einst="word.statistik"> Statistik ab Seite 2</label>
@@ -1104,7 +1110,7 @@ const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr
   { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
 function wordDokument(info) {
-  const { titel, unterzeile, datumText, grundwerte, liste, bild, verteilung, kennzahlen, klassen, unterBez, grenzfaelle, verlauf, tendenzen, farben, meta } = info;
+  const { titel, unterzeile, datumText, grundwerte, spiegel, liste, bild, verteilung, kennzahlen, klassen, unterBez, grenzfaelle, verlauf, tendenzen, farben, meta } = info;
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
   // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
@@ -1120,6 +1126,17 @@ function wordDokument(info) {
       wP(wR(wert, { fett: true, gr: 17, serif: true })),
     ] })),
   }], { rand: [100, 0] });
+  // Notenspiegel: Anzahl je Note
+  if (spiegel && spiegel.length) {
+    const bez = TEXTBREITE - Math.floor(TEXTBREITE * 0.72 / spiegel.length) * spiegel.length;
+    const zelle = Math.floor(TEXTBREITE * 0.72 / spiegel.length);
+    body += wTab([{ breite: bez }, ...spiegel.map(() => ({ breite: zelle }))], [
+      { zellen: [{ absaetze: [wP(wR("Notenspiegel", { caps: true, sperren: 16, gr: 7, fett: true, farbe: W_GRAU }))] },
+        ...spiegel.map((c, i) => ({ absaetze: [wP(wR(`Note ${i + 1}`, { caps: true, sperren: 16, gr: 7, fett: true, farbe: W_GRAU }))] }))] },
+      { unten: { sz: 4, farbe: W_LINIE },
+        zellen: [{ text: "" }, ...spiegel.map((c) => ({ absaetze: [wP(wR(String(c), { fett: true, gr: 14, serif: true }))] }))] },
+    ], { rand: [40, 0] });
+  }
   body += wP("", { nach: 220 });
   // Mit Vermerken bekommt die Spalte Punkte mehr Platz
   const sp = liste.some((z) => z.vermerk)
@@ -2417,6 +2434,10 @@ if (typeof document !== "undefined") {
     const box = $("kennzahlen");
     box.innerHTML = "";
     grundwerte(e).forEach(([bez, wert]) => box.append(el("div", { klasse: "kachel" }, el("div", { klasse: "bez", text: bez }), el("div", { klasse: "wert", text: wert }))));
+    const spiegel = $("spiegel");
+    spiegel.innerHTML = "";
+    spiegel.append(el("div", { klasse: "bez", text: "Notenspiegel" }),
+      ...e.r.anzahl.map((c, i) => el("div", { klasse: "zelle" }, noteChip(i, "", e.ns.noten), el("span", { klasse: "wert", text: String(c) }))));
     $("sortierung").value = einst.sortierung;
     listeAnzeigen();
     statistikAnzeigen();
@@ -2692,7 +2713,7 @@ if (typeof document !== "undefined") {
       const datumLang = e.datum ? new Date(e.datum + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }) : "";
       const bild = w.diagramm ? new Uint8Array(await (await bildBlob(2400)).arrayBuffer()) : null;
       const blob = wordDokument({
-        titel: e.arbeit || label, unterzeile: kursMitKlassen(e), datumText: datumLang, grundwerte: grundwerte(e),
+        titel: e.arbeit || label, unterzeile: kursMitKlassen(e), datumText: datumLang, grundwerte: grundwerte(e), spiegel: e.r.anzahl,
         farben: e.ns.noten.map((n) => n.farbe),
         liste: listenZeilen(e).map((z) => ({ name: z.name, klasse: z.klasse, fehlt: z.fehlt, vermerk: z.vermerk || "",
           note: bewertet(z) ? noteText(z) : z.noteManuell ? z.noteManuell.text : "", punkte: bewertet(z) ? deG(z.punkte) : "" })),
