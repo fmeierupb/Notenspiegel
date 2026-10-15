@@ -254,7 +254,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:27</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:33</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -867,7 +867,8 @@ function zeichne(ctx, pixelBreite, daten) {
 
   const tickBeschriftung = [{ x: 0, z1: "0", z2: "0 %" }];
   r.links.slice(0, -1).forEach((g, i) => {
-    tickBeschriftung.push({ x: g, z1: deG(g), z2: Number.isFinite(noten[i].prozent) ? deG(noten[i].prozent) + " %" : "" });
+    // Beschriftet wird die Grenze „ab“ der Note, wie in der Notentabelle, nicht die Kante zwischen den Balken
+    tickBeschriftung.push({ x: g, z1: deG(noten[i].ab), z2: Number.isFinite(noten[i].prozent) ? deG(noten[i].prozent) + " %" : "" });
   });
   tickBeschriftung.push({ x: maxPunkte, z1: deG(maxPunkte), z2: "100 %" });
   schrift(ctx, 10, false);
