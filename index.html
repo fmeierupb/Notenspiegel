@@ -75,6 +75,8 @@
   h1, #titel, .kachel .wert { font-family: "Iowan Old Style", Charter, "Bitstream Charter", Georgia, Cambria, serif; letter-spacing: 0.005em; }
   #titel { font-size: 24px; font-weight: 700; }
   .hint { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
+  .fassung { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 28px; font-size: 12px; color: var(--muted); }
+  .fassung button { font-size: 13px; padding: 4px 10px; }
   .status { font-size: 14px; color: var(--muted); margin-top: 8px; min-height: 1.4em; white-space: pre-line; }
   .fehler { color: var(--error); }
   .knoepfe { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
@@ -259,7 +261,11 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 17:17</p>
+    <div class="fassung">
+      <span>Fassung 15.10.2026 18:24</span>
+      <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
+      <span id="fassung-status"></span>
+    </div>
   </section>
 
   <section id="ergebnis" hidden>
@@ -3354,6 +3360,24 @@ if (typeof document !== "undefined") {
       else { vollbildAus(); $("ergebnis").hidden = true; $("eingabe").hidden = false; eintragAufbauen(); }
     }
   });
+
+  // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
+  const STAND = "15.10.2026 18:24";
+  $("aktualisieren").addEventListener("click", async () => {
+    if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
+    $("fassung-status").textContent = "Lade …";
+    try { sessionStorage.setItem("notenauswertung-vorher", STAND); } catch (e) { /* ohne Speicher */ }
+    entwurfSchreiben();
+    try { const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (e) { /* ohne Service Worker */ }
+    location.reload();
+  });
+  try {
+    const vorher = sessionStorage.getItem("notenauswertung-vorher");
+    if (vorher) {
+      sessionStorage.removeItem("notenauswertung-vorher");
+      $("fassung-status").textContent = vorher === STAND ? "Keine neuere Fassung gefunden." : "Neue Fassung geladen.";
+    }
+  } catch (e) { /* ohne Speicher */ }
 
   // ----- Start -----
   entwurfLaden();
