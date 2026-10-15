@@ -82,7 +82,7 @@
   .karte { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
   button {
     font: inherit; font-weight: 600; color: #fff; background: var(--accent);
-    border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer;
+    border: 1px solid transparent; border-radius: 8px; padding: 7px 16px; cursor: pointer;
   }
   button:hover { filter: brightness(1.12); }
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -105,7 +105,7 @@
   input[type=color] { width: 42px; height: 34px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--feld); }
   input.ungueltig { border-color: var(--error); outline: 1px solid var(--error); }
   label.feld { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 600; min-width: 0; }
-  label.feld input, label.feld select { font-weight: 400; color: var(--text); }
+  label.feld input, label.feld select { font-weight: 400; color: var(--text); font-size: 16px; }
   .kopfzeilen { display: grid; grid-template-columns: 1.4fr 1.4fr 1fr 0.8fr; gap: 12px; }
   @media (max-width: 640px) { .kopfzeilen { grid-template-columns: 1fr 1fr; } }
 
@@ -128,6 +128,8 @@
   /* Ergebnis */
   .ergebniskopf { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
   .ergebniskopf .unter { color: var(--muted); font-size: 14px; }
+  .ergebniskopf .aktionen { display: flex; gap: 10px; flex-wrap: wrap; }
+  button.zurueck { padding: 4px 0; margin: -8px 0 6px; font-size: 14px; }
   .reiter { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
   .reiter button {
     background: transparent; color: var(--muted); border-radius: 8px 8px 0 0; padding: 10px 18px;
@@ -149,11 +151,6 @@
   .kachel { padding: 10px 12px 12px 0; }
   .kachel .bez { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
   .kachel .wert { font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
-  .spiegel { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 22px; padding: 10px 0 12px; margin: -16px 0 16px; border-bottom: 1px solid var(--border); }
-  .spiegel .bez { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; min-width: 8.5em; }
-  .spiegel .zelle { display: flex; align-items: center; gap: 8px; }
-  .spiegel .zelle .chip { min-width: 1.8em; padding: 1px 6px; font-size: 13px; }
-  .spiegel .wert { font-family: "Iowan Old Style", Charter, "Bitstream Charter", Georgia, Cambria, serif; font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .abschnitt-titel { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; border-bottom: 2px solid var(--text); padding-bottom: 5px; margin: 26px 0 10px; }
   .abschnitt-titel:first-child { margin-top: 4px; }
   .stat { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -167,7 +164,7 @@
   .raster span { color: var(--muted); }
   .raster b { text-align: right; }
   .zeile-ns { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
-  .zeile-ns code { font: 15px ui-monospace, Consolas, monospace; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+  .zeile-ns code { font: 15px/1.45 ui-monospace, Consolas, monospace; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
   .listenkopf { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
   .tabelle-rahmen { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
   .liste { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -254,19 +251,21 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:33</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:48</p>
   </section>
 
   <section id="ergebnis" hidden>
+    <button id="zurueck" class="leise zurueck" type="button">← Zurück zur Eingabe</button>
     <div class="ergebniskopf">
       <div>
         <h2 id="titel"></h2>
         <div id="untertitel" class="unter"></div>
       </div>
-      <button id="zurueck" class="zweit rechts" type="button">Zurück zur Eingabe</button>
-      <button id="einstellungen-ergebnis" class="zweit" type="button">Einstellungen</button>
-      <button id="speichern" class="zweit" type="button">Im Kurs speichern</button>
-      <button id="word" type="button">Word-Export</button>
+      <div class="aktionen rechts">
+        <button id="einstellungen-ergebnis" class="zweit" type="button">Einstellungen</button>
+        <button id="speichern" class="zweit" type="button">Im Kurs speichern</button>
+        <button id="word" type="button">Word-Export</button>
+      </div>
     </div>
     <div class="reiter" role="tablist">
       <button id="reiter-spiegel" role="tab" aria-selected="true" type="button">Notenspiegel</button>
@@ -285,7 +284,6 @@
     </div>
     <div id="panel-liste" role="tabpanel" hidden>
       <div id="kennzahlen" class="kacheln"></div>
-      <div id="spiegel" class="spiegel"></div>
       <div class="listenkopf">
         <label class="feld">Sortierung
           <select id="sortierung">
@@ -414,7 +412,7 @@
       </div>
       <div class="abschnitt">
         <h3>Word-Export</h3>
-        <p class="hint">Seite 1: Titel, Teilnehmer, Notenschnitt, Mittelwert, Notenspiegel und die Notenliste in Graustufen. Ab Seite 2: Diagramm und Statistik in Farbe.</p>
+        <p class="hint">Seite 1: Titel, Teilnehmer, Notenschnitt, Mittelwert und die Notenliste in Graustufen. Ab Seite 2: Diagramm und Statistik in Farbe.</p>
         <div class="optionen">
           <label><input type="checkbox" data-einst="word.diagramm"> Diagramm auf Seite 2</label>
           <label><input type="checkbox" data-einst="word.statistik"> Statistik ab Seite 2</label>
@@ -1096,6 +1094,11 @@ function wP(inhalt, o = {}) {
   return `<w:p><w:pPr>${ppr}</w:pPr>${inhalt}</w:p>`;
 }
 // Tabelle ohne senkrechte Linien. spalten: [{ breite, rechts }], zeilen: [{ zellen, kopf, fuellung, oben, unten }]
+// Erste Spalte mit fester Breite, die übrigen teilen sich den Rest gleichmäßig und sind zentriert
+function gleichSpalten(erste, anzahl) {
+  const rest = TEXTBREITE - erste, b = Math.floor(rest / anzahl);
+  return [{ breite: TEXTBREITE - b * anzahl }, ...Array.from({ length: anzahl }, () => ({ breite: b, mitte: true }))];
+}
 function wTab(spalten, zeilen, o = {}) {
   const rand = (seite, r) => (r ? `<w:${seite} w:val="single" w:sz="${r.sz}" w:space="0" w:color="${r.farbe}"/>` : `<w:${seite} w:val="nil"/>`);
   const nil = ["top", "left", "bottom", "right", "insideH", "insideV"].map((x) => `<w:${x} w:val="nil"/>`).join("");
@@ -1114,7 +1117,7 @@ function wTab(spalten, zeilen, o = {}) {
         (fuell ? `<w:shd w:val="clear" w:color="auto" w:fill="${fuell}"/>` : "") + '<w:vAlign w:val="center"/>';
       const absaetze = zelle.absaetze || [wP(zelle.laeufe || wR(zelle.text == null ? "" : String(zelle.text), {
         fett: zelle.fett ?? z.fett, farbe: zelle.farbe || z.farbe, gr: zelle.gr || z.gr || o.gr, caps: z.caps, sperren: z.caps ? 16 : 0,
-      }), { jc: sp.rechts ? "right" : null, keepNext: weiter })];
+      }), { jc: sp.rechts ? "right" : sp.mitte ? "center" : null, keepNext: weiter })];
       return `<w:tc><w:tcPr>${tcpr}</w:tcPr>${absaetze.join("")}</w:tc>`;
     }).join("") + "</w:tr>";
   };
@@ -1129,7 +1132,7 @@ const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr
   { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
 function wordDokument(info) {
-  const { titel, unterzeile, datumText, grundwerte, spiegel, notenBereich, liste, bild, verteilung, kennzahlen, klassen, unterBez, grenzfaelle, verlauf, tendenzen, farben, meta } = info;
+  const { titel, unterzeile, datumText, grundwerte, notenBereich, liste, bild, verteilung, kennzahlen, klassen, unterBez, grenzfaelle, verlauf, tendenzen, farben, meta } = info;
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
   // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
@@ -1145,22 +1148,9 @@ function wordDokument(info) {
       wP(wR(wert, { fett: true, gr: 17, serif: true })),
     ] })),
   }], { rand: [100, 0] });
-  // Notenspiegel: Anzahl je Note
-  if (spiegel && spiegel.length) {
-    const bez = TEXTBREITE - Math.floor(TEXTBREITE * 0.72 / spiegel.length) * spiegel.length;
-    const zelle = Math.floor(TEXTBREITE * 0.72 / spiegel.length);
-    body += wTab([{ breite: bez }, ...spiegel.map(() => ({ breite: zelle }))], [
-      { zellen: [{ absaetze: [wP(wR("Notenspiegel", { caps: true, sperren: 16, gr: 7, fett: true, farbe: W_GRAU }))] },
-        ...spiegel.map((c, i) => ({ absaetze: [wP(wR(`Note ${i + 1}`, { caps: true, sperren: 16, gr: 7, fett: true, farbe: W_GRAU }))] }))] },
-      { unten: { sz: 4, farbe: W_LINIE },
-        zellen: [{ text: "" }, ...spiegel.map((c) => ({ absaetze: [wP(wR(String(c), { fett: true, gr: 14, serif: true }))] }))] },
-    ], { rand: [40, 0] });
-  }
   body += wP("", { nach: 220 });
   // Mit Vermerken bekommt die Spalte Punkte mehr Platz
-  const sp = liste.some((z) => z.vermerk)
-    ? [{ breite: 4238 }, { breite: 1400 }, { breite: 1200 }, { breite: 2800, rechts: true }]
-    : [{ breite: 5338 }, { breite: 1500 }, { breite: 1400 }, { breite: 1400, rechts: true }];
+  const sp = gleichSpalten(liste.some((z) => z.vermerk) ? 3038 : 4438, 3);
   body += wTab(sp, [
     { ...W_KOPF, zellen: ["Name", "Klasse", "Note", "Punkte"] },
     ...liste.map((z, i) => ({
@@ -1192,11 +1182,7 @@ function wordDokument(info) {
       body += abschnitt("Notenverteilung");
       const mitT = tendenzen && tendenzen.an;
       // Als Bereich braucht die Punktespalte mehr Platz
-      const spV = mitT
-        ? (notenBereich ? [{ breite: 2538 }, { breite: 1800, rechts: true }, { breite: 1300, rechts: true }, { breite: 1300, rechts: true }, { breite: 1350, rechts: true }, { breite: 1350, rechts: true }]
-          : [{ breite: 2938 }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }, { breite: 1340, rechts: true }])
-        : (notenBereich ? [{ breite: 3238 }, { breite: 1900, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }]
-          : [{ breite: 3638 }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }, { breite: 1500, rechts: true }]);
+      const spV = mitT ? gleichSpalten(notenBereich ? 2138 : 2638, 5) : gleichSpalten(3038, 4);
       const kopf = ["Note", notenBereich ? "Punkte" : "ab Punkten", "ab Prozent", "Anzahl", "Anteil"];
       if (mitT) kopf.push("davon + / −");
       const summe = verteilung.reduce((s, v) => s + v.anzahl, 0);
@@ -1215,14 +1201,14 @@ function wordDokument(info) {
       body += abschnitt("Kennzahlen");
       const paare = [];
       for (let i = 0; i < kennzahlen.length; i += 2) paare.push([kennzahlen[i], kennzahlen[i + 1]]);
-      body += wTab([{ breite: 2500 }, { breite: 2219 }, { breite: 2700 }, { breite: 2219 }], paare.map(([a, b]) => ({
+      body += wTab([{ breite: 2410 }, { breite: 2409 }, { breite: 2410 }, { breite: 2409 }], paare.map(([a, b]) => ({
         gr: 9.5, unten: { sz: 4, farbe: W_LINIE },
         zellen: [{ text: a[0], farbe: W_GRAU }, { text: a[1], fett: true }, { text: b ? b[0] : "", farbe: W_GRAU }, { text: b ? b[1] : "", fett: true }],
       })), { hoehe: 270, rand: [35, 60], zusammen: true });
     }
     if (klassen && klassen.length) {
       body += abschnitt("Nach Klassen");
-      body += wTab([{ breite: 2038 }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }], [
+      body += wTab(gleichSpalten(1638, 4), [
         { ...W_KOPF, zellen: ["Klasse", "Teilnehmer", "Notenschnitt", "Mittelwert", unterBez] },
         ...klassen.map((k, i) => ({
           fuellung: i % 2 ? W_HELL : null, gr: 9.5,
@@ -1235,7 +1221,7 @@ function wordDokument(info) {
       body += abschnitt("Grenzfälle");
       body += wP(wR("Höchstens 1 Punkt unter der nächstbesseren Note", { gr: 9, farbe: W_GRAU }), { nach: 60, keepNext: true });
       if (grenzfaelle.length) {
-        body += wTab([{ breite: 3638 }, { breite: 1300 }, { breite: 1400, rechts: true }, { breite: 1300, rechts: true }, { breite: 2000, rechts: true }], [
+        body += wTab(gleichSpalten(3238, 4), [
           { ...W_KOPF, zellen: ["Name", "Klasse", "Punkte", "Note", "Es fehlen"] },
           ...grenzfaelle.map((g, i) => ({
             fuellung: i % 2 ? W_HELL : null, gr: 9.5,
@@ -1247,13 +1233,13 @@ function wordDokument(info) {
     if (verlauf) {
       body += abschnitt("Verlauf");
       body += wP(wR(verlauf.titel, { gr: 9, farbe: W_GRAU }), { nach: 60, keepNext: true });
-      body += wTab([{ breite: 3638 }, { breite: 3000, rechts: true }, { breite: 3000, rechts: true }], [
+      body += wTab(gleichSpalten(3638, 2), [
         { ...W_KOPF, zellen: ["", "Vorher", "Jetzt"] },
         ...verlauf.zeilen.map((z) => ({ gr: 9.5, unten: { sz: 4, farbe: W_LINIE }, zellen: [{ text: z[0], farbe: W_GRAU }, z[1], { text: z[2], fett: true }] })),
       ], { hoehe: 270, rand: [35, 60], zusammen: true });
       body += wP(wR(verlauf.schlechterTitel, { gr: 9, fett: true }), { vor: 160, nach: 60, keepNext: true });
       if (verlauf.schlechter.length) {
-        body += wTab([{ breite: 3638 }, { breite: 1500 }, { breite: 2250, rechts: true }, { breite: 2250, rechts: true }], [
+        body += wTab(gleichSpalten(3638, 3), [
           { ...W_KOPF, zellen: ["Name", "Klasse", "Vorher", "Jetzt"] },
           ...verlauf.schlechter.map((g, i) => ({
             fuellung: i % 2 ? W_HELL : null, gr: 9.5,
@@ -2262,7 +2248,9 @@ if (typeof document !== "undefined") {
       eintragAufbauen();
     });
     bereich.append(el("div", { klasse: "reihe", stil: "margin-top:12px" },
-      el("label", { klasse: "feld", stil: "flex:0 1 200px" }, "Sortierung", sortWahl), ...(arbeitenLeiste(k) || []), neuKnopf));
+      el("label", { klasse: "feld", stil: "flex:0 1 220px" }, "Sortierung", sortWahl), el("span", { klasse: "rechts" }), neuKnopf));
+    const gespeichert = arbeitenLeiste(k);
+    if (gespeichert) bereich.append(el("div", { klasse: "reihe", stil: "margin-top:10px" }, ...gespeichert));
     const werte = punkteVon(k);
     const tbody = el("tbody");
     eingabeReihenfolge(k).forEach((s, idx) => {
@@ -2441,7 +2429,7 @@ if (typeof document !== "undefined") {
     return [
       ["Teilnehmer", `${s.n} von ${s.gesamtZahl}`],
       ["Notenschnitt", s.notenSchnitt.toFixed(2).replace(".", ",")],
-      ["Mittelwert", `${de(s.mittel)} P · ${Math.round(s.mittel / max * 100)} %`],
+      ["Mittelwert", `${de(s.mittel)} P (${de(s.mittel / max * 100)} %)`],
     ];
   }
   const noteText = (z) => `${z.note + 1}${z.tendenz}`;
@@ -2456,10 +2444,6 @@ if (typeof document !== "undefined") {
     const box = $("kennzahlen");
     box.innerHTML = "";
     grundwerte(e).forEach(([bez, wert]) => box.append(el("div", { klasse: "kachel" }, el("div", { klasse: "bez", text: bez }), el("div", { klasse: "wert", text: wert }))));
-    const spiegel = $("spiegel");
-    spiegel.innerHTML = "";
-    spiegel.append(el("div", { klasse: "bez", text: "Notenspiegel" }),
-      ...e.r.anzahl.map((c, i) => el("div", { klasse: "zelle" }, noteChip(i, "", e.ns.noten), el("span", { klasse: "wert", text: String(c) }))));
     $("sortierung").value = einst.sortierung;
     listeAnzeigen();
     statistikAnzeigen();
@@ -2560,7 +2544,7 @@ if (typeof document !== "undefined") {
     let verlauf = null;
     const v = k ? verlaufBerechnen(e, k.arbeiten) : null;
     if (v) {
-      const pzt = (w) => (w == null ? "" : `${Math.round(w)} %`);
+      const pzt = (w) => (w == null ? "" : `${de(w)} %`);
       verlauf = {
         titel: `Vergleich mit „${v.arbeit || "Ohne Titel"}“${v.datum ? ` vom ${datumDE(v.datum)}` : ""}`,
         zeilen: [["Notenschnitt", v.schnittVorher.toFixed(2).replace(".", ","), v.schnittJetzt.toFixed(2).replace(".", ",")],
@@ -2735,7 +2719,7 @@ if (typeof document !== "undefined") {
       const datumLang = e.datum ? new Date(e.datum + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }) : "";
       const bild = w.diagramm ? new Uint8Array(await (await bildBlob(2400)).arrayBuffer()) : null;
       const blob = wordDokument({
-        titel: e.arbeit || label, unterzeile: kursMitKlassen(e), datumText: datumLang, grundwerte: grundwerte(e), spiegel: e.r.anzahl, notenBereich: einst.notenBereich,
+        titel: e.arbeit || label, unterzeile: kursMitKlassen(e), datumText: datumLang, grundwerte: grundwerte(e), notenBereich: einst.notenBereich,
         farben: e.ns.noten.map((n) => n.farbe),
         liste: listenZeilen(e).map((z) => ({ name: z.name, klasse: z.klasse, fehlt: z.fehlt, vermerk: z.vermerk || "",
           note: bewertet(z) ? noteText(z) : z.noteManuell ? z.noteManuell.text : "", punkte: bewertet(z) ? deG(z.punkte) : "" })),
