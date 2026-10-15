@@ -119,6 +119,8 @@
   .eintrag td.note { width: 8em; }
   .eintrag td.note input.note-manuell { width: 4.2em; text-align: center; padding: 5px 6px; }
   .stat-hinweis { color: var(--muted); font-size: 14px; margin: -4px 0 8px; }
+  .hinweisbox { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; font-size: 14px; }
+  .hinweisbox p { margin: 0; flex: 1 1 320px; }
   .leer { text-align: center; padding: 28px 12px; color: var(--muted); }
   .leer .knoepfe { justify-content: center; }
 
@@ -227,6 +229,7 @@
 <main>
   <section id="eingabe">
     <h1>Notenauswertung</h1>
+    <div id="heim-hinweis" class="hinweisbox" hidden></div>
     <div class="kopfzeilen">
       <label class="feld">Kurs<select id="kurswahl"></select></label>
       <label class="feld">Arbeit<input id="arbeit" type="text" placeholder="z. B. 2. Klassenarbeit"></label>
@@ -243,7 +246,8 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 05:59</p>
+    <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 07:57</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -254,6 +258,7 @@
       </div>
       <button id="zurueck" class="zweit rechts" type="button">Zurück zur Eingabe</button>
       <button id="einstellungen-ergebnis" class="zweit" type="button">Einstellungen</button>
+      <button id="speichern" class="zweit" type="button">Speichern</button>
       <button id="word" type="button">Word-Export</button>
     </div>
     <div class="reiter" role="tablist">
@@ -307,6 +312,7 @@
     <div class="dialog-fuss">
       <button id="backup-sichern" class="leise" type="button">Backup sichern</button>
       <button id="backup-laden" class="leise" type="button">Backup laden</button>
+      <span id="backup-stand" class="hint" style="margin:0;font-size:13px"></span>
       <input id="backup-datei" type="file" accept=".json,application/json" hidden>
       <span id="kurs-status" class="status" style="margin:0"></span>
       <button id="kurse-fertig" class="rechts" type="button">Fertig</button>
@@ -2071,11 +2077,12 @@ if (typeof document !== "undefined") {
       let geht = false;
       try { geht = navigator.canShare({ files: [datei] }); } catch (e) { geht = false; }
       if (geht) {
-        try { await navigator.share({ files: [datei] }); } catch (e) { if (e.name !== "AbortError") teilenLeiste(datei); }
-        return;
+        try { await navigator.share({ files: [datei] }); } catch (e) { if (e.name === "AbortError") return false; teilenLeiste(datei); }
+        return true;
       }
     }
     klassischLaden(blob, dateiname);
+    return true;
   }
   const dateiTeil = (s) => String(s || "").trim().replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_+|_+$/g, "");
   const datumDE = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? `${m[3]}.${m[2]}.${m[1]}` : ""; };
@@ -2097,6 +2104,37 @@ if (typeof document !== "undefined") {
   // Bei einem Vermerk lässt sich eine Note direkt eintragen, etwa aus einer anderen Bewertung
   const manuell = new Map();
   const manuellVon = (k) => { if (!manuell.has(k.id)) manuell.set(k.id, new Map()); return manuell.get(k.id); };
+
+  // ----- Entwurf: jede Eingabe sofort lokal sichern, damit nichts verloren geht, wenn die App geschlossen wird -----
+  const ENTWURF_KEY = "notenauswertung-entwurf-v1";
+  const alsObjekt = (m) => { const o = {}; if (m) m.forEach((v, id) => { if (String(v || "").trim()) o[id] = String(v); }); return o; };
+  let entwurfTimer = 0;
+  function entwurfSchreiben() {
+    clearTimeout(entwurfTimer);
+    const d = { arbeit: $("arbeit").value, datum: $("datum").value, ungesichert, kurse: {} };
+    kurse.forEach((k) => {
+      const pk = alsObjekt(punkte.get(k.id)), mk = alsObjekt(manuell.get(k.id));
+      if (Object.keys(pk).length || Object.keys(mk).length) d.kurse[k.id] = { punkte: pk, manuell: mk };
+    });
+    schreiben(ENTWURF_KEY, d);
+  }
+  const entwurfMerken = () => { clearTimeout(entwurfTimer); entwurfTimer = setTimeout(entwurfSchreiben, 300); };
+  function entwurfLaden() {
+    const d = lesen(ENTWURF_KEY);
+    if (!d || typeof d !== "object") return;
+    Object.entries(d.kurse || {}).forEach(([id, x]) => {
+      if (!x || !kurse.some((k) => k.id === id)) return;
+      punkte.set(id, new Map(Object.entries(x.punkte || {})));
+      manuell.set(id, new Map(Object.entries(x.manuell || {})));
+    });
+    if (typeof d.arbeit === "string") $("arbeit").value = d.arbeit;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d.datum || "")) $("datum").value = d.datum;
+    ungesichert = !!d.ungesichert;
+  }
+  $("arbeit").addEventListener("input", entwurfMerken);
+  $("datum").addEventListener("change", entwurfMerken);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") entwurfSchreiben(); });
+  window.addEventListener("pagehide", entwurfSchreiben);
 
   // ----- Thema -----
   function themaKnopf() { $("thema").textContent = document.documentElement.dataset.theme === "dark" ? "☀ Hell" : "☾ Dunkel"; }
@@ -2139,6 +2177,7 @@ if (typeof document !== "undefined") {
   }
 
   function eintragAufbauen() {
+    backupStand();
     const bereich = $("eintragbereich");
     bereich.innerHTML = "";
     const k = kurs();
@@ -2167,8 +2206,23 @@ if (typeof document !== "undefined") {
       .forEach(([w, t]) => sortWahl.append(el("option", { value: w, text: t })));
     sortWahl.value = einst.sortierung;
     sortWahl.addEventListener("change", () => { einst.sortierung = sortWahl.value; einstSpeichern(); eintragAufbauen(); });
+    // Neue Arbeit: Eingaben leeren. Nicht gespeicherte Eingaben erst nach Rückfrage
+    let neuStufe = 0;
+    const neuKnopf = el("button", { type: "button", klasse: "zweit", text: "Neue Arbeit" });
+    neuKnopf.addEventListener("click", () => {
+      const etwas = [...punkteVon(k).values(), ...manuellVon(k).values()].some((v) => String(v || "").trim());
+      if (etwas && ungesichert && neuStufe === 0) {
+        neuStufe = 1; neuKnopf.className = "gefahr"; neuKnopf.textContent = "Nicht gespeichert. Trotzdem leeren?";
+        setTimeout(() => { neuStufe = 0; neuKnopf.className = "zweit"; neuKnopf.textContent = "Neue Arbeit"; }, 4000);
+        return;
+      }
+      punkteVon(k).clear(); manuellVon(k).clear();
+      $("arbeit").value = ""; $("datum").value = new Date().toISOString().slice(0, 10);
+      ungesichert = false;
+      eintragAufbauen();
+    });
     bereich.append(el("div", { klasse: "reihe", stil: "margin-top:12px" },
-      el("label", { klasse: "feld", stil: "flex:0 1 200px" }, "Sortierung", sortWahl), ...(arbeitenLeiste(k) || [])));
+      el("label", { klasse: "feld", stil: "flex:0 1 200px" }, "Sortierung", sortWahl), ...(arbeitenLeiste(k) || []), neuKnopf));
     const werte = punkteVon(k);
     const tbody = el("tbody");
     eingabeReihenfolge(k).forEach((s, idx) => {
@@ -2244,6 +2298,7 @@ if (typeof document !== "undefined") {
   const alleZeilenAktualisieren = () => document.querySelectorAll("#eintragbereich input[data-idx]").forEach((i) => i._aktualisieren && i._aktualisieren());
 
   function pruefe() {
+    entwurfMerken();
     const k = kurs();
     const ns = notenspiegel(einst);
     const status = $("datenstatus");
@@ -2294,10 +2349,6 @@ if (typeof document !== "undefined") {
   }
   $("testpunkte").addEventListener("click", testpunkteEintragen);
 
-  window.addEventListener("beforeunload", (e) => {
-    const etwas = [...punkte.values()].some((m) => [...m.values()].some((v) => String(v).trim()));
-    if (etwas && ungesichert) { e.preventDefault(); e.returnValue = ""; }
-  });
 
   // ----- Auswerten -----
   function auswertungErstellen() {
@@ -2568,6 +2619,7 @@ if (typeof document !== "undefined") {
     k.arbeiten.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
     kurseSpeichern();
     ungesichert = false;
+    entwurfMerken();
     return alt >= 0 ? "aktualisiert" : "gespeichert";
   }
   const arbeitTitel = (a) => [a.arbeit || "Ohne Titel", datumDE(a.datum)].filter(Boolean).join(" · ");
@@ -2609,6 +2661,12 @@ if (typeof document !== "undefined") {
     });
     return [el("label", { klasse: "feld", stil: "flex:1 1 260px" }, `Gespeicherte Arbeiten (${k.arbeiten.length})`, wahl), laden, loeschen];
   }
+
+  $("speichern").addEventListener("click", () => {
+    const r = arbeitSichern();
+    $("hinweis").classList.remove("fehler");
+    $("hinweis").textContent = r === "aktualisiert" ? "Die Arbeit ist im Tool gespeichert, der vorherige Stand wurde ersetzt." : r ? "Die Arbeit ist im Tool gespeichert." : "";
+  });
 
   // ----- Word-Export -----
   $("word").addEventListener("click", async () => {
@@ -2705,6 +2763,7 @@ if (typeof document !== "undefined") {
       kurse = kurse.filter((x) => x.id !== k.id);
       punkte.delete(k.id);
       manuell.delete(k.id);
+      entwurfMerken();
       if (aktiverKurs === k.id) aktiverKurs = kurse[0] ? kurse[0].id : null;
       bearbeitet = kurse[0] ? kurse[0].id : null;
       kurseSpeichern(); kursEditorAufbauen();
@@ -2775,12 +2834,30 @@ if (typeof document !== "undefined") {
   $("kurse-fertig").addEventListener("click", () => kursDialog.close());
   kursDialog.addEventListener("close", kurseSchliessen);
 
-  $("backup-sichern").addEventListener("click", () => {
+  const BACKUP_KEY = "notenauswertung-backup-zuletzt";
+  async function backupSichern() {
     const daten = { programm: "Notenauswertung", version: 2, gesichert: new Date().toISOString(), kurse, einstellungen: einst };
-    herunterladen(new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" }),
+    const ok = await herunterladen(new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" }),
       `Notenauswertung_Backup_${new Date().toISOString().slice(0, 10)}.json`);
+    if (!ok) return;
+    schreiben(BACKUP_KEY, new Date().toISOString());
     $("kurs-status").textContent = "Backup gespeichert.";
-  });
+    backupStand();
+  }
+  // Stand des letzten Backups. Erinnerung, wenn es echte Kurse gibt und das Backup fehlt oder älter als 30 Tage ist
+  function backupStand() {
+    const z = lesen(BACKUP_KEY);
+    const zeit = z ? Date.parse(z) : NaN;
+    const tage = Number.isFinite(zeit) ? Math.floor((Date.now() - zeit) / 864e5) : null;
+    $("backup-stand").textContent = tage != null ? `Letztes Backup: ${new Date(zeit).toLocaleDateString("de-DE")}` : "Noch kein Backup";
+    const box = $("backup-hinweis");
+    box.hidden = !kurse.some((k) => !k.beispiel && k.schueler.length) || (tage != null && tage < 30);
+    box.innerHTML = "";
+    if (!box.hidden) box.append(
+      el("p", { text: tage != null ? `Das letzte Backup ist ${tage} Tage alt. Die Kurse liegen nur auf diesem Gerät.` : "Es gibt noch kein Backup. Die Kurse liegen nur auf diesem Gerät." }),
+      el("button", { type: "button", klasse: "zweit", text: "Backup sichern", onclick: backupSichern }));
+  }
+  $("backup-sichern").addEventListener("click", backupSichern);
   $("backup-laden").addEventListener("click", () => $("backup-datei").click());
   function backupEinlesen(daten) {
     if (!daten || !Array.isArray(daten.kurse)) throw new Error("keine Kurse in der Datei");
@@ -3204,8 +3281,19 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Start -----
+  entwurfLaden();
   kurswahlAufbauen();
   eintragAufbauen();
+  // Auf iPad und iPhone: Safari darf Daten eines Tabs nach einiger Zeit ohne Nutzung löschen, die App auf dem Home-Bildschirm nicht
+  const eigenstaendig = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  if (istIOS && !eigenstaendig) {
+    const box = $("heim-hinweis");
+    box.hidden = false;
+    box.append(
+      el("p", { text: "Im Safari-Tab kann Safari die gespeicherten Kurse löschen, wenn das Tool eine Weile nicht benutzt wird. Dauerhaft sicher ist die App auf dem Home-Bildschirm: Teilen, dann „Zum Home-Bildschirm“. Sie hat einen eigenen Speicher, Kurse von hier also vorher per Backup sichern und dort laden." }),
+      el("button", { type: "button", klasse: "leise", text: "Ausblenden", onclick: () => { box.hidden = true; } }));
+  }
+  if (istIOS && navigator.storage && navigator.storage.persist) navigator.storage.persisted().then((ja) => ja || navigator.storage.persist()).catch(() => {});
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
 }
 </script>
