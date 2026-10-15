@@ -113,20 +113,13 @@
   .eintrag { width: 100%; border-collapse: collapse; margin-top: 14px; }
   .eintrag th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
   .eintrag td { padding: 4px 8px; border-bottom: 1px solid var(--linie); vertical-align: middle; }
-  .eintrag { table-layout: fixed; }
-  .eintrag col.nr { width: 3em; }
-  .eintrag col.k, .eintrag col.p, .eintrag col.n { width: 19%; }
-  @media (max-width: 560px) {
-    .eintrag col.nr { width: 2.2em; }
-    .eintrag col.k { width: 13%; }
-    .eintrag col.p { width: 24%; }
-    .eintrag col.n { width: 18%; }
-    .eintrag th, .eintrag td { padding-left: 4px; padding-right: 4px; }
-  }
-  .eintrag th:nth-child(n+3), .eintrag td:nth-child(n+3) { text-align: center; }
-  .eintrag td.nr { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .eintrag td.klasse { color: var(--muted); }
-  .eintrag td.punkte input { width: min(7em, 100%); text-align: right; font-variant-numeric: tabular-nums; }
+  .eintrag td.nr { color: var(--muted); width: 2.5em; font-variant-numeric: tabular-nums; }
+  /* Namensspalte nur so breit wie der längste Name, damit die Klasse direkt dahinter steht */
+  .eintrag td.name { width: 1%; white-space: nowrap; padding-right: 28px; }
+  @media (max-width: 560px) { .eintrag td.name { width: auto; white-space: normal; padding-right: 8px; } }
+  .eintrag td.klasse { color: var(--muted); width: 5em; }
+  .eintrag td.punkte { width: 7.5em; }
+  .eintrag td.punkte input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
   .eintrag td.note input.note-manuell { width: 4.2em; text-align: center; padding: 5px 6px; }
   .stat-hinweis { color: var(--muted); font-size: 14px; margin: -4px 0 8px; }
   .hinweisbox { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; font-size: 14px; }
@@ -260,7 +253,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:52</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:55</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -2299,16 +2292,14 @@ if (typeof document !== "undefined") {
       zeileAktualisieren();
       tbody.append(el("tr", {},
         el("td", { klasse: "nr", text: String(idx + 1) }),
-        el("td", { text: anzeige(s.name) }),
+        el("td", { klasse: "name", text: anzeige(s.name) }),
         el("td", { klasse: "klasse", text: s.klasse || "" }),
         el("td", { klasse: "punkte" }, eingabe),
         noteZelle));
     });
     bereich.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px", text: "Leer heißt fehlt, schreibt nach. Statt Punkten kannst du einen Vermerk eintippen, etwa einen Grund, und daneben bei Bedarf eine Note. Die Person bleibt dann in der Liste, zählt aber nicht in die Statistik." }));
-    // Klasse, Punkte und Note gleich breit und zentriert
     bereich.append(el("table", { klasse: "eintrag" },
-      el("colgroup", {}, el("col", { klasse: "nr" }), el("col"), el("col", { klasse: "k" }), el("col", { klasse: "p" }), el("col", { klasse: "n" })),
-      el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Punkte" }), el("th", { text: "Note" }))),
+      el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Punkte", stil: "text-align:right" }), el("th", { text: "Note" }))),
       tbody));
     pruefe();
   }
