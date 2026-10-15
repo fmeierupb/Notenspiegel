@@ -116,10 +116,16 @@
   .eintrag td.nr { color: var(--muted); width: 2.5em; font-variant-numeric: tabular-nums; }
   /* Namensspalte nur so breit wie der längste Name, damit die Klasse direkt dahinter steht */
   .eintrag td.name { width: 1%; white-space: nowrap; padding-right: 28px; }
-  @media (max-width: 560px) { .eintrag td.name { width: auto; white-space: normal; padding-right: 8px; } }
+  .eintrag-rahmen { overflow-x: auto; }
   .eintrag td.klasse { color: var(--muted); width: 5em; }
   .eintrag td.punkte { width: 7.5em; }
   .eintrag td.punkte input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
+  @media (max-width: 560px) {
+    .eintrag th, .eintrag td { padding-left: 4px; padding-right: 4px; }
+    .eintrag td.name { padding-right: 12px; }
+    .eintrag td.klasse { width: 3em; }
+    .eintrag td.punkte { width: 5.5em; }
+  }
   .eintrag td.note input.note-manuell { width: 4.2em; text-align: center; padding: 5px 6px; }
   .stat-hinweis { color: var(--muted); font-size: 14px; margin: -4px 0 8px; }
   .hinweisbox { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; font-size: 14px; }
@@ -157,7 +163,7 @@
   .abschnitt-titel:first-child { margin-top: 4px; }
   .stat { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   .stat th { text-align: right; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 6px 10px; border-bottom: 1px solid var(--text); white-space: nowrap; }
-  .stat th:first-child, .stat td:first-child { text-align: left; }
+  .stat th:first-child, .stat td:first-child { text-align: left; white-space: nowrap; }
   .stat td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--linie); }
   .stat tr.summe td { font-weight: 700; border-top: 1px solid var(--text); border-bottom: 0; }
   .stat .stark { font-weight: 700; }
@@ -176,7 +182,7 @@
   .liste tbody tr:last-child td { border-bottom: 0; }
   .liste .zahl { text-align: right; }
   .liste tr.fehlt td { color: var(--muted); }
-  .liste td.name { white-space: normal; min-width: 12em; }
+  .liste td.name { white-space: nowrap; }
   .chip { display: inline-block; min-width: 2.4em; text-align: center; padding: 2px 8px; border-radius: 6px; font-weight: 700; }
   .notenwort { color: var(--muted); font-size: 13px; margin-left: 6px; }
 
@@ -222,7 +228,7 @@
   .vorschau-rahmen { max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
   .vorschau { width: 100%; border-collapse: collapse; font-size: 15px; }
   .vorschau th { position: sticky; top: 0; background: var(--card); text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
-  .vorschau td { padding: 4px 8px; border-bottom: 1px solid var(--linie); }
+  .vorschau td { padding: 4px 8px; border-bottom: 1px solid var(--linie); white-space: nowrap; }
   .vorschau tr.aus td { color: var(--muted); }
   .vorschau td.kz { width: 2.2em; }
   .vorschau td.zahl { text-align: right; font-variant-numeric: tabular-nums; }
@@ -253,7 +259,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:55</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 16:57</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -1096,6 +1102,11 @@ function wP(inhalt, o = {}) {
   return `<w:p><w:pPr>${ppr}</w:pPr>${inhalt}</w:p>`;
 }
 // Tabelle ohne senkrechte Linien. spalten: [{ breite, rechts }], zeilen: [{ zellen, kopf, fuellung, oben, unten }]
+// Breite einer Namensspalte: mindestens die Vorgabe, sonst so breit wie der längste Name (grob 105 twips je Zeichen bei 10 pt plus Zellränder)
+function namensBreite(namen, mindest) {
+  const laengste = Math.max(0, ...namen.map((n) => String(n || "").length));
+  return Math.min(Math.round(TEXTBREITE * 0.62), Math.max(mindest, laengste * 105 + 300));
+}
 // Erste Spalte mit fester Breite, die übrigen teilen sich den Rest gleichmäßig und sind zentriert
 function gleichSpalten(erste, anzahl) {
   const rest = TEXTBREITE - erste, b = Math.floor(rest / anzahl);
@@ -1152,7 +1163,7 @@ function wordDokument(info) {
   }], { rand: [100, 0] });
   body += wP("", { nach: 220 });
   // Mit Vermerken bekommt die Spalte Punkte mehr Platz
-  const sp = gleichSpalten(liste.some((z) => z.vermerk) ? 3038 : 4438, 3);
+  const sp = gleichSpalten(namensBreite(liste.map((z) => z.name), liste.some((z) => z.vermerk) ? 3038 : 4438), 3);
   body += wTab(sp, [
     { ...W_KOPF, zellen: ["Name", "Klasse", "Note", "Punkte"] },
     ...liste.map((z, i) => ({
@@ -1223,7 +1234,7 @@ function wordDokument(info) {
       body += abschnitt("Grenzfälle");
       body += wP(wR("Höchstens 1 Punkt unter der nächstbesseren Note", { gr: 9, farbe: W_GRAU }), { nach: 60, keepNext: true });
       if (grenzfaelle.length) {
-        body += wTab(gleichSpalten(3238, 4), [
+        body += wTab(gleichSpalten(namensBreite(grenzfaelle.map((g) => g.name), 3238), 4), [
           { ...W_KOPF, zellen: ["Name", "Klasse", "Punkte", "Note", "Es fehlen"] },
           ...grenzfaelle.map((g, i) => ({
             fuellung: i % 2 ? W_HELL : null, gr: 9.5,
@@ -1241,7 +1252,7 @@ function wordDokument(info) {
       ], { hoehe: 270, rand: [35, 60], zusammen: true });
       body += wP(wR(verlauf.schlechterTitel, { gr: 9, fett: true }), { vor: 160, nach: 60, keepNext: true });
       if (verlauf.schlechter.length) {
-        body += wTab(gleichSpalten(3638, 3), [
+        body += wTab(gleichSpalten(namensBreite(verlauf.schlechter.map((g) => g.name), 3638), 3), [
           { ...W_KOPF, zellen: ["Name", "Klasse", "Vorher", "Jetzt"] },
           ...verlauf.schlechter.map((g, i) => ({
             fuellung: i % 2 ? W_HELL : null, gr: 9.5,
@@ -2298,9 +2309,9 @@ if (typeof document !== "undefined") {
         noteZelle));
     });
     bereich.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px", text: "Leer heißt fehlt, schreibt nach. Statt Punkten kannst du einen Vermerk eintippen, etwa einen Grund, und daneben bei Bedarf eine Note. Die Person bleibt dann in der Liste, zählt aber nicht in die Statistik." }));
-    bereich.append(el("table", { klasse: "eintrag" },
+    bereich.append(el("div", { klasse: "eintrag-rahmen" }, el("table", { klasse: "eintrag" },
       el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Punkte", stil: "text-align:right" }), el("th", { text: "Note" }))),
-      tbody));
+      tbody)));
     pruefe();
   }
   // Reihenfolge der Eingabe: leere Punktzahlen stehen beim Sortieren nach Punkten am Ende
