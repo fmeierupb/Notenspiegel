@@ -29,8 +29,9 @@
   } catch (e) { document.documentElement.dataset.theme = "light"; }
 </script>
 <style>
+  /* "only light": Chrome auf Android dunkelt sonst die helle Ansicht selbst ab, dann sähen hell und dunkel gleich aus */
   :root {
-    color-scheme: light;
+    color-scheme: only light;
     --bg: #f5f6f8;
     --card: #ffffff;
     --border: #d9dde3;
@@ -247,7 +248,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 07:57</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 08:21</p>
   </section>
 
   <section id="ergebnis" hidden>
