@@ -114,17 +114,16 @@
   .eintrag th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
   .eintrag td { padding: 4px 8px; border-bottom: 1px solid var(--linie); vertical-align: middle; }
   .eintrag td.nr { color: var(--muted); width: 2.5em; font-variant-numeric: tabular-nums; }
-  /* Namensspalte nur so breit wie der längste Name, damit die Klasse direkt dahinter steht */
-  .eintrag td.name { width: 1%; white-space: nowrap; padding-right: 28px; }
+  /* Namensspalte nur so breit wie der längste Name, nie umgebrochen. Den restlichen Platz teilen sich Klasse, Punkte und Note gleichmäßig */
+  .eintrag td.name { width: 1%; white-space: nowrap; padding-right: 20px; }
   .eintrag-rahmen { overflow-x: auto; }
-  .eintrag td.klasse { color: var(--muted); width: 5em; }
-  .eintrag td.punkte { width: 7.5em; }
-  .eintrag td.punkte input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
+  .eintrag th:nth-child(n+3), .eintrag td:nth-child(n+3) { width: 30%; text-align: center; }
+  .eintrag td.klasse { color: var(--muted); }
+  .eintrag td.punkte input { width: 7em; max-width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
   @media (max-width: 560px) {
     .eintrag th, .eintrag td { padding-left: 4px; padding-right: 4px; }
     .eintrag td.name { padding-right: 12px; }
-    .eintrag td.klasse { width: 3em; }
-    .eintrag td.punkte { width: 5.5em; }
+    .eintrag td.punkte input { width: 5.5em; }
   }
   .eintrag td.note input.note-manuell { width: 4.2em; text-align: center; padding: 5px 6px; }
   .stat-hinweis { color: var(--muted); font-size: 14px; margin: -4px 0 8px; }
@@ -259,7 +258,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 17:00</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 17:02</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -2310,7 +2309,7 @@ if (typeof document !== "undefined") {
     });
     bereich.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px", text: "Leer heißt fehlt, schreibt nach. Statt Punkten kannst du einen Vermerk eintippen, etwa einen Grund, und daneben bei Bedarf eine Note. Die Person bleibt dann in der Liste, zählt aber nicht in die Statistik." }));
     bereich.append(el("div", { klasse: "eintrag-rahmen" }, el("table", { klasse: "eintrag" },
-      el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Punkte", stil: "text-align:right" }), el("th", { text: "Note" }))),
+      el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Punkte" }), el("th", { text: "Note" }))),
       tbody)));
     pruefe();
   }
