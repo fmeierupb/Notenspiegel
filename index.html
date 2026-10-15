@@ -248,7 +248,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 15:54</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 15:59</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -259,7 +259,7 @@
       </div>
       <button id="zurueck" class="zweit rechts" type="button">Zurück zur Eingabe</button>
       <button id="einstellungen-ergebnis" class="zweit" type="button">Einstellungen</button>
-      <button id="speichern" class="zweit" type="button">Speichern</button>
+      <button id="speichern" class="zweit" type="button">Im Kurs speichern</button>
       <button id="word" type="button">Word-Export</button>
     </div>
     <div class="reiter" role="tablist">
@@ -311,8 +311,8 @@
       <div id="kurs-editor"></div>
     </div>
     <div class="dialog-fuss">
-      <button id="backup-sichern" class="leise" type="button">Backup sichern</button>
-      <button id="backup-laden" class="leise" type="button">Backup laden</button>
+      <button id="backup-sichern" class="leise" type="button">Backup-Datei erstellen</button>
+      <button id="backup-laden" class="leise" type="button">Backup-Datei laden</button>
       <span id="backup-stand" class="hint" style="margin:0;font-size:13px"></span>
       <input id="backup-datei" type="file" accept=".json,application/json" hidden>
       <span id="kurs-status" class="status" style="margin:0"></span>
@@ -325,7 +325,7 @@
   <div class="dialog-innen">
     <div class="dialog-kopf"><h2 tabindex="-1" autofocus>Liste importieren</h2></div>
     <div class="dialog-inhalt">
-      <p class="hint">Liste in WebUntis markieren, kopieren und hier einsetzen. Oder eine Datei wählen: Excel, PDF, CSV oder eine Word-Datei, die du hier exportiert hast. Alles wird nur hier im Browser gelesen.</p>
+      <p class="hint">Liste in WebUntis markieren, kopieren und hier einsetzen. Oder eine Datei wählen: Excel, PDF, CSV oder eine Word-Datei, die du hier exportiert hast. Text und Dateien werden auf diesem Gerät gelesen, nichts wird hochgeladen.</p>
       <textarea id="import-text" rows="4" placeholder="Hier einsetzen"></textarea>
       <div class="reihe" style="margin-top:8px">
         <button id="import-text-lesen" class="zweit" type="button">Text lesen</button>
@@ -385,7 +385,7 @@
           </label>
         </div>
         <div class="optionen">
-          <label><input type="checkbox" data-einst="spalten.fehlend"> Nicht Mitgeschriebene aufführen</label>
+          <label><input type="checkbox" data-einst="spalten.fehlend"> Fehlende in der Notenliste aufführen</label>
         </div>
       </div>
       <div class="abschnitt">
@@ -404,15 +404,15 @@
       </div>
       <div class="abschnitt">
         <h3>Word-Export</h3>
-        <p class="hint">Seite 1: Titel, Teilnehmer, Notenschnitt, Mittelwert und die Notenliste in Graustufen. Seite 2: Diagramm und Kennzahlen in Farbe.</p>
+        <p class="hint">Seite 1: Titel, Teilnehmer, Notenschnitt, Mittelwert und die Notenliste in Graustufen. Ab Seite 2: Diagramm und Statistik in Farbe.</p>
         <div class="optionen">
           <label><input type="checkbox" data-einst="word.diagramm"> Diagramm auf Seite 2</label>
-          <label><input type="checkbox" data-einst="word.statistik"> Kennzahlen auf Seite 2</label>
+          <label><input type="checkbox" data-einst="word.statistik"> Statistik ab Seite 2</label>
         </div>
       </div>
     </div>
     <div class="dialog-fuss">
-      <button id="einst-standard" class="leise" type="button">Alles zurücksetzen</button>
+      <button id="einst-standard" class="leise" type="button">Einstellungen zurücksetzen</button>
       <button id="einst-fertig" class="rechts" type="button">Fertig</button>
     </div>
   </div>
@@ -669,8 +669,8 @@ function statistik(e, tendenzen) {
 
   const kennzahlen = [];
   kennzahlen.push(["Teilnehmer", `${n} von ${stat.gesamtZahl}`]);
-  if (stat.fehlend) kennzahlen.push(["Nicht mitgeschrieben", String(stat.fehlend)]);
-  if (stat.mitVermerk) kennzahlen.push(["Mit Vermerk, ohne Punkte", String(stat.mitVermerk)]);
+  if (stat.fehlend) kennzahlen.push(["Fehlt, schreibt nach", String(stat.fehlend)]);
+  if (stat.mitVermerk) kennzahlen.push(["Mit Vermerk", String(stat.mitVermerk)]);
   kennzahlen.push(["Notenschnitt", komma2(stat.notenSchnitt)]);
   kennzahlen.push(["Mittelwert", `${de(stat.mittel)} P (${pz(stat.mittel)})`]);
   const unterBez = `Unter ${noten[grenzeIdx].name.toLowerCase()}`;
@@ -2062,7 +2062,7 @@ if (typeof document !== "undefined") {
   function teilenLeiste(datei) {
     const alt = document.getElementById("teilen-leiste");
     if (alt) alt.remove();
-    const knopf = el("button", { type: "button", text: "Sichern oder öffnen" });
+    const knopf = el("button", { type: "button", text: "Speichern oder öffnen" });
     const zu = el("button", { type: "button", klasse: "zweit", text: "Schließen" });
     const leiste = el("div", { id: "teilen-leiste" }, el("span", { text: `${datei.name} ist fertig.` }), el("span", { klasse: "rechts" }), knopf, zu);
     knopf.addEventListener("click", async () => {
@@ -2213,7 +2213,7 @@ if (typeof document !== "undefined") {
     neuKnopf.addEventListener("click", () => {
       const etwas = [...punkteVon(k).values(), ...manuellVon(k).values()].some((v) => String(v || "").trim());
       if (etwas && ungesichert && neuStufe === 0) {
-        neuStufe = 1; neuKnopf.className = "gefahr"; neuKnopf.textContent = "Nicht gespeichert. Trotzdem leeren?";
+        neuStufe = 1; neuKnopf.className = "gefahr"; neuKnopf.textContent = "Nicht im Kurs gespeichert. Trotzdem leeren?";
         setTimeout(() => { neuStufe = 0; neuKnopf.className = "zweit"; neuKnopf.textContent = "Neue Arbeit"; }, 4000);
         return;
       }
@@ -2315,7 +2315,7 @@ if (typeof document !== "undefined") {
       });
       zeilen.push(`${mit} von ${k.schueler.length - vermerk} Punktzahlen eingetragen` +
         (vermerk ? `, ${vermerk} mit Vermerk` : "") +
-        (ohne ? `, ${ohne} ohne Punkte ${ohne === 1 ? "gilt" : "gelten"} als nicht mitgeschrieben.` : "."));
+        (ohne ? `, ${ohne} ohne Eintrag ${ohne === 1 ? "fehlt und schreibt" : "fehlen und schreiben"} nach.` : "."));
       if (falsch) zeilen.push(`${falsch} ${falsch === 1 ? "Eingabe ist" : "Eingaben sind"} ungültig.`);
       bereit = mit > 0 && !falsch && !ns.fehler.length;
       status.classList.toggle("fehler", falsch > 0 || ns.fehler.length > 0);
@@ -2505,7 +2505,7 @@ if (typeof document !== "undefined") {
           el("td", { text: g.name }), el("td", { text: g.klasse }), el("td", {}, noteChip(g.vorherN.note, g.vorherN.tendenz, noten)),
           el("td", {}, noteChip(g.z.note, g.z.tendenz, noten))))));
       } else box.append(el("p", { text: "Niemand." }));
-    } else box.append(el("p", { klasse: "stat-hinweis", text: "Noch keine frühere Arbeit in diesem Kurs gespeichert. Arbeiten werden beim Word-Export gespeichert." }));
+    } else box.append(el("p", { klasse: "stat-hinweis", text: "Noch keine frühere Arbeit im Kurs gespeichert. Das geht mit „Im Kurs speichern“ oder beim Word-Export." }));
   }
 
   // Grenzfälle und Verlauf fertig zum Anzeigen, für Bildschirm und Word gleich
@@ -2651,7 +2651,19 @@ if (typeof document !== "undefined") {
     k.arbeiten.forEach((a) => wahl.append(el("option", { value: a.id, text: arbeitTitel(a) })));
     wahl.value = k.arbeiten[k.arbeiten.length - 1].id;
     const gewaehlt = () => k.arbeiten.find((a) => a.id === wahl.value);
-    const laden = el("button", { type: "button", klasse: "zweit", text: "Laden", onclick: () => { const a = gewaehlt(); if (a) arbeitLaden(k, a); } });
+    let ladeStufe = 0;
+    const laden = el("button", { type: "button", klasse: "zweit", text: "Laden" });
+    laden.addEventListener("click", () => {
+      const a = gewaehlt();
+      if (!a) return;
+      const etwas = [...punkteVon(k).values(), ...manuellVon(k).values()].some((v) => String(v || "").trim());
+      if (etwas && ungesichert && ladeStufe === 0) {
+        ladeStufe = 1; laden.className = "gefahr"; laden.textContent = "Nicht im Kurs gespeichert. Trotzdem laden?";
+        setTimeout(() => { ladeStufe = 0; laden.className = "zweit"; laden.textContent = "Laden"; }, 4000);
+        return;
+      }
+      arbeitLaden(k, a);
+    });
     let stufe = 0;
     const loeschen = el("button", { type: "button", klasse: "zweit", text: "Löschen" });
     loeschen.addEventListener("click", () => {
@@ -2666,7 +2678,7 @@ if (typeof document !== "undefined") {
   $("speichern").addEventListener("click", () => {
     const r = arbeitSichern();
     $("hinweis").classList.remove("fehler");
-    $("hinweis").textContent = r === "aktualisiert" ? "Die Arbeit ist im Tool gespeichert, der vorherige Stand wurde ersetzt." : r ? "Die Arbeit ist im Tool gespeichert." : "";
+    $("hinweis").textContent = r === "aktualisiert" ? "Die Arbeit ist im Kurs gespeichert, der vorherige Stand dieser Arbeit wurde ersetzt." : r ? "Die Arbeit ist im Kurs gespeichert." : "";
   });
 
   // ----- Word-Export -----
@@ -2690,7 +2702,7 @@ if (typeof document !== "undefined") {
         meta: { kurs: e.kursName, arbeit: e.arbeit, datum: e.datum, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen } },
       });
       const gesichert = arbeitSichern();
-      $("hinweis").textContent = gesichert === "aktualisiert" ? "Die Arbeit ist im Tool gespeichert, der vorherige Stand wurde ersetzt." : "Die Arbeit ist im Tool gespeichert.";
+      $("hinweis").textContent = gesichert === "aktualisiert" ? "Die Arbeit ist außerdem im Kurs gespeichert, der vorherige Stand dieser Arbeit wurde ersetzt." : "Die Arbeit ist außerdem im Kurs gespeichert.";
       herunterladen(blob, dateiname(label, "docx"));
     } catch (err) {
       $("hinweis").textContent = "Der Word-Export hat nicht geklappt: " + err.message;
@@ -2842,7 +2854,7 @@ if (typeof document !== "undefined") {
       `Notenauswertung_Backup_${new Date().toISOString().slice(0, 10)}.json`);
     if (!ok) return;
     schreiben(BACKUP_KEY, new Date().toISOString());
-    $("kurs-status").textContent = "Backup gespeichert.";
+    $("kurs-status").textContent = "Backup-Datei erstellt.";
     backupStand();
   }
   // Stand des letzten Backups. Erinnerung, wenn es echte Kurse gibt und das Backup fehlt oder älter als 30 Tage ist
@@ -2850,13 +2862,15 @@ if (typeof document !== "undefined") {
     const z = lesen(BACKUP_KEY);
     const zeit = z ? Date.parse(z) : NaN;
     const tage = Number.isFinite(zeit) ? Math.floor((Date.now() - zeit) / 864e5) : null;
-    $("backup-stand").textContent = tage != null ? `Letztes Backup: ${new Date(zeit).toLocaleDateString("de-DE")}` : "Noch kein Backup";
+    $("backup-stand").textContent = tage != null ? `Letzte Backup-Datei: ${new Date(zeit).toLocaleDateString("de-DE")}` : "Noch keine Backup-Datei";
     const box = $("backup-hinweis");
     box.hidden = !kurse.some((k) => !k.beispiel && k.schueler.length) || (tage != null && tage < 30);
     box.innerHTML = "";
     if (!box.hidden) box.append(
-      el("p", { text: tage != null ? `Letztes Backup vor ${tage} Tagen. Ohne aktuelles Backup sind neuere Kurse und Noten weg, wenn das Gerät zurückgesetzt oder die App gelöscht wird.` : "Noch kein Backup. Ohne Backup sind Kurse und Noten weg, wenn das Gerät zurückgesetzt oder die App gelöscht wird." }),
-      el("button", { type: "button", klasse: "zweit", text: "Backup sichern", onclick: backupSichern }));
+      el("p", { text: tage != null
+        ? `Die letzte Backup-Datei ist ${tage} Tage alt. Was seitdem dazukam, steht in keiner Kopie.`
+        : "Es gibt noch keine Backup-Datei. Sie ist eine Kopie aller Kurse und Noten, die du selbst ablegst. Liegt sie außerhalb dieses Geräts, kannst du damit alles wiederherstellen, falls das Gerät zurückgesetzt oder die App gelöscht wird." }),
+      el("button", { type: "button", klasse: "zweit", text: "Backup-Datei erstellen", onclick: backupSichern }));
   }
   $("backup-sichern").addEventListener("click", backupSichern);
   $("backup-laden").addEventListener("click", () => $("backup-datei").click());
@@ -2876,7 +2890,7 @@ if (typeof document !== "undefined") {
     if (daten.einstellungen) { einst = zusammenfuehren(STANDARD_EINST, daten.einstellungen); if (einst.sortierung === "name") einst.sortierung = "nachname"; einstSpeichern(); $("gesamt-start").value = einst.gesamt; }
     if (geladen[0]) { bearbeitet = geladen[0].id; aktiverKurs = geladen[0].id; }
     kurseSpeichern();
-    return `${geladen.length} ${geladen.length === 1 ? "Kurs" : "Kurse"} aus dem Backup geladen.`;
+    return `${geladen.length} ${geladen.length === 1 ? "Kurs" : "Kurse"} aus der Backup-Datei geladen.`;
   }
   $("backup-datei").addEventListener("change", async (e) => {
     const datei = e.target.files[0];
@@ -3095,7 +3109,7 @@ if (typeof document !== "undefined") {
     const nameIn = el("input", { type: "text", value: imp.kursName });
     nameIn.addEventListener("input", () => { imp.kursName = nameIn.value; });
     const zielReihe = el("div", { klasse: "reihe", stil: "margin-top:14px" },
-      el("label", { klasse: "feld", stil: "flex:1 1 220px" }, "Übernehmen nach", zielWahl),
+      el("label", { klasse: "feld", stil: "flex:1 1 220px" }, "Übernehmen in", zielWahl),
       imp.ziel === "neu" ? el("label", { klasse: "feld", stil: "flex:1 1 220px" }, "Kursname", nameIn) : null);
     v.append(zielReihe);
     const optionenBox = el("div", { klasse: "optionen", stil: "margin-top:12px" });
@@ -3263,8 +3277,8 @@ if (typeof document !== "undefined") {
   let standardStufe = 0;
   $("einst-standard").addEventListener("click", () => {
     const k = $("einst-standard");
-    if (standardStufe === 0) { standardStufe = 1; k.textContent = "Wirklich alles zurücksetzen?"; setTimeout(() => { standardStufe = 0; k.textContent = "Alles zurücksetzen"; }, 4000); return; }
-    standardStufe = 0; k.textContent = "Alles zurücksetzen";
+    if (standardStufe === 0) { standardStufe = 1; k.textContent = "Wirklich alle Einstellungen zurücksetzen?"; setTimeout(() => { standardStufe = 0; k.textContent = "Einstellungen zurücksetzen"; }, 4000); return; }
+    standardStufe = 0; k.textContent = "Einstellungen zurücksetzen";
     einst = kopie(STANDARD_EINST); einstSpeichern(); nsAufbauen(); optionenAufbauen(); tendenzHinweis(); $("gesamt-start").value = einst.gesamt;
   });
   $("einst-fertig").addEventListener("click", () => {
@@ -3291,7 +3305,7 @@ if (typeof document !== "undefined") {
     const box = $("heim-hinweis");
     box.hidden = false;
     box.append(
-      el("p", { text: "Im Safari-Tab kann Safari die gespeicherten Kurse löschen, wenn das Tool eine Weile nicht benutzt wird. Dauerhaft sicher ist die App auf dem Home-Bildschirm: Teilen, dann „Zum Home-Bildschirm“. Sie hat einen eigenen Speicher, Kurse von hier also vorher per Backup sichern und dort laden." }),
+      el("p", { text: "Im Safari-Tab kann Safari die Kurse löschen, wenn das Tool eine Weile nicht benutzt wird. Als App auf dem Home-Bildschirm passiert das nicht: Teilen, dann „Zum Home-Bildschirm“. Die App sieht die Kurse aus diesem Tab nicht. Übertragen geht mit einer Backup-Datei: hier erstellen, in der App laden." }),
       el("button", { type: "button", klasse: "leise", text: "Ausblenden", onclick: () => { box.hidden = true; } }));
   }
   if (istIOS && navigator.storage && navigator.storage.persist) navigator.storage.persisted().then((ja) => ja || navigator.storage.persist()).catch(() => {});

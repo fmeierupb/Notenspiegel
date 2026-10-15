@@ -6,7 +6,7 @@ Seite: https://fmeierupb.github.io/Notenspiegel/
 
 ## Daten
 
-Namen, Klassen, Kurse und gesicherte Arbeiten (Punkte und Noten) liegen nur im Browserspeicher des Geräts. Eine Arbeit wird beim Word-Export gesichert und lässt sich im Tool wieder löschen. Die Seite verbietet sich per Content Security Policy jede ausgehende Verbindung (`connect-src 'none'`). Der Service Worker lädt nur die Programmdateien dieser Seite für den Offline-Betrieb.
+Namen, Klassen, Kurse, im Kurs gespeicherte Arbeiten (Punkte und Noten) und die laufenden Eingaben stehen im Browserspeicher des Geräts und werden nirgendwohin übertragen. Eine Arbeit wird mit „Im Kurs speichern“ oder beim Word-Export im Kurs gespeichert und lässt sich dort wieder löschen. Eine Backup-Datei ist eine Kopie aller Kurse, die man selbst erstellt und ablegt. Die Seite verbietet sich per Content Security Policy jede ausgehende Verbindung (`connect-src 'none'`). Der Service Worker lädt nur die Programmdateien dieser Seite für den Offline-Betrieb.
 
 ## Enthaltener Fremdcode
 
