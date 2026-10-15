@@ -118,6 +118,28 @@
   .eintrag td.punkte input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
   .eintrag td.note { width: 8em; }
   .eintrag td.note input.note-manuell { width: 4.2em; text-align: center; padding: 5px 6px; }
+  .eintrag td.punkte input[readonly] { background: var(--feld-aus); font-weight: 600; }
+  .eintrag th.a { text-align: center; line-height: 1.15; padding: 6px 2px; }
+  .eintrag th.a .max { font-weight: 400; font-size: 11px; }
+  .eintrag td.a { padding: 4px 2px; width: 3.6em; }
+  .eintrag td.a input { width: 3.4em; text-align: right; padding: 6px 5px; font-variant-numeric: tabular-nums; }
+  .eintrag-rahmen { overflow-x: auto; }
+  /* Mit vielen Aufgaben auf schmalem Bildschirm (iPad hochkant): alles enger, damit Summe und Note sichtbar bleiben */
+  @media (max-width: 1000px) {
+    .eintrag.mit-aufgaben th, .eintrag.mit-aufgaben td { padding-left: 3px; padding-right: 3px; }
+    .eintrag.mit-aufgaben td.nr { width: 1.8em; }
+    .eintrag.mit-aufgaben td.klasse { width: 2.6em; }
+    .eintrag.mit-aufgaben td.a { width: auto; padding: 4px 1px; }
+    .eintrag.mit-aufgaben td.a input { width: 2.9em; padding: 6px 3px; font-size: 15px; }
+    .eintrag.mit-aufgaben td.punkte { width: 4.4em; }
+    .eintrag.mit-aufgaben td.note { width: 4.6em; }
+    .eintrag.mit-aufgaben td.note input.note-manuell { width: 3.6em; }
+  }
+  #eingabe.breit { max-width: 1180px; }
+  .quote { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+  .quote .bahn { width: 120px; height: 8px; border-radius: 4px; background: var(--linie); overflow: hidden; }
+  .quote .bahn span { display: block; height: 100%; }
+  .stat-hinweis { color: var(--muted); font-size: 14px; margin: -4px 0 8px; }
   .leer { text-align: center; padding: 28px 12px; color: var(--muted); }
   .leer .knoepfe { justify-content: center; }
 
@@ -231,6 +253,7 @@
       <label class="feld">Arbeit<input id="arbeit" type="text" placeholder="z. B. 2. Klassenarbeit"></label>
       <label class="feld">Datum<input id="datum" type="date"></label>
       <label class="feld">Gesamtpunktzahl<input id="gesamt-start" type="number" min="1" step="0.5"></label>
+      <label class="feld" style="grid-column:1/-1">Punkte je Aufgabe, optional<input id="aufgaben" type="text" inputmode="decimal" autocomplete="off" placeholder="leer lassen oder Höchstpunkte, z. B. 6 8 10 4"></label>
     </div>
     <div id="eintragbereich"></div>
     <div id="datenstatus" class="status"></div>
@@ -242,7 +265,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 05:44</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 05:55</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -434,6 +457,7 @@ const STANDARD_EINST = {
   sortierung: "eingabe",
   diagramm: { kreuze: true, mittel: true, fit: true, legende: true, anzahl: true, xTitel: "Notenstufen [Punkte; Prozent]", yTitel: "Häufigkeit" },
   word: { ueberschrift: "Notenliste", diagramm: true, statistik: true },
+  aufgaben: "",
 };
 
 const kopie = (o) => JSON.parse(JSON.stringify(o));
@@ -601,6 +625,36 @@ function noteLesen(text) {
   const m = /^([1-6])([+−]?)$/.exec(t);
   return m ? { note: +m[1] - 1, tendenz: m[2], text: m[1] + m[2] } : { fehler: true };
 }
+// Höchstpunkte je Aufgabe aus dem Eingabefeld: getrennt durch Leerzeichen, Semikolon oder Komma mit Leerzeichen
+function aufgabenLesen(text) {
+  let t = String(text || "").trim();
+  if (!t) return { leer: true };
+  t = t.replace(/,\s+/g, " ");
+  let teile = t.split(/[\s;\/+]+/).filter(Boolean);
+  if (teile.length === 1 && /^\d+(,\d+)+$/.test(teile[0])) teile = teile[0].split(",");
+  const max = teile.map((x) => (/^\d+([.,]\d+)?$/.test(x) ? parseFloat(x.replace(",", ".")) : NaN));
+  if (max.some((m) => !(m > 0))) return { fehler: "bitte nur Zahlen größer 0, getrennt durch Leerzeichen" };
+  if (max.some((m) => Math.round(m * 2) !== m * 2)) return { fehler: "nur ganze oder halbe Punkte" };
+  if (max.length < 2) return { fehler: "mindestens zwei Aufgaben" };
+  if (max.length > 20) return { fehler: "höchstens 20 Aufgaben" };
+  return { max };
+}
+// Punkte einer Person je Aufgabe: leere Felder zählen als 0, sobald irgendein Feld belegt ist
+function aufgabenSumme(werte, max) {
+  const arr = max.map((_, j) => String((werte || [])[j] == null ? "" : (werte || [])[j]).trim());
+  const belegt = arr.some(Boolean);
+  const fehler = [], zahlen = [];
+  let leer = 0;
+  arr.forEach((v, j) => {
+    if (!v) { leer++; zahlen.push(0); return; }
+    const t = v.replace(",", ".");
+    const w = /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : NaN;
+    if (!(w >= 0 && w <= max[j])) { fehler.push(j); zahlen.push(0); return; }
+    zahlen.push(w);
+  });
+  return { belegt, fehler, leer: belegt ? leer : 0, werte: zahlen, summe: zahlen.reduce((x, y) => x + y, 0) };
+}
+
 // Bewertet ist, wer Punkte hat. "fehlt" heißt nachschreiben, ein Vermerk heißt: schreibt nicht mit
 const bewertet = (z) => !z.fehlt && !z.vermerk;
 
@@ -677,7 +731,51 @@ function statistik(e, tendenzen) {
       unter: zz.length ? unterText(zz) : "",
     };
   }) : [];
-  return { verteilung, kennzahlen, klassen, n, unterBez };
+  // Grenzfälle: höchstens 1 Punkt unter der nächstbesseren Note
+  const grenzfaelle = mit.filter((z) => z.bis != null && z.bis > 0 && z.bis <= 1 + 1e-9);
+
+  // Aufgaben: Mittelwert und Lösungsquote, eingefärbt nach der Note, die diesem Prozentsatz entspräche
+  let aufgaben = null;
+  const mitA = e.aufgabenMax ? mit.filter((z) => Array.isArray(z.aufgaben)) : [];
+  if (mitA.length) {
+    aufgaben = {
+      n: mitA.length,
+      zeilen: e.aufgabenMax.map((m, j) => {
+        const mittel = mitA.reduce((s, z) => s + z.aufgaben[j], 0) / mitA.length;
+        const quote = mittel / m * 100;
+        const noteIdx = Math.max(0, noten.findIndex((nt) => quote >= nt.prozent - 1e-9));
+        return { nr: j + 1, max: m, mittel, quote, noteIdx };
+      }),
+    };
+  }
+  return { verteilung, kennzahlen, klassen, n, unterBez, grenzfaelle, aufgaben };
+}
+
+// Vergleich mit der letzten früher gespeicherten Arbeit desselben Kurses
+function verlaufBerechnen(e, arbeiten) {
+  if (!Array.isArray(arbeiten) || !arbeiten.length) return null;
+  const gleich = (a) => (a.arbeit || "") === (e.arbeit || "") && (a.datum || "") === (e.datum || "");
+  const kandidaten = arbeiten.filter((a) => Array.isArray(a.punkte) && !gleich(a) && (!e.datum || (a.datum && a.datum < e.datum)));
+  if (!kandidaten.length) return null;
+  const vor = kandidaten.reduce((x, a) => ((a.datum || "") >= (x.datum || "") ? a : x));
+  const zahl = (t) => (/^\d+([.,]\d+)?$/.test(String(t || "").trim()) ? parseFloat(String(t).trim().replace(",", ".")) : null);
+  const alt = vor.punkte.map((p) => ({ ...p, wert: zahl(p.punkte), n: noteLesen(p.note) })).filter((p) => p.wert != null && p.n.note != null);
+  if (!alt.length) return null;
+  const gesamtAlt = vor.einst && vor.einst.gesamt > 0 ? vor.einst.gesamt : null;
+  const finde = (z) => alt.find((p) => p.id && p.id === z.id) ||
+    alt.find((p) => namensSchluessel(p.name) === namensSchluessel(z.name) && (p.klasse || "") === (z.klasse || ""));
+  const schlechter = [];
+  e.zeilen.filter(bewertet).forEach((z) => {
+    const p = finde(z);
+    if (p && z.note - p.n.note >= 1) schlechter.push({ z, vorher: p.n.text, vorherN: p.n, jetzt: `${z.note + 1}${z.tendenz}`, diff: z.note - p.n.note });
+  });
+  return {
+    arbeit: vor.arbeit || "", datum: vor.datum || "", nVorher: alt.length,
+    schnittVorher: alt.reduce((s, p) => s + p.n.note + 1, 0) / alt.length, schnittJetzt: e.stat.notenSchnitt,
+    mittelVorher: gesamtAlt ? alt.reduce((s, p) => s + p.wert, 0) / alt.length / gesamtAlt * 100 : null,
+    mittelJetzt: e.stat.mittel / e.ns.maxPunkte * 100,
+    schlechter,
+  };
 }
 
 // Anzeige der Namen: gespeichert wird "Nachname, Vorname", angezeigt auf Wunsch "Vorname Nachname".
@@ -1037,7 +1135,7 @@ function wP(inhalt, o = {}) {
 function wTab(spalten, zeilen, o = {}) {
   const rand = (seite, r) => (r ? `<w:${seite} w:val="single" w:sz="${r.sz}" w:space="0" w:color="${r.farbe}"/>` : `<w:${seite} w:val="nil"/>`);
   const nil = ["top", "left", "bottom", "right", "insideH", "insideV"].map((x) => `<w:${x} w:val="nil"/>`).join("");
-  const zeile = (z) => {
+  const zeile = (z, weiter) => {
     const trpr = (z.kopf ? "<w:tblHeader/>" : "") + "<w:cantSplit/>" + (o.hoehe ? `<w:trHeight w:val="${o.hoehe}"/>` : "");
     let spalteNr = 0;
     return `<w:tr><w:trPr>${trpr}</w:trPr>` + z.zellen.map((c) => {
@@ -1052,7 +1150,7 @@ function wTab(spalten, zeilen, o = {}) {
         (fuell ? `<w:shd w:val="clear" w:color="auto" w:fill="${fuell}"/>` : "") + '<w:vAlign w:val="center"/>';
       const absaetze = zelle.absaetze || [wP(zelle.laeufe || wR(zelle.text == null ? "" : String(zelle.text), {
         fett: zelle.fett ?? z.fett, farbe: zelle.farbe || z.farbe, gr: zelle.gr || z.gr || o.gr, caps: z.caps, sperren: z.caps ? 16 : 0,
-      }), { jc: sp.rechts ? "right" : null })];
+      }), { jc: sp.rechts ? "right" : null, keepNext: weiter })];
       return `<w:tc><w:tcPr>${tcpr}</w:tcPr>${absaetze.join("")}</w:tc>`;
     }).join("") + "</w:tr>";
   };
@@ -1060,14 +1158,14 @@ function wTab(spalten, zeilen, o = {}) {
   return `<w:tbl><w:tblPr><w:tblW w:w="${spalten.reduce((s, c) => s + c.breite, 0)}" w:type="dxa"/><w:tblBorders>${nil}</w:tblBorders>` +
     `<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="${mar[0]}" w:type="dxa"/><w:left w:w="${mar[1]}" w:type="dxa"/>` +
     `<w:bottom w:w="${mar[0]}" w:type="dxa"/><w:right w:w="${mar[1]}" w:type="dxa"/></w:tblCellMar></w:tblPr>` +
-    `<w:tblGrid>${spalten.map((c) => `<w:gridCol w:w="${c.breite}"/>`).join("")}</w:tblGrid>` + zeilen.map(zeile).join("") + "</w:tbl>";
+    `<w:tblGrid>${spalten.map((c) => `<w:gridCol w:w="${c.breite}"/>`).join("")}</w:tblGrid>` + zeilen.map((z, i) => zeile(z, o.zusammen && i < zeilen.length - 1)).join("") + "</w:tbl>";
 }
 const W_KOPF = { kopf: true, caps: true, gr: 7.5, farbe: W_GRAU, fett: true, unten: { sz: 8, farbe: W_DUNKEL } };
 const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr: 8.5, fett: true }),
   { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
 function wordDokument(info) {
-  const { titel, unterzeile, datumText, grundwerte, liste, bild, verteilung, kennzahlen, klassen, unterBez, tendenzen, farben, meta } = info;
+  const { titel, unterzeile, datumText, grundwerte, liste, bild, verteilung, kennzahlen, klassen, unterBez, aufgaben, grenzfaelle, verlauf, tendenzen, farben, meta } = info;
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
   // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
@@ -1133,7 +1231,7 @@ function wordDokument(info) {
           return { fuellung: i % 2 ? W_HELL : null, gr: 9.5, zellen };
         }),
         { gr: 9.5, fett: true, oben: { sz: 8, farbe: W_DUNKEL }, zellen: ["Gesamt", "", "", String(summe), summe ? "100,0 %" : "", ...(mitT ? [""] : [])] },
-      ], { hoehe: 270, rand: [35, 110] });
+      ], { hoehe: 270, rand: [35, 110], zusammen: true });
     }
     if (kennzahlen && kennzahlen.length) {
       body += abschnitt("Kennzahlen");
@@ -1142,7 +1240,18 @@ function wordDokument(info) {
       body += wTab([{ breite: 2500 }, { breite: 2219 }, { breite: 2700 }, { breite: 2219 }], paare.map(([a, b]) => ({
         gr: 9.5, unten: { sz: 4, farbe: W_LINIE },
         zellen: [{ text: a[0], farbe: W_GRAU }, { text: a[1], fett: true }, { text: b ? b[0] : "", farbe: W_GRAU }, { text: b ? b[1] : "", fett: true }],
-      })), { hoehe: 270, rand: [35, 60] });
+      })), { hoehe: 270, rand: [35, 60], zusammen: true });
+    }
+    if (aufgaben && aufgaben.zeilen.length) {
+      body += abschnitt("Aufgaben");
+      body += wTab([{ breite: 2638 }, { breite: 2000, rechts: true }, { breite: 2500, rechts: true }, { breite: 2500, rechts: true }], [
+        { ...W_KOPF, zellen: ["Aufgabe", "Höchstpunkte", "Mittelwert", "Lösungsquote"] },
+        ...aufgaben.zeilen.map((a, i) => ({
+          fuellung: i % 2 ? W_HELL : null, gr: 9.5,
+          zellen: [{ text: `Aufgabe ${a.nr}`, fett: true }, `${deG(a.max)} P`, `${de(a.mittel)} P`, { text: `${Math.round(a.quote)} %`, fett: true, fuellung: toenung(a.noteIdx) }],
+        })),
+      ], { hoehe: 270, rand: [35, 110], zusammen: true });
+      if (aufgaben.hinweis) body += wP(wR(aufgaben.hinweis, { gr: 8.5, farbe: W_GRAU }), { nach: 0 });
     }
     if (klassen && klassen.length) {
       body += abschnitt("Nach Klassen");
@@ -1153,7 +1262,38 @@ function wordDokument(info) {
           zellen: [{ text: k.klasse, fett: true }, `${k.n} von ${k.gesamt}`,
             { text: k.schnitt, fett: true, fuellung: k.schnittWert ? toenung(Math.round(k.schnittWert) - 1) : null }, k.mittel, k.unter],
         })),
-      ], { hoehe: 270, rand: [35, 110] });
+      ], { hoehe: 270, rand: [35, 110], zusammen: true });
+    }
+    if (grenzfaelle) {
+      body += abschnitt("Grenzfälle");
+      body += wP(wR("Höchstens 1 Punkt unter der nächstbesseren Note", { gr: 9, farbe: W_GRAU }), { nach: 60, keepNext: true });
+      if (grenzfaelle.length) {
+        body += wTab([{ breite: 3638 }, { breite: 1300 }, { breite: 1400, rechts: true }, { breite: 1300, rechts: true }, { breite: 2000, rechts: true }], [
+          { ...W_KOPF, zellen: ["Name", "Klasse", "Punkte", "Note", "Es fehlen"] },
+          ...grenzfaelle.map((g, i) => ({
+            fuellung: i % 2 ? W_HELL : null, gr: 9.5,
+            zellen: [g.name, { text: g.klasse, farbe: W_GRAU }, g.punkte, { text: g.note, fett: true }, g.fehlen],
+          })),
+        ], { hoehe: 270, rand: [35, 110], zusammen: true });
+      } else body += wP(wR("Niemand.", { gr: 9.5 }), { nach: 0 });
+    }
+    if (verlauf) {
+      body += abschnitt("Verlauf");
+      body += wP(wR(verlauf.titel, { gr: 9, farbe: W_GRAU }), { nach: 60, keepNext: true });
+      body += wTab([{ breite: 3638 }, { breite: 3000, rechts: true }, { breite: 3000, rechts: true }], [
+        { ...W_KOPF, zellen: ["", "Vorher", "Jetzt"] },
+        ...verlauf.zeilen.map((z) => ({ gr: 9.5, unten: { sz: 4, farbe: W_LINIE }, zellen: [{ text: z[0], farbe: W_GRAU }, z[1], { text: z[2], fett: true }] })),
+      ], { hoehe: 270, rand: [35, 60], zusammen: true });
+      body += wP(wR(verlauf.schlechterTitel, { gr: 9, fett: true }), { vor: 160, nach: 60, keepNext: true });
+      if (verlauf.schlechter.length) {
+        body += wTab([{ breite: 3638 }, { breite: 1500 }, { breite: 2250, rechts: true }, { breite: 2250, rechts: true }], [
+          { ...W_KOPF, zellen: ["Name", "Klasse", "Vorher", "Jetzt"] },
+          ...verlauf.schlechter.map((g, i) => ({
+            fuellung: i % 2 ? W_HELL : null, gr: 9.5,
+            zellen: [g.name, { text: g.klasse, farbe: W_GRAU }, g.vorher, { text: g.jetzt, fett: true }],
+          })),
+        ], { hoehe: 270, rand: [35, 110], zusammen: true });
+      } else body += wP(wR("Niemand.", { gr: 9.5 }), { nach: 0 });
     }
   }
   body += `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>`;
@@ -2036,6 +2176,24 @@ if (typeof document !== "undefined") {
   // Bei einem Vermerk lässt sich eine Note direkt eintragen, etwa aus einer anderen Bewertung
   const manuell = new Map();
   const manuellVon = (k) => { if (!manuell.has(k.id)) manuell.set(k.id, new Map()); return manuell.get(k.id); };
+  // Punkte je Aufgabe: Kurs-ID -> Map(Schüler-ID -> Liste der Eingaben)
+  const aufgabenPunkte = new Map();
+  const aufgabenVon = (k) => { if (!aufgabenPunkte.has(k.id)) aufgabenPunkte.set(k.id, new Map()); return aufgabenPunkte.get(k.id); };
+  const aufgabenMax = () => aufgabenLesen(einst.aufgaben).max || null;
+  // Kopf der Eingabe an die Einstellungen anpassen: mit Aufgaben ergibt sich die Gesamtpunktzahl aus der Summe
+  function kopfSync() {
+    const a = aufgabenLesen(einst.aufgaben);
+    if (document.activeElement !== $("aufgaben")) $("aufgaben").value = einst.aufgaben || "";
+    $("aufgaben").classList.toggle("ungueltig", !!a.fehler);
+    $("gesamt-start").value = einst.gesamt;
+    $("gesamt-start").disabled = !!a.max;
+    $("gesamt-start").title = a.max ? "Summe der Aufgaben" : "";
+  }
+  // Summen aller Personen neu bilden, etwa wenn sich die Aufgaben ändern
+  function summenNeu(k, max) {
+    const werte = punkteVon(k);
+    aufgabenVon(k).forEach((arr, id) => { const r = aufgabenSumme(arr, max); if (r.belegt) werte.set(id, deG(r.summe)); });
+  }
 
   // ----- Thema -----
   function themaKnopf() { $("thema").textContent = document.documentElement.dataset.theme === "dark" ? "☀ Hell" : "☾ Dunkel"; }
@@ -2049,7 +2207,20 @@ if (typeof document !== "undefined") {
 
   // ----- Eingabe -----
   $("datum").value = new Date().toISOString().slice(0, 10);
-  $("gesamt-start").value = einst.gesamt;
+  kopfSync();
+  $("aufgaben").addEventListener("input", () => {
+    einst.aufgaben = $("aufgaben").value;
+    const a = aufgabenLesen(einst.aufgaben);
+    if (a.max) {
+      const summe = a.max.reduce((x, y) => x + y, 0);
+      if (summe !== einst.gesamt) { einst.gesamt = summe; einst.noten.forEach((n) => { n.manuell = null; }); }
+      const k = kurs();
+      if (k) summenNeu(k, a.max);
+    }
+    einstSpeichern();
+    kopfSync();
+    eintragAufbauen();
+  });
 
   function kurswahlAufbauen() {
     const s = $("kurswahl");
@@ -2109,12 +2280,42 @@ if (typeof document !== "undefined") {
     bereich.append(el("div", { klasse: "reihe", stil: "margin-top:12px" },
       el("label", { klasse: "feld", stil: "flex:0 1 200px" }, "Sortierung", sortWahl), ...(arbeitenLeiste(k) || [])));
     const werte = punkteVon(k);
+    const A = aufgabenMax(), aw = aufgabenVon(k);
+    $("eingabe").classList.toggle("breit", !!A && A.length > 3);
     const tbody = el("tbody");
     eingabeReihenfolge(k).forEach((s, idx) => {
       const eingabe = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", "aria-label": `Punkte ${anzeige(s.name)}`, "data-idx": idx });
       eingabe.value = werte.get(s.id) || "";
       const noteZelle = el("td", { klasse: "note" });
       eingabe.addEventListener("input", () => { werte.set(s.id, eingabe.value); ungesichert = true; zeileAktualisieren(); pruefe(); });
+      // Felder je Aufgabe: sobald eines belegt ist, ist die Punktzahl ihre Summe
+      const felder = A ? A.map((m, j) => el("input", { type: "text", inputmode: "decimal", autocomplete: "off", "aria-label": `Aufgabe ${j + 1} ${anzeige(s.name)}`, "data-zeile": idx, "data-a": j })) : [];
+      const summeUebernehmen = () => {
+        const r = aufgabenSumme(aw.get(s.id), A);
+        if (r.belegt) { eingabe.value = deG(r.summe); eingabe.readOnly = true; werte.set(s.id, eingabe.value); }
+        else if (eingabe.readOnly) { eingabe.readOnly = false; eingabe.value = ""; werte.set(s.id, ""); }
+      };
+      felder.forEach((f, j) => {
+        f.value = (aw.get(s.id) || [])[j] || "";
+        f.addEventListener("input", () => {
+          const arr = A.map((_, q) => (aw.get(s.id) || [])[q] || "");
+          arr[j] = f.value;
+          aw.set(s.id, arr);
+          summeUebernehmen();
+          ungesichert = true; zeileAktualisieren(); pruefe();
+        });
+        f.addEventListener("keydown", (e) => {
+          let z = idx, a = j;
+          if (e.key === "Enter") { a = j + 1; if (a >= A.length) { a = 0; z = idx + 1; } }
+          else if (e.key === "ArrowDown") z = idx + 1;
+          else if (e.key === "ArrowUp") z = idx - 1;
+          else return;
+          e.preventDefault();
+          const n = tbody.querySelector(`input[data-zeile="${z}"][data-a="${a}"]`);
+          if (n) { n.focus(); n.select(); } else if (e.key === "Enter") $("auswerten").focus();
+        });
+      });
+      if (A) summeUebernehmen();
       eingabe.addEventListener("keydown", (e) => {
         const ziel = e.key === "Enter" || e.key === "ArrowDown" ? idx + 1 : e.key === "ArrowUp" ? idx - 1 : null;
         if (ziel == null) return;
@@ -2126,6 +2327,10 @@ if (typeof document !== "undefined") {
         const ns = notenspiegel(einst);
         const l = leseEingabe(eingabe.value, ns.maxPunkte);
         eingabe.classList.toggle("ungueltig", !!l.fehler);
+        if (A) {
+          const r = aufgabenSumme(aw.get(s.id), A);
+          felder.forEach((f, j) => { f.disabled = !!l.vermerk; f.classList.toggle("ungueltig", r.fehler.includes(j)); });
+        }
         noteZelle.innerHTML = "";
         if (l.fehler) noteZelle.append(el("span", { klasse: "fehler", stil: "font-size:13px", text: l.fehler }));
         else if (l.leer) noteZelle.append(el("span", { klasse: "notenwort", stil: "margin:0", text: "fehlt" }));
@@ -2149,13 +2354,17 @@ if (typeof document !== "undefined") {
         el("td", { klasse: "nr", text: String(idx + 1) }),
         el("td", { text: anzeige(s.name) }),
         el("td", { klasse: "klasse", text: s.klasse || "" }),
+        ...felder.map((f) => el("td", { klasse: "a" }, f)),
         el("td", { klasse: "punkte" }, eingabe),
         noteZelle));
     });
-    bereich.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px", text: "Leer heißt fehlt, schreibt nach. Statt Punkten kannst du einen Vermerk eintippen, etwa einen Grund, und daneben bei Bedarf eine Note. Die Person bleibt dann in der Liste, zählt aber nicht in die Statistik." }));
-    bereich.append(el("table", { klasse: "eintrag" },
-      el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Punkte", stil: "text-align:right" }), el("th", { text: "Note" }))),
-      tbody));
+    bereich.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px", text: "Leer heißt fehlt, schreibt nach. Statt Punkten kannst du einen Vermerk eintippen, etwa einen Grund, und daneben bei Bedarf eine Note. Die Person bleibt dann in der Liste, zählt aber nicht in die Statistik." +
+      (A ? " Mit Aufgaben ist die Punktzahl deren Summe, leere Aufgabenfelder zählen als 0." : "") }));
+    bereich.append(el("div", { klasse: "eintrag-rahmen" }, el("table", { klasse: A ? "eintrag mit-aufgaben" : "eintrag" },
+      el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }),
+        ...(A || []).map((m, j) => el("th", { klasse: "a" }, el("div", { text: `A${j + 1}` }), el("div", { klasse: "max", text: `${deG(m)} P` }))),
+        el("th", { text: "Punkte", stil: "text-align:right" }), el("th", { text: "Note" }))),
+      tbody)));
     pruefe();
   }
   // Reihenfolge der Eingabe: leere Punktzahlen stehen beim Sortieren nach Punkten am Ende
@@ -2190,16 +2399,21 @@ if (typeof document !== "undefined") {
     const zeilen = [];
     if (k && k.schueler.length) {
       const werte = punkteVon(k);
-      let mit = 0, ohne = 0, falsch = 0, vermerk = 0;
+      let mit = 0, ohne = 0, falsch = 0, vermerk = 0, teil = 0;
       const man = manuellVon(k);
+      const A = aufgabenMax(), aw = aufgabenVon(k);
       k.schueler.forEach((s) => {
         const l = leseEingabe(werte.get(s.id), ns.maxPunkte);
         if (l.fehler) falsch++; else if (l.leer) ohne++; else if (l.vermerk) { vermerk++; if (noteLesen(man.get(s.id)).fehler) falsch++; } else mit++;
+        if (A && !l.vermerk) { const r = aufgabenSumme(aw.get(s.id), A); if (r.fehler.length) falsch++; else if (r.leer) teil++; }
       });
       zeilen.push(`${mit} von ${k.schueler.length - vermerk} Punktzahlen eingetragen` +
         (vermerk ? `, ${vermerk} mit Vermerk` : "") +
         (ohne ? `, ${ohne} ohne Punkte ${ohne === 1 ? "gilt" : "gelten"} als nicht mitgeschrieben.` : "."));
       if (falsch) zeilen.push(`${falsch} ${falsch === 1 ? "Eingabe ist" : "Eingaben sind"} ungültig.`);
+      if (teil) zeilen.push(`${teil} ${teil === 1 ? "Zeile hat" : "Zeilen haben"} leere Aufgabenfelder, die als 0 zählen.`);
+      const af = aufgabenLesen(einst.aufgaben).fehler;
+      if (af) { zeilen.push(`Punkte je Aufgabe: ${af}.`); falsch++; }
       bereit = mit > 0 && !falsch && !ns.fehler.length;
       status.classList.toggle("fehler", falsch > 0 || ns.fehler.length > 0);
     } else status.classList.remove("fehler");
@@ -2226,8 +2440,16 @@ if (typeof document !== "undefined") {
     if (!k) return;
     const werte = punkteVon(k);
     const faktor = einst.gesamt / 52;
+    const A = aufgabenMax(), aw = aufgabenVon(k);
+    const VERSATZ = [0.12, -0.05, 0.03, -0.22, 0.08, -0.1, 0.15, -0.15];
     k.schueler.forEach((s, i) => {
-      werte.set(s.id, i % 13 === 12 ? "" : String(Math.round(TESTPUNKTE[i % TESTPUNKTE.length] * faktor)));
+      if (i % 13 === 12) { werte.set(s.id, ""); aw.delete(s.id); return; }
+      const t = TESTPUNKTE[i % TESTPUNKTE.length];
+      if (A) {
+        const q = t / 52;
+        aw.set(s.id, A.map((m, j) => deG(Math.max(0, Math.min(m, Math.round(m * (q + VERSATZ[j % VERSATZ.length]) * 2) / 2)))));
+        werte.set(s.id, deG(aufgabenSumme(aw.get(s.id), A).summe));
+      } else werte.set(s.id, String(Math.round(t * faktor)));
     });
     eintragAufbauen();
   }
@@ -2243,15 +2465,18 @@ if (typeof document !== "undefined") {
     const k = kurs();
     const ns = notenspiegel(einst);
     const werte = punkteVon(k);
+    const A = aufgabenMax(), aw = aufgabenVon(k);
     const eintraege = k.schueler.map((s, i) => {
       const l = leseEingabe(werte.get(s.id), ns.maxPunkte);
       const nm = l.vermerk ? noteLesen(manuellVon(k).get(s.id)) : {};
+      const ra = A && l.wert != null ? aufgabenSumme(aw.get(s.id), A) : null;
       return { id: s.id, nr: i + 1, name: s.name, klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert, vermerk: l.vermerk || "",
-        noteManuell: nm.text ? { note: nm.note, tendenz: nm.tendenz, text: nm.text } : null };
+        noteManuell: nm.text ? { note: nm.note, tendenz: nm.tendenz, text: nm.text } : null,
+        aufgaben: ra && ra.belegt ? ra.werte : null };
     });
     const a = auswertung(eintraege, ns, einst);
     return {
-      ...a, ns, kursName: k.name, arbeit: $("arbeit").value.trim(), datum: $("datum").value,
+      ...a, ns, kursId: k.id, kursName: k.name, arbeit: $("arbeit").value.trim(), datum: $("datum").value, aufgabenMax: A,
       chart: { noten: ns.noten, maxPunkte: ns.maxPunkte, r: a.r, o: einst.diagramm },
     };
   }
@@ -2364,12 +2589,72 @@ if (typeof document !== "undefined") {
     box.append(el("div", { klasse: "abschnitt-titel", text: "Kennzahlen" }));
     box.append(el("div", { klasse: "raster" }, st.kennzahlen.map(([b, w]) => el("div", {}, el("span", { text: b }), el("b", { text: w })))));
 
+    const za = zusatz(e, st);
+    if (za.aufgaben) {
+      box.append(el("div", { klasse: "abschnitt-titel", text: "Aufgaben" }));
+      box.append(tabelle(["Aufgabe", "Höchstpunkte", "Mittelwert", "Lösungsquote"], za.aufgaben.zeilen.map((a) => el("tr", {},
+        el("td", { klasse: "stark", text: `Aufgabe ${a.nr}` }), el("td", { text: `${deG(a.max)} P` }), el("td", { text: `${de(a.mittel)} P` }),
+        el("td", {}, el("div", { klasse: "quote" },
+          el("div", { klasse: "bahn" }, el("span", { stil: `width:${Math.max(0, Math.min(100, a.quote))}%;background:${noten[a.noteIdx].farbe}` })),
+          el("b", { text: `${Math.round(a.quote)} %` })))))));
+      if (za.aufgaben.hinweis) box.append(el("p", { klasse: "stat-hinweis", stil: "margin-top:6px", text: za.aufgaben.hinweis }));
+    }
+
     if (st.klassen.length) {
       box.append(el("div", { klasse: "abschnitt-titel", text: "Nach Klassen" }));
       box.append(tabelle(["Klasse", "Teilnehmer", "Notenschnitt", "Mittelwert", st.unterBez], st.klassen.map((k) => el("tr", {},
         el("td", { klasse: "stark", text: k.klasse }), el("td", { text: `${k.n} von ${k.gesamt}` }),
         el("td", { klasse: "stark", text: k.schnitt }), el("td", { text: k.mittel }), el("td", { text: k.unter })))));
     }
+
+    box.append(el("div", { klasse: "abschnitt-titel", text: "Grenzfälle" }));
+    box.append(el("p", { klasse: "stat-hinweis", text: "Höchstens 1 Punkt unter der nächstbesseren Note" }));
+    if (za.grenzfaelle.length) {
+      box.append(tabelle(["Name", "Klasse", "Punkte", "Note", "Es fehlen"], za.grenzfaelle.map((g) => el("tr", {},
+        el("td", { text: g.name }), el("td", { text: g.klasse }), el("td", { text: g.punkte }),
+        el("td", {}, noteChip(g.z.note, g.z.tendenz, noten)), el("td", { text: g.fehlen })))));
+    } else box.append(el("p", { text: "Niemand." }));
+
+    box.append(el("div", { klasse: "abschnitt-titel", text: "Verlauf" }));
+    if (za.verlauf) {
+      const v = za.verlauf;
+      box.append(el("p", { klasse: "stat-hinweis", text: v.titel }));
+      box.append(tabelle(["", "Vorher", "Jetzt"], v.zeilen.map((z) => el("tr", {},
+        el("td", { text: z[0] }), el("td", { text: z[1] }), el("td", { klasse: "stark", text: z[2] })))));
+      box.append(el("p", { stil: "font-weight:700;margin:16px 0 8px", text: v.schlechterTitel }));
+      if (v.schlechter.length) {
+        box.append(tabelle(["Name", "Klasse", "Vorher", "Jetzt"], v.schlechter.map((g) => el("tr", {},
+          el("td", { text: g.name }), el("td", { text: g.klasse }), el("td", {}, noteChip(g.vorherN.note, g.vorherN.tendenz, noten)),
+          el("td", {}, noteChip(g.z.note, g.z.tendenz, noten))))));
+      } else box.append(el("p", { text: "Niemand." }));
+    } else box.append(el("p", { klasse: "stat-hinweis", text: "Noch keine frühere Arbeit in diesem Kurs gespeichert. Arbeiten werden beim Word-Export gespeichert." }));
+  }
+
+  // Grenzfälle, Aufgaben und Verlauf fertig zum Anzeigen, für Bildschirm und Word gleich
+  function zusatz(e, st) {
+    const k = kurse.find((x) => x.id === e.kursId);
+    const grenzfaelle = [...st.grenzfaelle].sort((a, b) => b.punkte - a.punkte || a.name.localeCompare(b.name, "de")).map((z) => ({
+      z, name: anzeige(z.name), klasse: z.klasse || "", punkte: deG(z.punkte), note: noteText(z), fehlen: `${deG(z.bis)} P zur ${z.note}`,
+    }));
+    let aufgaben = null;
+    if (st.aufgaben) {
+      aufgaben = { ...st.aufgaben, hinweis: st.aufgaben.n < st.n ? `Aus ${st.aufgaben.n} von ${st.n} Arbeiten mit Punkten je Aufgabe.` : "" };
+    }
+    let verlauf = null;
+    const v = k ? verlaufBerechnen(e, k.arbeiten) : null;
+    if (v) {
+      const pzt = (w) => (w == null ? "" : `${Math.round(w)} %`);
+      verlauf = {
+        titel: `Vergleich mit „${v.arbeit || "Ohne Titel"}“${v.datum ? ` vom ${datumDE(v.datum)}` : ""}`,
+        zeilen: [["Notenschnitt", v.schnittVorher.toFixed(2).replace(".", ","), v.schnittJetzt.toFixed(2).replace(".", ",")],
+          ["Mittelwert", pzt(v.mittelVorher), pzt(v.mittelJetzt)]],
+        schlechterTitel: "Um mindestens eine Note schlechter",
+        schlechter: v.schlechter.sort((a, b) => b.diff - a.diff || a.z.name.localeCompare(b.z.name, "de")).map((g) => ({
+          z: g.z, name: anzeige(g.z.name), klasse: g.z.klasse || "", vorher: g.vorher, vorherN: g.vorherN, jetzt: g.jetzt,
+        })),
+      };
+    }
+    return { grenzfaelle, aufgaben, verlauf };
   }
 
   function reiter(welcher) {
@@ -2451,9 +2736,10 @@ if (typeof document !== "undefined") {
     const e = ergebnis;
     const eintrag = {
       id: neueId(), arbeit: e.arbeit, datum: e.datum, gesichert: new Date().toISOString(),
-      einst: { noten: kopie(einst.noten), gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: kopie(einst.tendenzen) },
+      einst: { noten: kopie(einst.noten), gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: kopie(einst.tendenzen), aufgaben: e.aufgabenMax ? einst.aufgaben : "" },
       punkte: e.zeilen.map((z) => ({ id: z.id, name: z.name, klasse: z.klasse || "", punkte: bewertet(z) ? deG(z.punkte) : z.vermerk || "",
-        note: bewertet(z) ? `${z.note + 1}${z.tendenz}` : z.noteManuell ? z.noteManuell.text : "" })),
+        note: bewertet(z) ? `${z.note + 1}${z.tendenz}` : z.noteManuell ? z.noteManuell.text : "",
+        ...(z.aufgaben ? { aufgaben: z.aufgaben.map(deG) } : {}) })),
     };
     k.arbeiten = Array.isArray(k.arbeiten) ? k.arbeiten : [];
     const alt = k.arbeiten.findIndex((a) => a.arbeit === eintrag.arbeit && a.datum === eintrag.datum);
@@ -2465,20 +2751,26 @@ if (typeof document !== "undefined") {
   }
   const arbeitTitel = (a) => [a.arbeit || "Ohne Titel", datumDE(a.datum)].filter(Boolean).join(" · ");
   function arbeitLaden(k, a) {
-    if (a.einst) { einst = zusammenfuehren(STANDARD_EINST, { ...einst, ...a.einst }); einstSpeichern(); }
-    $("gesamt-start").value = einst.gesamt;
+    if (a.einst) { einst = zusammenfuehren(STANDARD_EINST, { ...einst, ...a.einst, aufgaben: typeof a.einst.aufgaben === "string" ? a.einst.aufgaben : "" }); einstSpeichern(); }
+    kopfSync();
     $("arbeit").value = a.arbeit || "";
     if (a.datum) $("datum").value = a.datum;
     const werte = punkteVon(k);
     werte.clear();
     const man = manuellVon(k);
     man.clear();
+    const aw = aufgabenVon(k);
+    aw.clear();
     let fehlen = 0;
     a.punkte.forEach((p) => {
       const s = k.schueler.find((x) => x.id === p.id) ||
         k.schueler.find((x) => vergleich(x.name) === vergleich(p.name) && vergleich(x.klasse) === vergleich(p.klasse)) ||
         k.schueler.find((x) => namensSchluessel(x.name) === namensSchluessel(p.name) && vergleich(x.klasse) === vergleich(p.klasse));
-      if (s) { werte.set(s.id, p.punkte || ""); if (/\p{L}.*\p{L}/u.test(p.punkte || "") && p.note) man.set(s.id, p.note); }
+      if (s) {
+        werte.set(s.id, p.punkte || "");
+        if (/\p{L}.*\p{L}/u.test(p.punkte || "") && p.note) man.set(s.id, p.note);
+        if (Array.isArray(p.aufgaben)) aw.set(s.id, p.aufgaben.map((x) => String(x)));
+      }
       else if (p.punkte) fehlen++;
     });
     ungesichert = false;
@@ -2520,7 +2812,8 @@ if (typeof document !== "undefined") {
           note: bewertet(z) ? noteText(z) : z.noteManuell ? z.noteManuell.text : "", punkte: bewertet(z) ? deG(z.punkte) : "" })),
         bild, verteilung: w.statistik ? st.verteilung : null, kennzahlen: w.statistik ? st.kennzahlen : null,
         klassen: w.statistik ? st.klassen : null, unterBez: st.unterBez, tendenzen: einst.tendenzen,
-        meta: { kurs: e.kursName, arbeit: e.arbeit, datum: e.datum, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen } },
+        ...(w.statistik ? zusatz(e, st) : {}),
+        meta: { kurs: e.kursName, arbeit: e.arbeit, datum: e.datum, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen, aufgaben: e.aufgabenMax ? einst.aufgaben : "" } },
       });
       const gesichert = arbeitSichern();
       $("hinweis").textContent = gesichert === "aktualisiert" ? "Die Arbeit ist im Tool gespeichert, der vorherige Stand wurde ersetzt." : "Die Arbeit ist im Tool gespeichert.";
@@ -2556,6 +2849,20 @@ if (typeof document !== "undefined") {
       ["Zimmermann, Lotta", "7b"], ["Bauer, Malte", "7c"], ["Koch, Nele", "7a"], ["Schulz, Tim", "7b"], ["Wolf, Greta", "7c"],
     ];
     const k = { id: neueId(), name: "Beispielkurs (erfundene Namen)", beispiel: true, schueler: namen.map(([name, klasse]) => ({ id: neueId(), name, klasse })) };
+    // Eine frühere Arbeit, damit der Verlauf etwas zu vergleichen hat
+    const ns0 = notenspiegel({ ...kopie(STANDARD_EINST), gesamt: 52 });
+    const VERSCHIEBUNG = [4, -3, 0, 9, -5, 2, -1, 8, -4, 0, 3, -6, 10, -2, 1];
+    const vorher = k.schueler.map((s, i) => Math.max(0, Math.min(52, TESTPUNKTE[i % TESTPUNKTE.length] + VERSCHIEBUNG[i % VERSCHIEBUNG.length])));
+    const r0 = berechne(vorher, ns0.noten, 52);
+    k.arbeiten = [{
+      id: neueId(), arbeit: "1. Klassenarbeit", datum: new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10), gesichert: new Date().toISOString(),
+      einst: { noten: kopie(STANDARD_EINST.noten), gesamt: 52, rundung: 0.5, tendenzen: kopie(STANDARD_EINST.tendenzen), aufgaben: "" },
+      punkte: k.schueler.map((s, i) => {
+        if (i === 7) return { id: s.id, name: s.name, klasse: s.klasse, punkte: "", note: "" };
+        const pk = vorher[i], j = r0.noteIndex(pk);
+        return { id: s.id, name: s.name, klasse: s.klasse, punkte: deG(pk), note: `${j + 1}${tendenz(pk, j, r0, STANDARD_EINST.tendenzen, ns0.noten.length - 1)}` };
+      }),
+    }];
     kurse.push(k);
     aktiverKurs = k.id; bearbeitet = k.id;
     kurseSpeichern();
@@ -2583,6 +2890,7 @@ if (typeof document !== "undefined") {
       kurse = kurse.filter((x) => x.id !== k.id);
       punkte.delete(k.id);
       manuell.delete(k.id);
+      aufgabenPunkte.delete(k.id);
       if (aktiverKurs === k.id) aktiverKurs = kurse[0] ? kurse[0].id : null;
       bearbeitet = kurse[0] ? kurse[0].id : null;
       kurseSpeichern(); kursEditorAufbauen();
@@ -2668,12 +2976,13 @@ if (typeof document !== "undefined") {
       arbeiten: (Array.isArray(k.arbeiten) ? k.arbeiten : []).filter((a) => a && Array.isArray(a.punkte)).map((a) => ({
         id: String(a.id || neueId()), arbeit: String(a.arbeit || ""), datum: String(a.datum || ""), gesichert: String(a.gesichert || ""),
         einst: a.einst && typeof a.einst === "object" ? a.einst : null,
-        punkte: a.punkte.filter((p) => p && p.name).map((p) => ({ id: String(p.id || ""), name: String(p.name), klasse: String(p.klasse || ""), punkte: p.punkte == null ? "" : String(p.punkte), note: String(p.note || "") })),
+        punkte: a.punkte.filter((p) => p && p.name).map((p) => ({ id: String(p.id || ""), name: String(p.name), klasse: String(p.klasse || ""), punkte: p.punkte == null ? "" : String(p.punkte), note: String(p.note || ""),
+          ...(Array.isArray(p.aufgaben) ? { aufgaben: p.aufgaben.map((x) => String(x == null ? "" : x)) } : {}) })),
       })),
     }));
     const vorhanden = new Set(kurse.map((k) => k.id));
     geladen.forEach((k) => { if (vorhanden.has(k.id)) kurse = kurse.map((x) => (x.id === k.id ? k : x)); else kurse.push(k); });
-    if (daten.einstellungen) { einst = zusammenfuehren(STANDARD_EINST, daten.einstellungen); if (einst.sortierung === "name") einst.sortierung = "nachname"; einstSpeichern(); $("gesamt-start").value = einst.gesamt; }
+    if (daten.einstellungen) { einst = zusammenfuehren(STANDARD_EINST, daten.einstellungen); if (einst.sortierung === "name") einst.sortierung = "nachname"; einstSpeichern(); kopfSync(); }
     if (geladen[0]) { bearbeitet = geladen[0].id; aktiverKurs = geladen[0].id; }
     kurseSpeichern();
     return `${geladen.length} ${geladen.length === 1 ? "Kurs" : "Kurse"} aus dem Backup geladen.`;
@@ -2937,7 +3246,8 @@ if (typeof document !== "undefined") {
     });
     const m = imp.meta;
     if (imp.metaNehmen) {
-      if (m.gesamt > 0) { einst.gesamt = m.gesamt; einst.noten.forEach((n) => { n.manuell = null; }); $("gesamt-start").value = m.gesamt; }
+      if (m.gesamt > 0) { einst.gesamt = m.gesamt; einst.noten.forEach((n) => { n.manuell = null; }); }
+      einst.aufgaben = m.einst && typeof m.einst.aufgaben === "string" ? m.einst.aufgaben : "";
       if (m.arbeit) $("arbeit").value = m.arbeit;
       if (m.datum) $("datum").value = m.datum;
     }
@@ -2955,6 +3265,7 @@ if (typeof document !== "undefined") {
       });
     }
     einstSpeichern();
+    kopfSync();
     aktiverKurs = k.id; bearbeitet = k.id;
     kurseSpeichern();
     importDialog.close();
@@ -3001,6 +3312,8 @@ if (typeof document !== "undefined") {
       zeigen();
     });
     $("gesamt").value = einst.gesamt;
+    $("gesamt").disabled = !!aufgabenMax();
+    $("gesamt").title = aufgabenMax() ? "Summe der Aufgaben, änderbar über „Punkte je Aufgabe“" : "";
     $("rundung").value = String(einst.rundung);
     $("ns-status").textContent = ns.fehler.join("\n");
   }
@@ -3032,7 +3345,7 @@ if (typeof document !== "undefined") {
     $("ns-status").textContent = ns.fehler.join("\n");
     document.querySelectorAll("#ns-zeilen input[type=number]").forEach((i) => i._zeigen && i._zeigen());
     einstSpeichern();
-    $("gesamt-start").value = einst.gesamt;
+    kopfSync();
   }
   $("gesamt").addEventListener("input", () => {
     const w = parseFloat(String($("gesamt").value).replace(",", "."));
@@ -3065,14 +3378,14 @@ if (typeof document !== "undefined") {
     const k = $("einst-standard");
     if (standardStufe === 0) { standardStufe = 1; k.textContent = "Wirklich alles zurücksetzen?"; setTimeout(() => { standardStufe = 0; k.textContent = "Alles zurücksetzen"; }, 4000); return; }
     standardStufe = 0; k.textContent = "Alles zurücksetzen";
-    einst = kopie(STANDARD_EINST); einstSpeichern(); nsAufbauen(); optionenAufbauen(); tendenzHinweis(); $("gesamt-start").value = einst.gesamt;
+    einst = kopie(STANDARD_EINST); einstSpeichern(); nsAufbauen(); optionenAufbauen(); tendenzHinweis(); kopfSync();
   });
   $("einst-fertig").addEventListener("click", () => {
     if (notenspiegel(einst).fehler.length) { $("ns-status").scrollIntoView({ block: "center" }); return; }
     einstDialog.close();
   });
   einstDialog.addEventListener("close", () => {
-    $("gesamt-start").value = einst.gesamt;
+    kopfSync();
     if (!$("eingabe").hidden) eintragAufbauen(); else alleZeilenAktualisieren();
     pruefe();
     if (ergebnis && !$("ergebnis").hidden) {
