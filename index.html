@@ -156,6 +156,7 @@
   #plot { display: block; }
   .kacheln { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-top: 2px solid var(--text); border-bottom: 1px solid var(--border); margin-bottom: 16px; }
   .kachel { padding: 10px 12px 12px 0; }
+  #panel-liste .kacheln { padding: 0 13px; }
   .kachel .bez { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
   .kachel .wert { font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
   .abschnitt-titel { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; border-bottom: 2px solid var(--text); padding-bottom: 5px; margin: 26px 0 10px; }
@@ -258,7 +259,7 @@
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 17:02</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 17:17</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -1097,6 +1098,7 @@ function wP(inhalt, o = {}) {
   if (o.umbruch) ppr += "<w:pageBreakBefore/>";
   if (o.linie) ppr += `<w:pBdr><w:bottom w:val="single" w:sz="${o.linie.sz}" w:space="${o.linie.abstand || 3}" w:color="${o.linie.farbe}"/></w:pBdr>`;
   ppr += `<w:spacing w:before="${o.vor || 0}" w:after="${o.nach || 0}" w:line="${o.zeile || 240}" w:lineRule="auto"/>`;
+  if (o.einzug) ppr += `<w:ind w:left="${o.einzug}" w:right="${o.einzug}"/>`;
   if (o.jc) ppr += `<w:jc w:val="${o.jc}"/>`;
   return `<w:p><w:pPr>${ppr}</w:pPr>${inhalt}</w:p>`;
 }
@@ -1148,18 +1150,19 @@ function wordDokument(info) {
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
   // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
-  let body = `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${TEXTBREITE}"/></w:tabs><w:spacing w:before="0" w:after="40"/></w:pPr>` +
+  let body = `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${TEXTBREITE - 110}"/></w:tabs><w:spacing w:before="0" w:after="40"/><w:ind w:left="110" w:right="110"/></w:pPr>` +
     wR(titel, { fett: true, gr: 24, serif: true }) + (datumText ? `<w:r><w:tab/></w:r>` + wR(datumText, { gr: 10.5, farbe: W_GRAU }) : "") + "</w:p>";
-  if (unterzeile) body += wP(wR(unterzeile, { gr: 10.5, farbe: W_GRAU }), { nach: 0 });
+  if (unterzeile) body += wP(wR(unterzeile, { gr: 10.5, farbe: W_GRAU }), { nach: 0, einzug: 110 });
   body += wP("", { nach: 180 });
+  // Gleiche Breite und gleiche Zellränder wie die Notenliste darunter, damit Text und Linien bündig stehen
   const kachelB = Math.floor(TEXTBREITE / grundwerte.length);
-  body += wTab(grundwerte.map(() => ({ breite: kachelB })), [{
+  body += wTab(grundwerte.map((_, i) => ({ breite: i === grundwerte.length - 1 ? TEXTBREITE - kachelB * (grundwerte.length - 1) : kachelB })), [{
     oben: { sz: 12, farbe: W_DUNKEL }, unten: { sz: 4, farbe: W_LINIE },
     zellen: grundwerte.map(([bez, wert]) => ({ absaetze: [
       wP(wR(bez, { caps: true, sperren: 16, gr: 7, fett: true, farbe: W_GRAU }), { nach: 30 }),
       wP(wR(wert, { fett: true, gr: 17, serif: true })),
     ] })),
-  }], { rand: [100, 0] });
+  }], { rand: [100, 110] });
   body += wP("", { nach: 220 });
   // Mit Vermerken bekommt die Spalte Punkte mehr Platz
   const sp = gleichSpalten(namensBreite(liste.map((z) => z.name), liste.some((z) => z.vermerk) ? 3038 : 4438), 3);
@@ -1282,6 +1285,7 @@ function wordDokument(info) {
     '<Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/>' +
     '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
     '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
+    '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>' +
     '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>';
   const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
@@ -1290,6 +1294,7 @@ function wordDokument(info) {
   const docRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
     '<Relationship Id="rIdStile" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+    '<Relationship Id="rIdEinst" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>' +
     (bild ? '<Relationship Id="rIdBild" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/notenspiegel.png"/>' : "") +
     "</Relationships>";
   const zeitstempel = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -1307,6 +1312,9 @@ function wordDokument(info) {
     { name: "docProps/core.xml", daten: core },
     { name: "word/document.xml", daten: dokument },
     { name: "word/styles.xml", daten: stile },
+    { name: "word/settings.xml", daten: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:compat>' +
+      '<w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>' },
     { name: "word/_rels/document.xml.rels", daten: docRels },
   ];
   if (bild) dateien.push({ name: "word/media/notenspiegel.png", daten: bild });
