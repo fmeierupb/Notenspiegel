@@ -242,7 +242,7 @@
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
       <button id="testpunkte" class="leise rechts" type="button">Testpunkte eintragen</button>
     </div>
-    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 14.10.2026 09:14</p>
+    <p class="hint" style="margin-top:28px;font-size:12px">Fassung 15.10.2026 05:44</p>
   </section>
 
   <section id="ergebnis" hidden>
@@ -645,12 +645,11 @@ function statistik(e, tendenzen) {
   const werte = mit.map((z) => z.punkte).sort((a, b) => a - b);
   const n = werte.length;
   const pz = (w) => `${de(w / max * 100)} %`;
-  const p1 = (w) => deG(Math.round(w * 10) / 10);
-  const quantil = (q) => { const pos = (n - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos); return werte[lo] + (werte[hi] - werte[lo]) * (pos - lo); };
-  const aufsteigend = (a, b) => a - b;
-  const median = (w) => { const x = [...w].sort(aufsteigend), m = x.length; return m ? (m % 2 ? x[(m - 1) / 2] : (x[m / 2 - 1] + x[m / 2]) / 2) : NaN; };
   const schnitt = (zz) => zz.reduce((s, z) => s + z.note + 1, 0) / zz.length;
   const komma2 = (w) => w.toFixed(2).replace(".", ",");
+  const grenzeIdx = Math.min(3, noten.length - 1);
+  const unter = (zz) => zz.filter((z) => z.note > grenzeIdx).length;
+  const unterText = (zz) => `${unter(zz)} (${de(zz.length ? unter(zz) / zz.length * 100 : 0)} %)`;
 
   const verteilung = noten.map((nt, i) => {
     const hier = mit.filter((z) => z.note === i);
@@ -664,30 +663,10 @@ function statistik(e, tendenzen) {
   kennzahlen.push(["Teilnehmer", `${n} von ${stat.gesamtZahl}`]);
   if (stat.fehlend) kennzahlen.push(["Nicht mitgeschrieben", String(stat.fehlend)]);
   if (stat.mitVermerk) kennzahlen.push(["Mit Vermerk, ohne Punkte", String(stat.mitVermerk)]);
-  kennzahlen.push(["Gesamtpunktzahl", `${deG(max)} P`]);
   kennzahlen.push(["Notenschnitt", komma2(stat.notenSchnitt)]);
-  if (tendenzen && tendenzen.an) {
-    const mitT = mit.reduce((s, z) => s + z.note + 1 + (z.tendenz === "+" ? -1 / 3 : z.tendenz === "−" ? 1 / 3 : 0), 0) / n;
-    kennzahlen.push(["Schnitt mit Tendenzen (±⅓)", komma2(mitT)]);
-  }
   kennzahlen.push(["Mittelwert", `${de(stat.mittel)} P (${pz(stat.mittel)})`]);
-  kennzahlen.push(["Median", `${p1(stat.median)} P (${pz(stat.median)})`]);
-  kennzahlen.push(["Standardabweichung", `${de(stat.std)} P (${pz(stat.std)})`]);
-  if (n >= 4) kennzahlen.push(["Unteres und oberes Quartil", `${p1(quantil(0.25))} P und ${p1(quantil(0.75))} P`]);
-  kennzahlen.push(["Spannweite", `${deG(stat.min)} bis ${deG(stat.max)} P`]);
-  const haeufig = new Map();
-  werte.forEach((w) => haeufig.set(w, (haeufig.get(w) || 0) + 1));
-  const maxH = Math.max(0, ...haeufig.values());
-  if (maxH > 1) {
-    const modi = [...haeufig].filter(([, c]) => c === maxH).map(([w]) => deG(w));
-    if (modi.length <= 3) kennzahlen.push([modi.length > 1 ? "Häufigste Punktzahlen" : "Häufigste Punktzahl",
-      `${modi.join(", ").replace(/, ([^,]*)$/, " und $1")} P (${modi.length > 1 ? "je " : ""}${maxH}-mal)`]);
-  }
-  const grenzeIdx = Math.min(3, noten.length - 1);
-  const bestanden = r.anzahl.slice(0, grenzeIdx + 1).reduce((s, c) => s + c, 0);
-  kennzahlen.push([`${noten[grenzeIdx].name} oder besser`, `${bestanden} (${de(n ? bestanden / n * 100 : 0)} %)`]);
-  kennzahlen.push([`Unter „${noten[grenzeIdx].name}“`, `${n - bestanden} (${de(n ? (n - bestanden) / n * 100 : 0)} %)`]);
-  if (r.fit) kennzahlen.push(["Gaußfit", `${de(r.fit.mu)} P (σ ${de(r.fit.sigma)} P)`]);
+  const unterBez = `Unter ${noten[grenzeIdx].name.toLowerCase()}`;
+  kennzahlen.push([unterBez, unterText(mit)]);
 
   const klassenNamen = [...new Set(zeilen.map((z) => z.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
   const klassen = klassenNamen.length > 1 ? klassenNamen.map((k) => {
@@ -695,10 +674,10 @@ function statistik(e, tendenzen) {
     return {
       klasse: k, n: zz.length, gesamt: zeilen.filter((z) => z.klasse === k && !z.vermerk).length,
       schnitt: zz.length ? komma2(schnitt(zz)) : "", schnittWert: zz.length ? schnitt(zz) : null, mittel: zz.length ? `${de(w.reduce((s, x) => s + x, 0) / w.length)} P` : "",
-      median: zz.length ? `${p1(median(w))} P` : "",
+      unter: zz.length ? unterText(zz) : "",
     };
   }) : [];
-  return { verteilung, kennzahlen, klassen, n };
+  return { verteilung, kennzahlen, klassen, n, unterBez };
 }
 
 // Anzeige der Namen: gespeichert wird "Nachname, Vorname", angezeigt auf Wunsch "Vorname Nachname".
@@ -1088,7 +1067,7 @@ const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr
   { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
 function wordDokument(info) {
-  const { titel, unterzeile, datumText, grundwerte, liste, bild, verteilung, kennzahlen, klassen, tendenzen, farben, meta } = info;
+  const { titel, unterzeile, datumText, grundwerte, liste, bild, verteilung, kennzahlen, klassen, unterBez, tendenzen, farben, meta } = info;
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
   // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
@@ -1168,11 +1147,11 @@ function wordDokument(info) {
     if (klassen && klassen.length) {
       body += abschnitt("Nach Klassen");
       body += wTab([{ breite: 2038 }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }, { breite: 1900, rechts: true }], [
-        { ...W_KOPF, zellen: ["Klasse", "Teilnehmer", "Notenschnitt", "Mittelwert", "Median"] },
+        { ...W_KOPF, zellen: ["Klasse", "Teilnehmer", "Notenschnitt", "Mittelwert", unterBez] },
         ...klassen.map((k, i) => ({
           fuellung: i % 2 ? W_HELL : null, gr: 9.5,
           zellen: [{ text: k.klasse, fett: true }, `${k.n} von ${k.gesamt}`,
-            { text: k.schnitt, fett: true, fuellung: k.schnittWert ? toenung(Math.round(k.schnittWert) - 1) : null }, k.mittel, k.median],
+            { text: k.schnitt, fett: true, fuellung: k.schnittWert ? toenung(Math.round(k.schnittWert) - 1) : null }, k.mittel, k.unter],
         })),
       ], { hoehe: 270, rand: [35, 110] });
     }
@@ -2387,9 +2366,9 @@ if (typeof document !== "undefined") {
 
     if (st.klassen.length) {
       box.append(el("div", { klasse: "abschnitt-titel", text: "Nach Klassen" }));
-      box.append(tabelle(["Klasse", "Teilnehmer", "Notenschnitt", "Mittelwert", "Median"], st.klassen.map((k) => el("tr", {},
+      box.append(tabelle(["Klasse", "Teilnehmer", "Notenschnitt", "Mittelwert", st.unterBez], st.klassen.map((k) => el("tr", {},
         el("td", { klasse: "stark", text: k.klasse }), el("td", { text: `${k.n} von ${k.gesamt}` }),
-        el("td", { klasse: "stark", text: k.schnitt }), el("td", { text: k.mittel }), el("td", { text: k.median })))));
+        el("td", { klasse: "stark", text: k.schnitt }), el("td", { text: k.mittel }), el("td", { text: k.unter })))));
     }
   }
 
@@ -2540,7 +2519,7 @@ if (typeof document !== "undefined") {
         liste: listenZeilen(e).map((z) => ({ name: z.name, klasse: z.klasse, fehlt: z.fehlt, vermerk: z.vermerk || "",
           note: bewertet(z) ? noteText(z) : z.noteManuell ? z.noteManuell.text : "", punkte: bewertet(z) ? deG(z.punkte) : "" })),
         bild, verteilung: w.statistik ? st.verteilung : null, kennzahlen: w.statistik ? st.kennzahlen : null,
-        klassen: w.statistik ? st.klassen : null, tendenzen: einst.tendenzen,
+        klassen: w.statistik ? st.klassen : null, unterBez: st.unterBez, tendenzen: einst.tendenzen,
         meta: { kurs: e.kursName, arbeit: e.arbeit, datum: e.datum, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen } },
       });
       const gesichert = arbeitSichern();
