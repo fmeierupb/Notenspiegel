@@ -262,7 +262,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 16.10.2026 10:19</span>
+      <span>Fassung 16.10.2026 10:28</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -2126,6 +2126,9 @@ if (typeof document !== "undefined") {
     (document.querySelector("dialog[open]") || document.body).append(leiste);
   }
   async function herunterladen(blob, dateiname) {
+    // Eine noch offene Teilen-Leiste gehört zu einer älteren Datei
+    const alteLeiste = document.getElementById("teilen-leiste");
+    if (alteLeiste) alteLeiste.remove();
     if (istIOS && navigator.canShare && typeof File !== "undefined") {
       const datei = new File([blob], dateiname, { type: blob.type || "application/octet-stream" });
       let geht = false;
@@ -2648,7 +2651,9 @@ if (typeof document !== "undefined") {
     });
   }).observe(box);
 
-  const dateiname = (art, endung) => [art, dateiTeil(ergebnis.kursName), dateiTeil(ergebnis.arbeit), ergebnis.datum].filter(Boolean).join("_") + "." + endung;
+  // Mit Uhrzeit des Exports, damit eine neue Datei nie wie eine ältere heißt
+  const stempel = () => { const j = new Date(); return `Stand_${String(j.getHours()).padStart(2, "0")}-${String(j.getMinutes()).padStart(2, "0")}-${String(j.getSeconds()).padStart(2, "0")}`; };
+  const dateiname = (art, endung) => [art, dateiTeil(ergebnis.kursName), dateiTeil(ergebnis.arbeit), ergebnis.datum, stempel()].filter(Boolean).join("_") + "." + endung;
   function bildBlob(breite, grau = false) {
     const c = document.createElement("canvas");
     c.width = breite; c.height = Math.round(breite * HOEHE / BREITE);
@@ -3364,7 +3369,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "16.10.2026 10:19";
+  const STAND = "16.10.2026 10:28";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
