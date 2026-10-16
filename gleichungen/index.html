@@ -192,7 +192,7 @@ function startTask(t) {
   S = {
     x: t.x, L: clone(t.L), R: clone(t.R),
     chain: [{ L: clone(t.L), R: clone(t.R), op: null }],
-    pending: [], hist: [], usedUndo: false, usedTip: false, hadBad: false, solved: false
+    pending: [], hist: [], usedUndo: false, usedTip: false, hadBad: false, solved: false, stuck: '', seqStart: 0
   };
   picker = null;
   entering = false;
@@ -338,6 +338,7 @@ function doOp(side, kind, k) {
   if (S.solved) return;
   if (!check(side, kind, k)) return;
   const sides = side === 'B' ? ['L', 'R'] : [side];
+  if (side !== 'B' && !S.pending.length) S.seqStart = S.hist.length;
   S.hist.push(snapshot());
   for (const sd of sides) applyTo(S[sd], kind, k);
   note = ''; noteKind = '';
@@ -358,6 +359,46 @@ function doOp(side, kind, k) {
     }
   }
   checkSolved();
+  updateStuck();
+  render();
+}
+
+// Sackgassen in Stufe 1: links und rechts liegt dasselbe (etwa x = x), oder der
+// angefangene Schritt lässt sich auf der anderen Seite nicht nachmachen.
+function mirrorPossible() {
+  const p = S.pending;
+  if (p.some(o => o.kind === 'div')) {
+    if (p.length !== 1) return true;
+    return canApply(S[p[0].side === 'L' ? 'R' : 'L'], 'div', p[0].k);
+  }
+  const net = { L: { x: 0, n: 0 }, R: { x: 0, n: 0 } };
+  for (const o of p) net[o.side][o.kind === 'subN' ? 'n' : 'x'] += o.k;
+  const need = (a, b) => ({ x: Math.max(0, net[b].x - net[a].x), n: Math.max(0, net[b].n - net[a].n) });
+  const nL = need('L', 'R'), nR = need('R', 'L');
+  return S.L.x >= nL.x && S.L.n >= nL.n && S.R.x >= nR.x && S.R.n >= nR.n;
+}
+function updateStuck() {
+  S.stuck = '';
+  if (S.solved) return;
+  if (!S.pending.length && S.L.x === S.R.x && S.L.n === S.R.n) {
+    S.stuck = 'gleich';
+    note = 'Links und rechts liegt jetzt dasselbe. Das passt zu jeder Anzahl Hölzer in der Schachtel, so lässt sie sich nicht mehr knacken.';
+    noteKind = '';
+  } else if (S.pending.length && !mirrorPossible()) {
+    S.stuck = 'sackgasse';
+    note = 'Links und rechts lässt sich jetzt nicht mehr dasselbe wegnehmen.';
+    noteKind = '';
+  }
+}
+function recover() {
+  const h = S.hist[S.seqStart];
+  if (!h) return;
+  S.hist.length = S.seqStart;
+  S.L = h.L; S.R = h.R; S.chain = h.chain; S.pending = h.pending;
+  S.usedUndo = true;
+  S.stuck = '';
+  picker = null;
+  note = ''; noteKind = '';
   render();
 }
 
@@ -387,10 +428,12 @@ function undo() {
   S.usedUndo = true;
   picker = null;
   note = S.pending.length ? UNBAL : ''; noteKind = '';
+  updateStuck();
   render();
 }
 
 function hintText() {
+  if (S.stuck) return 'Geh zurück zum letzten Gleichgewicht und mach dann links und rechts dasselbe.';
   if (S.pending.length) return 'Die Waage ist schief. Mach auf der anderen Seite dasselbe wie eben.';
   const L = S.L, R = S.R;
   if (stage === 3) {
@@ -592,6 +635,10 @@ function renderControls() {
     return;
   }
   if (S.solved) { el.innerHTML = ''; return; }
+  if (S.stuck) {
+    el.innerHTML = `<button type="button" class="op primaer weit" data-act="zurueck">Zurück zum letzten Gleichgewicht</button>`;
+    return;
+  }
   if (picker) {
     const nums = picker.kind === 'div' ? [2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const head = picker.kind === 'div'
@@ -651,6 +698,7 @@ $('steuer').addEventListener('click', e => {
   if (!b || b.disabled || busy) return;
   const act = b.dataset.act;
   if (act === 'los') { submitEntry(); return; }
+  if (act === 'zurueck') { recover(); return; }
   if (act === 'abbr') {
     if (entering) { entering = false; $('steuer').innerHTML = ''; }
     picker = null; note = ''; noteKind = '';
