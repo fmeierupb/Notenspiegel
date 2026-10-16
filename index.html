@@ -262,7 +262,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 15.10.2026 18:24</span>
+      <span>Fassung 16.10.2026 10:18</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -801,7 +801,9 @@ function sortiere(zeilen, art) {
   // nach Punkten: erst Vermerke (nach eingetragener Note), fehlende immer zuletzt
   if (art === "punkte-ab" || art === "punkte-auf")
     return [...mit, ...zeilen.filter((z) => !bewertet(z) && !z.fehlt).sort(nachNotenRang(art === "punkte-ab", name)), ...zeilen.filter((z) => z.fehlt).sort(name)];
-  const ohne = zeilen.filter((z) => !bewertet(z)).sort(art === "eingabe" ? (a, b) => a.nr - b.nr : art === "klasse" ? vergleich : name);
+  // nach Klasse: jede Klasse vollständig beisammen, darin nach Nachname, wie in der Eingabe
+  if (art === "klasse") return [...zeilen].sort(vergleich);
+  const ohne = zeilen.filter((z) => !bewertet(z)).sort(art === "eingabe" ? (a, b) => a.nr - b.nr : name);
   return [...mit, ...ohne];
 }
 
@@ -3362,7 +3364,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "15.10.2026 18:24";
+  const STAND = "16.10.2026 10:18";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
