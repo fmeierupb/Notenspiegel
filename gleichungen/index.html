@@ -34,14 +34,15 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
-@media (min-width:700px){main{max-width:640px!important}}
 main{max-width:520px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
+@media (min-width:700px){main{max-width:640px}}
+@media (max-width:370px){.stufen span{display:none}h1{font-size:.95rem}.seg button{width:38px}.zahl button{width:32px}.baukasten{gap:6px}}
 button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 var{font-style:italic;font-family:Georgia,"Times New Roman",serif}
 
 header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-h1{font-size:1.05rem;font-weight:650;margin:0;letter-spacing:.01em}
+h1{font-size:1.05rem;font-weight:650;margin:0}
 .kopf-r{display:flex;align-items:center;gap:8px}
 .stufen{display:flex;align-items:center;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px}
 .stufen span{font-size:.8rem;color:var(--muted);padding:0 6px 0 8px}
@@ -67,8 +68,6 @@ svg#waage{display:block;width:100%;height:auto}
 #kette td{height:40px;padding:0 4px;white-space:nowrap;vertical-align:middle}
 #kette .l{text-align:right}#kette .m{text-align:center;min-width:1.5em}#kette .r{text-align:left}
 #kette .o{color:var(--muted);font-size:.85em;padding-left:16px}
-#kette .o.seite{color:var(--warn)}
-#kette tr.schief td:not(.o){color:var(--warn)}
 #kette tr.akt td:not(.o){font-weight:600}
 #kette tr.live td{color:var(--warn);font-weight:600}
 #kette tr.ok td:not(.o){color:var(--ok);font-weight:700}
@@ -81,45 +80,59 @@ body[data-stufe="3"] #kette table{font-size:1.5rem}
 #meldung.fehler{color:var(--warn)}
 #meldung button{margin-left:8px;padding:4px 12px;border-radius:999px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-weight:600}
 
-/* Knöpfe */
+/* Baukasten: Umformung zusammenstellen, dann anwenden. In allen Stufen gleich. */
 #steuer{margin-top:6px}
-.taste{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:52px;padding:0 6px;border:1px solid var(--btn-line);border-radius:14px;background:var(--btn);color:var(--btn-fg);font-size:1.15rem}
-.taste:active:not(:disabled){transform:translateY(1px)}
-.taste:disabled{opacity:.35;cursor:default}
-.taste.primaer{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-weight:600;font-size:1rem}
-.ic{width:34px;height:26px;display:block}
-.ic .minus{stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
-.ic .rahmen2{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:3 2}
-.ic .blass{opacity:.3}
-.seiten{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.gruppe{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-.mitte{display:grid;grid-template-columns:repeat(3,minmax(0,92px));justify-content:center;gap:10px}
-.stepper{display:grid;grid-template-columns:52px 64px 52px;justify-content:center;align-items:center;gap:8px;margin-bottom:10px}
-.stepper output{text-align:center;font-size:1.5rem;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums}
-.mathe{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
-.wahl{display:grid;gap:8px;justify-items:center}
-.wahl p{margin:0;color:var(--muted);font-size:.95rem}
-.zahlen{display:grid;grid-template-columns:repeat(5,52px);gap:8px;justify-content:center}
-.zahlen .taste{font-weight:600;font-variant-numeric:tabular-nums}
+.baukasten{display:flex;justify-content:center;align-items:center;gap:10px}
+.seg,.zahl{display:inline-flex;align-items:center;border:1px solid var(--btn-line);border-radius:14px;background:var(--btn);overflow:hidden}
+.seg button{width:44px;height:50px;border:0;background:transparent;color:var(--btn-fg);font-size:1.4rem;line-height:1;display:grid;place-items:center}
+.seg button[aria-pressed="true"]{background:var(--paper);color:var(--accent);font-weight:700;box-shadow:inset 0 0 0 2px var(--accent);border-radius:12px}
+.seg button:disabled{opacity:.3;cursor:default}
+.seg .ic{width:24px;height:24px}
+.seg var{font-size:1.35rem}
+.zahl button{width:38px;height:50px;border:0;background:transparent;color:var(--btn-fg);font-size:1.4rem}
+.zahl button:disabled{opacity:.3;cursor:default}
+.zahl output{min-width:28px;text-align:center;font-weight:700;font-size:1.35rem;color:var(--ink);font-variant-numeric:tabular-nums}
+.anwenden{display:grid;gap:10px;margin-top:12px}
+.anwenden.paar{grid-template-columns:1fr 1fr}
+.anwenden button{min-height:58px;padding:4px 8px;border:0;border-radius:14px;background:var(--accent);color:var(--accent-fg);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.anwenden button:active:not(:disabled){transform:translateY(1px)}
+.anwenden button:disabled{opacity:.3;cursor:default}
+.anwenden .not{font-size:1.3rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+.anwenden .not var{font-weight:700}
+.anwenden .wo{font-size:.82rem;opacity:.9}
 .eingabe{display:grid;grid-template-columns:1fr auto auto;gap:8px}
 #feld{min-width:0;height:52px;padding:0 14px;font:inherit;font-size:1.2rem;color:var(--ink);border:1px solid var(--btn-line);border-radius:14px;background:var(--paper)}
+.knopf{min-height:52px;padding:0 18px;border:1px solid var(--btn-line);border-radius:14px;background:var(--btn);color:var(--btn-fg)}
+.knopf.primaer{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-weight:600}
 .leiste{display:flex;justify-content:center;gap:14px;margin-top:22px}
 .leiste button{width:48px;height:48px;border-radius:999px;border:0;background:transparent;color:var(--muted);display:grid;place-items:center}
 .leiste button:disabled{opacity:.3;cursor:default}
-.leiste svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.leiste svg,.blatt svg.l{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ic{display:block}
 
 #ziel{text-align:center;margin-top:4px}
-#ziel .gross{font-size:1.8rem;font-weight:700;color:var(--ok);margin-bottom:2px}
+#ziel .jubel{font-size:1.25rem;font-weight:700;color:var(--ok)}
+#ziel .gross{font-size:1.9rem;font-weight:700;color:var(--ok);margin-bottom:2px}
 #ziel .probe{color:var(--muted);font-variant-numeric:tabular-nums;margin-bottom:14px}
 #ziel .probe b{color:var(--fg);font-weight:500}
+#ziel.neu .gross{animation:hupf .6s ease}
+@keyframes hupf{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
 #vorschlag{margin:14px auto 0;max-width:340px;padding:12px;border-radius:14px;background:var(--ok-bg)}
 #vorschlag p{margin:0 0 10px}
 .zwei{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 
 @keyframes wackeln{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
-.wackelt{animation:wackeln .32s ease;border-color:var(--warn)!important}
-@media (prefers-reduced-motion:reduce){.wackelt{animation:none}.grp{transition:none}}
+.wackelt{animation:wackeln .32s ease}
 body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacity:.55}
+
+/* Jubel: Streichhölzer und Schachteln regnen */
+#konfetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:20}
+#konfetti i{position:absolute;top:-40px;left:var(--x);width:5px;height:24px;border-radius:2px;background:var(--wood);transform:rotate(var(--r));animation:fallen var(--d) cubic-bezier(.25,.6,.45,1) var(--t) forwards}
+#konfetti i::before{content:"";position:absolute;top:-4px;left:-1.5px;width:8px;height:10px;border-radius:50%;background:var(--head)}
+#konfetti i.s{width:16px;height:12px;background:var(--box);border-top:3px solid var(--box-strip);border-radius:2px}
+#konfetti i.s::before{display:none}
+@keyframes fallen{to{transform:translate(var(--dx),115vh) rotate(var(--r2))}}
+@media (prefers-reduced-motion:reduce){.wackelt,#ziel.neu .gross{animation:none}.grp{transition:none}}
 
 /* Hilfe */
 #hilfeblatt{position:fixed;inset:0;z-index:10;display:flex;align-items:flex-end;justify-content:center;background:rgba(10,14,20,.45)}
@@ -127,14 +140,16 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
 @keyframes hoch{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
 @media (min-width:600px){#hilfeblatt{align-items:center}#hilfeblatt .blatt{border-radius:18px}}
 .blatt:focus{outline:none}
-.blatt h2{font-size:1.15rem;margin:0 0 8px}
-.blatt p{margin:0 0 12px}
-.blatt dl{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center;margin:4px 0 16px}
-.blatt dt{display:grid;place-items:center;width:44px;height:36px;border-radius:10px;background:var(--btn);color:var(--muted)}
-.blatt dt svg.l{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.blatt h2{font-size:1.2rem;margin:0 0 10px}
+.blatt h3{font-size:1rem;margin:18px 0 6px}
+.blatt p{margin:0 0 10px}
+.blatt .bsp{display:inline-block;padding:0 6px;border-radius:6px;background:var(--btn);color:var(--ink);font-weight:600;white-space:nowrap}
+.blatt dl{display:grid;grid-template-columns:44px 1fr;gap:8px 12px;align-items:center;margin:4px 0 16px}
+.blatt dt{display:grid;place-items:center;height:36px;border-radius:10px;background:var(--btn);color:var(--btn-fg);font-size:1.25rem;font-weight:600}
+.blatt dt .ic{width:24px;height:24px}
 .blatt dd{margin:0}
-.blatt .stufe{margin:0 0 6px}
-.blatt .stufe b{display:inline-grid;place-items:center;width:24px;height:24px;margin-right:8px;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-size:.85rem}
+.blatt .stufe{display:grid;grid-template-columns:28px 1fr;gap:8px;margin:0 0 8px}
+.blatt .stufe b{display:grid;place-items:center;width:24px;height:24px;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-size:.85rem}
 </style>
 </head>
 <body>
@@ -160,12 +175,13 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
   <p id="meldung" role="status" aria-live="polite"></p>
   <div id="steuer"></div>
   <div id="ziel" hidden>
+    <div class="jubel" id="jubel"></div>
     <div class="gross"><var>x</var> = <span id="loesung"></span></div>
     <div class="probe" id="probe"></div>
-    <button type="button" class="taste primaer" id="weiter" style="padding:0 28px">Nächste Aufgabe</button>
+    <button type="button" class="knopf primaer" id="weiter">Nächste Aufgabe</button>
     <div id="vorschlag" hidden>
       <p id="vtext"></p>
-      <div class="zwei"><button type="button" class="taste primaer" id="vja">Ja</button><button type="button" class="taste" id="vnein" style="font-size:1rem">Noch nicht</button></div>
+      <div class="zwei"><button type="button" class="knopf primaer" id="vja">Ja</button><button type="button" class="knopf" id="vnein">Noch nicht</button></div>
     </div>
   </div>
 
@@ -173,20 +189,28 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
     <button type="button" id="tipp" aria-label="Tipp" title="Tipp"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/></svg></button>
     <button type="button" id="undo" aria-label="Rückgängig" title="Rückgängig"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
     <button type="button" id="neu" aria-label="Neue Aufgabe" title="Neue Aufgabe"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/></svg></button>
-    <button type="button" id="eigen" aria-label="Eigene Gleichung" title="Eigene Gleichung"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button>
+    <button type="button" id="eigen" aria-label="Eigene Aufgabe" title="Eigene Aufgabe"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button>
   </nav>
 </main>
+
+<div id="konfetti" aria-hidden="true"></div>
 
 <div id="hilfeblatt" hidden>
   <div class="blatt" role="dialog" aria-modal="true" aria-labelledby="hilfe-t" tabindex="-1">
     <h2 id="hilfe-t">So geht's</h2>
-    <p>In jeder Schachtel stecken gleich viele Hölzer. Finde heraus, wie viele. Die Waage zeigt, ob beide Seiten gleich schwer sind.</p>
-    <p class="stufe"><b>1</b>Jeder Knopf wirkt nur auf seine Seite. Beobachte die Waage.</p>
-    <p class="stufe"><b>2</b>Jeder Knopf wirkt auf beide Seiten.</p>
-    <p class="stufe"><b>3</b>Nur noch die Gleichung. Zahl einstellen, dann abziehen oder teilen.</p>
+    <p>Auf der Waage liegen Schachteln und Streichhölzer. In jeder Schachtel stecken gleich viele Hölzer. Wie viele? Das findest du heraus.</p>
+    <p>Die Waage ist im Gleichgewicht. Links ist also genauso viel wie rechts. Deshalb steht in der Rechnung ein Gleichheitszeichen.</p>
+    <p>Dein Ziel: Am Ende liegt auf einer Seite nur noch eine einzige Schachtel. Auf der anderen Seite siehst du dann, wie viele Hölzer drin sind.</p>
+    <h3>So machst du einen Schritt</h3>
+    <p>Stell oben zusammen, was du tun willst, zum Beispiel <span class="bsp">− 2 Hölzer</span>. Dann tippst du auf den blauen Knopf darunter.</p>
     <dl id="legende"></dl>
-    <p>Wird nur eine Seite verändert, steht in der Rechnung links oder rechts dabei.</p>
-    <button type="button" class="taste primaer" id="hilfe-zu" style="width:100%">Verstanden</button>
+    <h3>Die drei Stufen</h3>
+    <p class="stufe"><b>1</b><span>Du machst den Schritt erst auf einer Seite. Schau, was die Waage tut. Dann machst du genau dasselbe auf der anderen Seite.</span></p>
+    <p class="stufe"><b>2</b><span>Jeder Schritt passiert gleich auf beiden Seiten.</span></p>
+    <p class="stufe"><b>3</b><span>Jetzt ohne Waage. Du rechnest nur noch mit der Gleichung.</span></p>
+    <h3>Was steht hinter dem Strich?</h3>
+    <p>Rechts neben der Rechnung steht, was du auf beiden Seiten gemacht hast, zum Beispiel <span class="bsp">| −2</span>. So einen Schritt nennt man Äquivalenzumformung. Die Waage bleibt dabei im Gleichgewicht.</p>
+    <button type="button" class="knopf primaer" id="hilfe-zu" style="width:100%;margin-top:6px">Los geht's</button>
   </div>
 </div>
 
@@ -204,12 +228,10 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const reduceMotion = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 const ICON = {
-  holz: '<svg class="ic" viewBox="0 0 34 26" aria-hidden="true"><path d="M3 13h8" class="minus"/><rect x="20" y="8" width="4" height="15" rx="1.2" class="wd"/><ellipse cx="22" cy="8" rx="3.2" ry="3.8" class="hd"/></svg>',
-  box: '<svg class="ic" viewBox="0 0 34 26" aria-hidden="true"><path d="M3 13h8" class="minus"/><rect x="15" y="6" width="17" height="14" rx="2" class="bx"/><rect x="15" y="6" width="17" height="3.5" class="bs"/></svg>',
-  teilen: '<svg class="ic" viewBox="0 0 34 26" aria-hidden="true"><rect x="2.5" y="4.5" width="13" height="17" rx="3" class="rahmen2"/><rect x="18.5" y="4.5" width="13" height="17" rx="3" class="rahmen2 blass"/><rect x="5.5" y="10" width="7" height="8" rx="1.2" class="bx"/><rect x="21.5" y="10" width="7" height="8" rx="1.2" class="bx blass"/></svg>'
+  holz: '<svg class="ic" viewBox="0 0 26 26" aria-hidden="true"><rect x="11" y="7" width="4" height="16" rx="1.2" class="wd"/><ellipse cx="13" cy="7" rx="3.2" ry="3.8" class="hd"/></svg>',
+  box: '<svg class="ic" viewBox="0 0 26 26" aria-hidden="true"><rect x="3" y="6" width="20" height="15" rx="2" class="bx"/><rect x="3" y="6" width="20" height="3.6" class="bs"/></svg>'
 };
-const NAME = { subN: 'Holz wegnehmen', subX: 'Schachtel wegnehmen', div: 'Teilen' };
-const SEITE = { L: 'links', R: 'rechts', B: 'auf beiden Seiten' };
+const JUBEL = ['Super!', 'Richtig!', 'Stark!', 'Klasse!', 'Geschafft!', 'Sehr gut!'];
 
 const CFG = {
   1: { x: [2, 5], a: [1, 3], b: [0, 4], dMax: 10 },
@@ -221,15 +243,15 @@ const LIMIT = { boxes: 4, sticks: 30 };
 let stage = loadStage();
 let S = null;
 let msg = '', msgKind = '', msgBack = false;
-let picker = null;
+const comp = { op: '-', k: 1, obj: 'n' };   // die zusammengestellte Umformung
 let entering = false, entryText = '';
-let k3 = 2;
 let streak = 0;
 let suggest = false;
 let lastKey = '';
 let angle = 0, anim = 0;
 let busy = false, divAnim = null;
 let viewTop = 40;
+let freshWin = false;
 const declined = { 1: false, 2: false };
 
 function loadStage() {
@@ -264,9 +286,8 @@ function startTask(t) {
   S = {
     x: t.x, L: clone(t.L), R: clone(t.R),
     chain: [{ L: clone(t.L), R: clone(t.R), op: null }],
-    pending: [], hist: [], usedUndo: false, usedTip: false, hadBad: false, solved: false, same: false, seqStart: 0
+    pending: [], hist: [], usedUndo: false, usedTip: false, hadMix: false, solved: false, seqStart: 0
   };
-  picker = null;
   entering = false;
   say('');
   suggest = false;
@@ -289,18 +310,18 @@ function parseSide(t) {
 }
 function parseTask(text) {
   const t = text.replace(/[−–—]/g, '-');
-  if (t.includes('-')) return { err: 'Nur Plus und positive Zahlen verwenden.' };
+  if (t.includes('-')) return { err: 'Bitte nur Plus und keine Minuszahlen.' };
   const parts = t.split('=');
-  if (parts.length !== 2) return { err: 'Genau ein Gleichheitszeichen, zum Beispiel 3x + 2 = x + 10.' };
+  if (parts.length !== 2) return { err: 'Es braucht genau ein Gleichheitszeichen, zum Beispiel 3x + 2 = x + 10.' };
   const L = parseSide(parts[0]), R = parseSide(parts[1]);
-  if (!L || !R) return { err: 'Nicht lesbar. Beispiel: 3x + 2 = x + 10' };
-  if (L.x === R.x) return { err: 'Beide Seiten haben gleich viele x. Es gibt keine eindeutige Lösung.' };
+  if (!L || !R) return { err: 'Das kann ich nicht lesen. Beispiel: 3x + 2 = x + 10' };
+  if (L.x === R.x) return { err: 'Auf beiden Seiten gleich viele x. Dann gibt es keine eindeutige Lösung.' };
   const x = (R.n - L.n) / (L.x - R.x);
-  if (!(x > 0) || !Number.isInteger(x)) return { err: 'Die Lösung ist keine positive ganze Zahl.' };
+  if (!(x > 0) || !Number.isInteger(x)) return { err: 'Hier kommt keine ganze Zahl größer als 0 heraus.' };
   const done = s => s.x === 1 && s.n === 0;
   if ((done(L) && R.x === 0) || (done(R) && L.x === 0)) return { err: 'Die Gleichung ist schon gelöst.' };
   if (stage < 3 && (Math.max(L.x, R.x) > LIMIT.boxes || Math.max(L.n, R.n) > LIMIT.sticks)) {
-    return { err: 'Zu viel für die Waage. Höchstens ' + LIMIT.boxes + ' Schachteln und ' + LIMIT.sticks + ' Hölzer pro Seite, sonst Stufe 3.' };
+    return { err: 'Zu viel für die Waage. Höchstens ' + LIMIT.boxes + ' Schachteln und ' + LIMIT.sticks + ' Hölzer pro Seite.' };
   }
   return { x, L, R };
 }
@@ -322,14 +343,17 @@ function term(s) {
   if (s.n || !s.x) p.push(s.n);
   return p.join(' + ');
 }
-function opText(op) {
+function opText(op, bar) {
   if (!op) return '';
+  const b = bar === false ? '' : '| ';
+  const kx = k => (k === 1 ? '' : k) + X;
   switch (op.kind) {
-    case 'subN': return '| ' + M + op.k;
-    case 'subX': return '| ' + M + (op.k === 1 ? '' : op.k) + X;
-    case 'sub': return '| ' + M + (op.x === 1 ? '' : op.x) + X + ' ' + M + ' ' + op.n;
-    case 'div': return '| :' + op.k;
-    case 'side': return '| ' + (op.side === 'L' ? 'links ' : 'rechts ') + opText(op.step).slice(2);
+    case 'subN': return b + M + op.k;
+    case 'addN': return b + '+' + op.k;
+    case 'subX': return b + M + kx(op.k);
+    case 'addX': return b + '+' + kx(op.k);
+    case 'mix': return b + (op.x < 0 ? M : '+') + kx(Math.abs(op.x)) + (op.n < 0 ? ' ' + M + ' ' : ' + ') + Math.abs(op.n);
+    case 'div': return b + ':' + op.k;
   }
   return '';
 }
@@ -341,21 +365,29 @@ function desc(s) {
 }
 
 function canApply(s, kind, k) {
+  const lim = stage < 3 ? LIMIT : { boxes: 99, sticks: 999 };
   if (kind === 'subN') return s.n >= k;
   if (kind === 'subX') return s.x >= k;
+  if (kind === 'addN') return s.n + k <= lim.sticks;
+  if (kind === 'addX') return s.x + k <= lim.boxes;
   return k >= 2 && s.x + s.n > 0 && s.x % k === 0 && s.n % k === 0;
 }
 const allowed = (side, kind, k) => sidesOf(side).every(sd => canApply(S[sd], kind, k));
-function present(side, kind) {
-  return sidesOf(side).every(sd => kind === 'subN' ? S[sd].n > 0 : kind === 'subX' ? S[sd].x > 0 : S[sd].x + S[sd].n > 0);
-}
 function applyTo(s, kind, k) {
   if (kind === 'subN') s.n -= k;
+  else if (kind === 'addN') s.n += k;
   else if (kind === 'subX') s.x -= k;
+  else if (kind === 'addX') s.x += k;
   else { s.x /= k; s.n /= k; }
 }
+function applyStep(s, op) {
+  if (op.kind === 'mix') { s.x += op.x; s.n += op.n; }
+  else applyTo(s, op.kind, op.k);
+}
+const DELTA = { subN: ['n', -1], addN: ['n', 1], subX: ['x', -1], addX: ['x', 1] };
+const compKind = () => comp.op === ':' ? 'div' : (comp.op === '-' ? 'sub' : 'add') + (comp.obj === 'x' ? 'X' : 'N');
 
-// Die Schritte einer Seite als Folge: Wegnehmen wird zusammengefasst, bis geteilt wird.
+// Die Schritte einer Seite als Folge: Wegnehmen und Dazulegen wird zusammengefasst, bis geteilt wird.
 function stepsOf(side, p) {
   const seq = [];
   for (const o of p) {
@@ -363,18 +395,22 @@ function stepsOf(side, p) {
     if (o.kind === 'div') { seq.push({ div: o.k }); continue; }
     let last = seq[seq.length - 1];
     if (!last || last.div) { last = { x: 0, n: 0 }; seq.push(last); }
-    last[o.kind === 'subN' ? 'n' : 'x'] += o.k;
+    const [f, sg] = DELTA[o.kind];
+    last[f] += sg * o.k;
   }
-  return seq;
+  return seq.filter(t => t.div || t.x || t.n);
 }
-const stepOp = s => s.div ? { kind: 'div', k: s.div }
-  : s.x && s.n ? { kind: 'sub', x: s.x, n: s.n }
-  : s.x ? { kind: 'subX', k: s.x } : { kind: 'subN', k: s.n };
+function stepOp(t) {
+  if (t.div) return { kind: 'div', k: t.div };
+  if (t.x && t.n) return { kind: 'mix', x: t.x, n: t.n };
+  if (t.x) return { kind: t.x < 0 ? 'subX' : 'addX', k: Math.abs(t.x) };
+  return { kind: t.n < 0 ? 'subN' : 'addN', k: Math.abs(t.n) };
+}
 // Wurde links und rechts dasselbe gemacht (in welcher Reihenfolge auch immer), gibt es die
 // Äquivalenzumformungen zurück, sonst null.
 function samePlan(p) {
   const a = stepsOf('L', p), b = stepsOf('R', p);
-  if (!a.length || a.length !== b.length) return null;
+  if (a.length !== b.length) return null;
   for (let i = 0; i < a.length; i++) {
     if (a[i].div !== b[i].div || (!a[i].div && (a[i].x !== b[i].x || a[i].n !== b[i].n))) return null;
   }
@@ -383,7 +419,7 @@ function samePlan(p) {
 function commit(op, L, R) {
   L = L || S.L; R = R || S.R;
   const ch = S.chain, last = ch[ch.length - 1], prev = ch[ch.length - 2];
-  const merge = stage < 3 && prev && prev.op && prev.op.kind === op.kind && (op.kind === 'subN' || op.kind === 'subX') && last.rel === undefined;
+  const merge = stage < 3 && prev && prev.op && prev.op.kind === op.kind && ['subN', 'subX', 'addN', 'addX'].includes(op.kind);
   if (merge) {
     prev.op = { kind: op.kind, k: prev.op.k + op.k };
     last.L = clone(L); last.R = clone(R);
@@ -392,7 +428,6 @@ function commit(op, L, R) {
     ch.push({ L: clone(L), R: clone(R), op: null });
   }
 }
-// Gleiche Schritte auf beiden Seiten: jede Umformung als eigene Zeile.
 function commitPlan(ops) {
   const start = S.chain[S.chain.length - 1];
   const L = clone(start.L), R = clone(start.R);
@@ -400,28 +435,6 @@ function commitPlan(ops) {
     for (const s of [L, R]) applyStep(s, op);
     commit(op, L, R);
   }
-}
-// Unterschiedliche Schritte: jeder einseitige Schritt mit seinem Zeichen (<, >, =) als Zeile.
-function commitSides(p) {
-  const start = S.chain[S.chain.length - 1];
-  const st = { L: clone(start.L), R: clone(start.R) };
-  const groups = [];
-  for (const o of p) {
-    const g = groups[groups.length - 1];
-    if (g && g.side === o.side && g.kind === o.kind && o.kind !== 'div') g.k += o.k;
-    else groups.push({ side: o.side, kind: o.kind, k: o.k });
-  }
-  for (const g of groups) {
-    applyTo(st[g.side], g.kind, g.k);
-    S.chain[S.chain.length - 1].op = { kind: 'side', side: g.side, step: { kind: g.kind, k: g.k } };
-    const d = w(st.L) - w(st.R);
-    S.chain.push({ L: clone(st.L), R: clone(st.R), op: null, rel: d === 0 ? '=' : d < 0 ? '<' : '>' });
-  }
-  S.chain[S.chain.length - 1].rel = undefined;
-}
-function applyStep(s, op) {
-  if (op.kind === 'sub') { s.x -= op.x; s.n -= op.n; }
-  else applyTo(s, op.kind, op.k);
 }
 const snapshot = () => clone({ L: S.L, R: S.R, chain: S.chain, pending: S.pending });
 
@@ -437,13 +450,16 @@ function doOp(side, kind, k) {
     S.pending.push({ side, kind, k });
     if (rel() === '=') {
       const plan = samePlan(S.pending);
-      if (plan) commitPlan(plan);
-      else { S.hadBad = true; commitSides(S.pending); }
-      S.pending = [];
+      if (plan) {
+        if (plan.length) commitPlan(plan);
+        S.pending = [];
+      } else {
+        S.hadMix = true;
+      }
     }
   }
   checkSolved();
-  checkSame();
+  checkMix();
   render();
 }
 
@@ -452,7 +468,6 @@ function doDivide(side, k) {
   if (S.solved || !allowed(side, 'div', k)) return;
   if (stage === 3 || reduceMotion()) { doOp(side, 'div', k); return; }
   busy = true;
-  picker = null;
   say('');
   divAnim = { sides: sidesOf(side), k };
   render();
@@ -462,18 +477,18 @@ function doDivide(side, k) {
   }, 900);
 }
 
-// x = x und Ähnliches: beide Seiten gleich, x lässt sich nicht mehr finden. Kein Zwang, nur ein Weg zurück.
-function checkSame() {
-  S.same = !S.solved && !S.pending.length && S.L.x === S.R.x && S.L.n === S.R.n;
-  if (S.same) say('Beide Seiten sind gleich. So findest du x nicht mehr.', 'fehler', true);
+// Waage wieder gerade, aber links und rechts wurde Verschiedenes gemacht: keine Äquivalenzumformung.
+function checkMix() {
+  if (S.pending.length && rel() === '=') {
+    say('Die Waage ist wieder gerade, aber links und rechts wurde Verschiedenes gemacht.', 'fehler', true);
+  }
 }
 function backToBalance() {
   const h = S.hist[S.seqStart];
   if (!h) return;
   S.hist.length = S.seqStart;
   S.L = h.L; S.R = h.R; S.chain = h.chain; S.pending = h.pending;
-  S.usedUndo = true; S.same = false;
-  picker = null;
+  S.usedUndo = true;
   say('');
   render();
 }
@@ -482,18 +497,17 @@ function undo() {
   const h = S.hist.pop();
   S.L = h.L; S.R = h.R; S.chain = h.chain; S.pending = h.pending;
   S.usedUndo = true;
-  picker = null;
   say('');
-  checkSame();
+  checkMix();
   render();
 }
 
 function hintText() {
-  if (S.same) return 'Geh zurück und nimm links und rechts dasselbe weg.';
-  if (S.pending.length) return 'Die Waage ist schief. Mach auf der anderen Seite dasselbe.';
+  if (S.pending.length && rel() === '=') return 'Geh zurück und mach links und rechts genau dasselbe.';
+  if (S.pending.length) return 'Die Waage ist schief. Mach auf der anderen Seite genau dasselbe.';
   const L = S.L, R = S.R;
   if (stage === 3) {
-    if (L.n && R.n) return 'Auf beiden Seiten steht eine Zahl ohne x. Zieh die kleinere ab.';
+    if (L.n && R.n) return 'Auf beiden Seiten steht eine Zahl ohne x. Zieh die kleinere davon ab.';
     if (L.x && R.x) return 'Auf beiden Seiten steht x. Zieh so viele x ab, dass nur eine Seite x behält.';
     return 'Teile beide Seiten durch die Zahl vor dem x.';
   }
@@ -504,8 +518,7 @@ function hintText() {
 function tip() {
   if (S.solved) return;
   S.usedTip = true;
-  picker = null;
-  say(hintText(), 'tipp', S.same);
+  say(hintText(), 'tipp', S.pending.length && rel() === '=');
   render();
 }
 
@@ -517,7 +530,8 @@ function isSolved() {
 function checkSolved() {
   if (!isSolved()) return;
   S.solved = true;
-  const clean = !S.usedTip && (stage === 1 ? !S.hadBad : !S.usedUndo);
+  freshWin = true;
+  const clean = !S.usedTip && (stage === 1 ? !S.hadMix : !S.usedUndo);
   streak = clean ? streak + 1 : 0;
   if (stage < 3 && streak >= 3 && !declined[stage]) suggest = true;
 }
@@ -527,6 +541,19 @@ function setStage(n) {
   saveStage();
   streak = 0;
   newTask();
+}
+
+/* Jubel: nur Bild, kein Ton */
+function cheer() {
+  if (reduceMotion()) return;
+  const box = $('konfetti');
+  let h = '';
+  for (let i = 0; i < 70; i++) {
+    const s = i % 6 === 0 ? ' class="s"' : '';
+    h += `<i${s} style="--x:${rnd(0, 100)}vw;--dx:${rnd(-60, 60)}px;--r:${rnd(0, 360)}deg;--r2:${rnd(360, 1080)}deg;--d:${(1.6 + Math.random()).toFixed(2)}s;--t:${(Math.random() * 0.5).toFixed(2)}s"></i>`;
+  }
+  box.innerHTML = h;
+  setTimeout(() => { box.innerHTML = ''; }, 3400);
 }
 
 /* Waage */
@@ -595,6 +622,7 @@ function groupedObjects(s, cx, yb, k) {
   return g;
 }
 function drawScale() {
+  viewTop = Math.min(viewTop, Math.floor(101 - Math.max(contentHeight(S.L), contentHeight(S.R)) - 8));
   const r = angle * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
   const Lx = P.x - H * c, Ly = P.y - H * s, Rx = P.x + H * c, Ry = P.y + H * s;
   let g = '';
@@ -636,15 +664,13 @@ function animateTo(t, instant) {
 
 /* Anzeige */
 function row(cls, l, m, r, op) {
-  const oc = 'o' + (op && op.kind === 'side' ? ' seite' : '');
-  return `<tr class="${cls}"><td class="l">${l}</td><td class="m">${relHtml(m)}</td><td class="r">${r}</td><td class="${oc}">${opText(op)}</td></tr>`;
+  return `<tr class="${cls}"><td class="l">${l}</td><td class="m">${relHtml(m)}</td><td class="r">${r}</td><td class="o">${opText(op)}</td></tr>`;
 }
 function renderChain() {
   const rows = S.chain.map((ln, i) => {
     const last = i === S.chain.length - 1;
-    const m = ln.rel || '=';
-    const cls = last && !S.pending.length ? (S.solved ? 'ok' : 'akt') : m !== '=' ? 'schief' : '';
-    return row(cls, term(ln.L), m, term(ln.R), ln.op);
+    const cls = last && !S.pending.length ? (S.solved ? 'ok' : 'akt') : '';
+    return row(cls, term(ln.L), '=', term(ln.R), ln.op);
   });
   if (S.pending.length) rows.push(row('live', term(S.L), rel(), term(S.R), null));
   $('kette').innerHTML = '<table><tbody>' + rows.join('') + '</tbody></table>';
@@ -660,10 +686,6 @@ function probeHtml() {
   const val = s => s.x * v + s.n;
   return `Probe: <b>${sub(L0)} = ${sub(R0)}</b><br><b>${val(L0)} = ${val(R0)}</b> ✓`;
 }
-function taste(side, kind, inner, label, extra) {
-  const dis = present(side, kind) ? '' : ' disabled';
-  return `<button type="button" class="taste" data-side="${side}" data-kind="${kind}" aria-label="${label}" title="${label}"${dis}${extra || ''}>${inner}</button>`;
-}
 function renderControls() {
   const el = $('steuer');
   el.hidden = S.solved && !entering;
@@ -671,8 +693,8 @@ function renderControls() {
     if (!$('feld')) {
       el.innerHTML = '<div class="eingabe">' +
         '<input id="feld" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="3x + 2 = x + 10" aria-label="Eigene Gleichung">' +
-        '<button type="button" class="taste primaer" data-act="los" style="padding:0 18px">Los</button>' +
-        '<button type="button" class="taste" data-act="abbr" aria-label="Abbrechen" style="width:52px">×</button></div>';
+        '<button type="button" class="knopf primaer" data-act="los">Los</button>' +
+        '<button type="button" class="knopf" data-act="abbr" aria-label="Abbrechen" style="padding:0;width:52px">×</button></div>';
       const f = $('feld');
       f.value = entryText;
       f.addEventListener('input', () => { entryText = f.value; });
@@ -682,39 +704,31 @@ function renderControls() {
     return;
   }
   if (S.solved) { el.innerHTML = ''; return; }
-  if (picker) {
-    const isDiv = picker.kind === 'div';
-    const nums = isDiv ? [2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    const q = isDiv
-      ? (picker.side === 'B' ? 'In wie viele gleiche Teile?' : 'Die Seite ' + SEITE[picker.side] + ' in wie viele Teile?')
-      : 'Wie viele Hölzer?';
-    el.innerHTML = `<div class="wahl"><p>${q}</p><div class="zahlen">` +
-      nums.map(n => `<button type="button" class="taste" data-pick="${n}"${!isDiv && !allowed(picker.side, 'subN', n) ? ' disabled' : ''}>${n}</button>`).join('') +
-      `</div><button type="button" class="taste" data-act="abbr" style="padding:0 22px;font-size:1rem">Abbrechen</button></div>`;
-    return;
-  }
-  if (stage === 1) {
-    const gruppe = sd => `<div class="gruppe">` +
-      taste(sd, 'subN', ICON.holz, 'Holz ' + SEITE[sd] + ' wegnehmen') +
-      taste(sd, 'subX', ICON.box, 'Schachtel ' + SEITE[sd] + ' wegnehmen') +
-      taste(sd, 'div', ICON.teilen, 'Seite ' + SEITE[sd] + ' teilen') + '</div>';
-    el.innerHTML = `<div class="seiten">${gruppe('L')}${gruppe('R')}</div>`;
-  } else if (stage === 2) {
-    el.innerHTML = '<div class="mitte">' +
-      taste('B', 'subN', ICON.holz, 'Hölzer auf beiden Seiten wegnehmen') +
-      taste('B', 'subX', ICON.box, 'Schachtel auf beiden Seiten wegnehmen') +
-      taste('B', 'div', ICON.teilen, 'Beide Seiten teilen') + '</div>';
-  } else {
-    const kx = (k3 === 1 ? '' : k3) + X;
-    el.innerHTML = '<div class="stepper">' +
-      '<button type="button" class="taste" data-step="-1" aria-label="kleiner"' + (k3 <= 1 ? ' disabled' : '') + '>‹</button>' +
-      `<output aria-label="Zahl">${k3}</output>` +
-      '<button type="button" class="taste" data-step="1" aria-label="größer"' + (k3 >= 20 ? ' disabled' : '') + '>›</button></div>' +
-      '<div class="mitte">' +
-      `<button type="button" class="taste mathe" data-side="B" data-kind="subN"${allowed('B', 'subN', k3) ? '' : ' disabled'}>${M} ${k3}</button>` +
-      `<button type="button" class="taste mathe" data-side="B" data-kind="subX"${allowed('B', 'subX', k3) ? '' : ' disabled'}>${M} ${kx}</button>` +
-      `<button type="button" class="taste mathe" data-side="B" data-kind="div"${k3 < 2 ? ' disabled' : ''}>: ${k3}</button></div>`;
-  }
+  const isDiv = comp.op === ':';
+  const pressed = c => ` aria-pressed="${c}"`;
+  const opBtn = (o, sym, label) => `<button type="button" data-op="${o}" aria-label="${label}" title="${label}"${pressed(comp.op === o)}>${sym}</button>`;
+  const objBtn = (o, inner, label) => `<button type="button" data-obj="${o}" aria-label="${label}" title="${label}"${pressed(!isDiv && comp.obj === o)}${isDiv ? ' disabled' : ''}>${inner}</button>`;
+  const ohne = stage === 3;
+  const minK = isDiv ? 2 : 1;
+  let h = '<div class="baukasten">' +
+    '<div class="seg" role="group" aria-label="Rechenart">' + opBtn('-', M, 'wegnehmen') + opBtn('+', '+', 'dazulegen') + opBtn(':', ':', 'teilen') + '</div>' +
+    '<div class="zahl" role="group" aria-label="Anzahl">' +
+      `<button type="button" data-step="-1" aria-label="weniger"${comp.k <= minK ? ' disabled' : ''}>‹</button>` +
+      `<output>${comp.k}</output>` +
+      `<button type="button" data-step="1" aria-label="mehr"${comp.k >= 20 ? ' disabled' : ''}>›</button></div>` +
+    '<div class="seg" role="group" aria-label="Was">' +
+      objBtn('n', ohne ? '1' : ICON.holz, ohne ? 'Zahl' : 'Hölzer') + objBtn('x', ohne ? X : ICON.box, ohne ? 'x' : 'Schachteln') + '</div>' +
+    '</div>';
+  const kind = compKind();
+  const note = opText({ kind, k: comp.k });
+  const go = (side, wo) => {
+    const ok = kind === 'div' ? sidesOf(side).every(sd => S[sd].x + S[sd].n > 0) : allowed(side, kind, comp.k);
+    return `<button type="button" data-apply="${side}"${ok ? '' : ' disabled'}><span class="not">${note}</span><span class="wo">${wo}</span></button>`;
+  };
+  h += stage === 1
+    ? `<div class="anwenden paar">${go('L', 'links')}${go('R', 'rechts')}</div>`
+    : `<div class="anwenden">${go('B', 'auf beiden Seiten')}</div>`;
+  el.innerHTML = h;
 }
 function renderMsg() {
   const el = $('meldung');
@@ -736,11 +750,18 @@ function render(instant) {
   renderChain();
   renderMsg();
   renderControls();
-  $('ziel').hidden = !S.solved || entering;
+  const z = $('ziel');
+  z.hidden = !S.solved || entering;
+  if (S.solved && freshWin) {
+    freshWin = false;
+    $('jubel').textContent = JUBEL[rnd(0, JUBEL.length - 1)];
+    z.classList.remove('neu'); void z.offsetWidth; z.classList.add('neu');
+    cheer();
+  }
   $('loesung').textContent = S.x;
   if (S.solved) $('probe').innerHTML = probeHtml();
   $('vorschlag').hidden = !suggest;
-  if (suggest) $('vtext').textContent = 'Drei Aufgaben sauber gelöst. Weiter mit Stufe ' + (stage + 1) + '?';
+  if (suggest) $('vtext').textContent = 'Das klappt schon richtig gut. Willst du Stufe ' + (stage + 1) + ' probieren?';
   $('tipp').disabled = S.solved;
   $('undo').disabled = !S.hist.length || S.solved;
   if (stage < 3) animateTo(targetAngle(), instant);
@@ -754,7 +775,6 @@ function shake(b) {
 }
 function openEntry() {
   entering = true;
-  picker = null;
   say('');
   $('steuer').innerHTML = '';
   render();
@@ -764,13 +784,16 @@ function openEntry() {
 function buildLegend() {
   const l = p => `<svg class="l" viewBox="0 0 24 24">${p}</svg>`;
   const rows = [
-    [ICON.holz, 'Holz wegnehmen'],
-    [ICON.box, 'Schachtel wegnehmen'],
-    [ICON.teilen, 'In gleiche Teile aufteilen, ein Teil bleibt liegen'],
-    [l('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>'), 'Tipp für den nächsten Schritt'],
-    [l('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'), 'Letzten Schritt zurücknehmen'],
-    [l('<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/>'), 'Neue Aufgabe'],
-    [l('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'), 'Eigene Gleichung eingeben, etwa aus dem Buch']
+    [M, 'wegnehmen'],
+    ['+', 'dazulegen'],
+    [':', 'in gleiche Teile aufteilen, ein Teil bleibt liegen'],
+    ['‹ ›', 'wie viele'],
+    [ICON.holz, 'Hölzer (in Stufe 3 einfach Zahlen)'],
+    [ICON.box, 'Schachteln (in Stufe 3 das x)'],
+    [l('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>'), 'Tipp, wenn du nicht weiterweißt'],
+    [l('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'), 'letzten Schritt zurücknehmen'],
+    [l('<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/>'), 'neue Aufgabe'],
+    [l('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'), 'eigene Aufgabe eintippen, zum Beispiel aus dem Buch']
   ];
   $('legende').innerHTML = rows.map(r => `<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join('');
 }
@@ -784,30 +807,25 @@ function showHelp(open) {
 $('steuer').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b || b.disabled || busy) return;
-  const act = b.dataset.act;
-  if (act === 'los') { submitEntry(); return; }
-  if (act === 'abbr') {
-    if (entering) { entering = false; $('steuer').innerHTML = ''; }
-    picker = null; say('');
+  const d = b.dataset;
+  if (d.act === 'los') { submitEntry(); return; }
+  if (d.act === 'abbr') { entering = false; $('steuer').innerHTML = ''; say(''); render(); return; }
+  if (d.op) {
+    comp.op = d.op;
+    if (comp.op === ':' && comp.k < 2) comp.k = 2;
     render(); return;
   }
-  if (b.dataset.step) { k3 = Math.max(1, Math.min(20, k3 + Number(b.dataset.step))); render(); return; }
-  if (b.dataset.pick) {
-    const n = Number(b.dataset.pick);
-    if (!allowed(picker.side, picker.kind, n)) { shake(b); return; }
-    const p = picker;
-    picker = null;
-    if (p.kind === 'div') doDivide(p.side, n); else doOp(p.side, 'subN', n);
-    return;
+  if (d.obj) { comp.obj = d.obj; render(); return; }
+  if (d.step) { comp.k = Math.max(comp.op === ':' ? 2 : 1, Math.min(20, comp.k + Number(d.step))); render(); return; }
+  if (d.apply) {
+    const kind = compKind(), side = d.apply;
+    if (!allowed(side, kind, comp.k)) {
+      shake(b);
+      if (kind === 'div') { say('Das lässt sich nicht in ' + comp.k + ' gleiche Teile aufteilen.', 'fehler'); renderMsg(); }
+      return;
+    }
+    if (kind === 'div') doDivide(side, comp.k); else doOp(side, kind, comp.k);
   }
-  const kind = b.dataset.kind, side = b.dataset.side;
-  if (!kind) return;
-  if (stage < 3 && (kind === 'div' || (kind === 'subN' && stage === 2))) {
-    picker = { kind, side }; say(''); render(); return;
-  }
-  const k = stage === 3 ? k3 : 1;
-  if (!allowed(side, kind, k)) { shake(b); return; }
-  if (kind === 'div') doDivide(side, k); else doOp(side, kind, k);
 });
 document.querySelector('.stufen').addEventListener('click', e => {
   const b = e.target.closest('button[data-stufe]');
