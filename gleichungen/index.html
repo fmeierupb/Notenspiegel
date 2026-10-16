@@ -67,7 +67,8 @@ svg#waage{display:block;width:100%;height:auto}
 #kette td{height:40px;padding:0 4px;white-space:nowrap;vertical-align:middle}
 #kette .l{text-align:right}#kette .m{text-align:center;min-width:1.5em}#kette .r{text-align:left}
 #kette .o{color:var(--muted);font-size:.85em;padding-left:16px}
-#kette .o.bad{color:var(--warn);font-weight:700}
+#kette .o.seite{color:var(--warn)}
+#kette tr.schief td:not(.o){color:var(--warn)}
 #kette tr.akt td:not(.o){font-weight:600}
 #kette tr.live td{color:var(--warn);font-weight:600}
 #kette tr.ok td:not(.o){color:var(--ok);font-weight:700}
@@ -184,7 +185,7 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
     <p class="stufe"><b>2</b>Jeder Knopf wirkt auf beide Seiten.</p>
     <p class="stufe"><b>3</b>Nur noch die Gleichung. Zahl einstellen, dann abziehen oder teilen.</p>
     <dl id="legende"></dl>
-    <p>Ein Fragezeichen in der Rechnung heißt: Links und rechts wurde nicht dasselbe gemacht.</p>
+    <p>Wird nur eine Seite verändert, steht in der Rechnung links oder rechts dabei.</p>
     <button type="button" class="taste primaer" id="hilfe-zu" style="width:100%">Verstanden</button>
   </div>
 </div>
@@ -328,7 +329,7 @@ function opText(op) {
     case 'subX': return '| ' + M + (op.k === 1 ? '' : op.k) + X;
     case 'sub': return '| ' + M + (op.x === 1 ? '' : op.x) + X + ' ' + M + ' ' + op.n;
     case 'div': return '| :' + op.k;
-    case 'bad': return '| ?';
+    case 'side': return '| ' + (op.side === 'L' ? 'links ' : 'rechts ') + opText(op.step).slice(2);
   }
   return '';
 }
@@ -354,29 +355,73 @@ function applyTo(s, kind, k) {
   else { s.x /= k; s.n /= k; }
 }
 
-function evalPending(p) {
-  const divs = p.filter(o => o.kind === 'div');
-  if (divs.length) {
-    if (p.length === 2 && divs.length === 2 && p[0].side !== p[1].side && p[0].k === p[1].k) return { kind: 'div', k: p[0].k };
-    return { kind: 'bad' };
+// Die Schritte einer Seite als Folge: Wegnehmen wird zusammengefasst, bis geteilt wird.
+function stepsOf(side, p) {
+  const seq = [];
+  for (const o of p) {
+    if (o.side !== side) continue;
+    if (o.kind === 'div') { seq.push({ div: o.k }); continue; }
+    let last = seq[seq.length - 1];
+    if (!last || last.div) { last = { x: 0, n: 0 }; seq.push(last); }
+    last[o.kind === 'subN' ? 'n' : 'x'] += o.k;
   }
-  const net = { L: { x: 0, n: 0 }, R: { x: 0, n: 0 } };
-  for (const o of p) net[o.side][o.kind === 'subN' ? 'n' : 'x'] += o.k;
-  if (net.L.x !== net.R.x || net.L.n !== net.R.n) return { kind: 'bad' };
-  if (net.L.x && net.L.n) return { kind: 'sub', x: net.L.x, n: net.L.n };
-  if (net.L.x) return { kind: 'subX', k: net.L.x };
-  return { kind: 'subN', k: net.L.n };
+  return seq;
 }
-function commit(op) {
+const stepOp = s => s.div ? { kind: 'div', k: s.div }
+  : s.x && s.n ? { kind: 'sub', x: s.x, n: s.n }
+  : s.x ? { kind: 'subX', k: s.x } : { kind: 'subN', k: s.n };
+// Wurde links und rechts dasselbe gemacht (in welcher Reihenfolge auch immer), gibt es die
+// Äquivalenzumformungen zurück, sonst null.
+function samePlan(p) {
+  const a = stepsOf('L', p), b = stepsOf('R', p);
+  if (!a.length || a.length !== b.length) return null;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].div !== b[i].div || (!a[i].div && (a[i].x !== b[i].x || a[i].n !== b[i].n))) return null;
+  }
+  return a.map(stepOp);
+}
+function commit(op, L, R) {
+  L = L || S.L; R = R || S.R;
   const ch = S.chain, last = ch[ch.length - 1], prev = ch[ch.length - 2];
-  const merge = stage < 3 && prev && prev.op && prev.op.kind === op.kind && (op.kind === 'subN' || op.kind === 'subX');
+  const merge = stage < 3 && prev && prev.op && prev.op.kind === op.kind && (op.kind === 'subN' || op.kind === 'subX') && last.rel === undefined;
   if (merge) {
     prev.op = { kind: op.kind, k: prev.op.k + op.k };
-    last.L = clone(S.L); last.R = clone(S.R);
+    last.L = clone(L); last.R = clone(R);
   } else {
     last.op = op;
-    ch.push({ L: clone(S.L), R: clone(S.R), op: null });
+    ch.push({ L: clone(L), R: clone(R), op: null });
   }
+}
+// Gleiche Schritte auf beiden Seiten: jede Umformung als eigene Zeile.
+function commitPlan(ops) {
+  const start = S.chain[S.chain.length - 1];
+  const L = clone(start.L), R = clone(start.R);
+  for (const op of ops) {
+    for (const s of [L, R]) applyStep(s, op);
+    commit(op, L, R);
+  }
+}
+// Unterschiedliche Schritte: jeder einseitige Schritt mit seinem Zeichen (<, >, =) als Zeile.
+function commitSides(p) {
+  const start = S.chain[S.chain.length - 1];
+  const st = { L: clone(start.L), R: clone(start.R) };
+  const groups = [];
+  for (const o of p) {
+    const g = groups[groups.length - 1];
+    if (g && g.side === o.side && g.kind === o.kind && o.kind !== 'div') g.k += o.k;
+    else groups.push({ side: o.side, kind: o.kind, k: o.k });
+  }
+  for (const g of groups) {
+    applyTo(st[g.side], g.kind, g.k);
+    S.chain[S.chain.length - 1].op = { kind: 'side', side: g.side, step: { kind: g.kind, k: g.k } };
+    const d = w(st.L) - w(st.R);
+    S.chain.push({ L: clone(st.L), R: clone(st.R), op: null, rel: d === 0 ? '=' : d < 0 ? '<' : '>' });
+  }
+  S.chain[S.chain.length - 1].rel = undefined;
+}
+function applyStep(s, op) {
+  if (op.kind === 'sub') { s.x -= op.x; s.n -= op.n; }
+  else applyTo(s, op.kind, op.k);
 }
 const snapshot = () => clone({ L: S.L, R: S.R, chain: S.chain, pending: S.pending });
 
@@ -391,10 +436,10 @@ function doOp(side, kind, k) {
   } else {
     S.pending.push({ side, kind, k });
     if (rel() === '=') {
-      const op = evalPending(S.pending);
+      const plan = samePlan(S.pending);
+      if (plan) commitPlan(plan);
+      else { S.hadBad = true; commitSides(S.pending); }
       S.pending = [];
-      if (op.kind === 'bad') S.hadBad = true;
-      commit(op);
     }
   }
   checkSolved();
@@ -591,14 +636,15 @@ function animateTo(t, instant) {
 
 /* Anzeige */
 function row(cls, l, m, r, op) {
-  const oc = 'o' + (op && op.kind === 'bad' ? ' bad' : '');
+  const oc = 'o' + (op && op.kind === 'side' ? ' seite' : '');
   return `<tr class="${cls}"><td class="l">${l}</td><td class="m">${relHtml(m)}</td><td class="r">${r}</td><td class="${oc}">${opText(op)}</td></tr>`;
 }
 function renderChain() {
   const rows = S.chain.map((ln, i) => {
     const last = i === S.chain.length - 1;
-    const cls = last && !S.pending.length ? (S.solved ? 'ok' : 'akt') : '';
-    return row(cls, term(ln.L), '=', term(ln.R), ln.op);
+    const m = ln.rel || '=';
+    const cls = last && !S.pending.length ? (S.solved ? 'ok' : 'akt') : m !== '=' ? 'schief' : '';
+    return row(cls, term(ln.L), m, term(ln.R), ln.op);
   });
   if (S.pending.length) rows.push(row('live', term(S.L), rel(), term(S.R), null));
   $('kette').innerHTML = '<table><tbody>' + rows.join('') + '</tbody></table>';
