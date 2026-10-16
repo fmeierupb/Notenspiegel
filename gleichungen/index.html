@@ -36,7 +36,7 @@
 html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 main{max-width:520px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
 @media (min-width:700px){main{max-width:640px}}
-@media (max-width:370px){.stufen span{display:none}h1{font-size:.95rem}.seg button{width:38px}.zahl button{width:32px}.baukasten{gap:6px}}
+@media (max-width:370px){.stufen span{display:none}h1{font-size:.95rem}.seiten{gap:10px}}
 button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 var{font-style:italic;font-family:Georgia,"Times New Roman",serif}
@@ -80,26 +80,20 @@ body[data-stufe="3"] #kette table{font-size:1.5rem}
 #meldung.fehler{color:var(--warn)}
 #meldung button{margin-left:8px;padding:4px 12px;border-radius:999px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-weight:600}
 
-/* Baukasten: Umformung zusammenstellen, dann anwenden. In allen Stufen gleich. */
+/* Knöpfe: jeder Tipp ist ein Schritt, gleicher Aufbau in allen Stufen */
 #steuer{margin-top:6px}
-.baukasten{display:flex;justify-content:center;align-items:center;gap:10px}
-.seg,.zahl{display:inline-flex;align-items:center;border:1px solid var(--btn-line);border-radius:14px;background:var(--btn);overflow:hidden}
-.seg button{width:44px;height:50px;border:0;background:transparent;color:var(--btn-fg);font-size:1.4rem;line-height:1;display:grid;place-items:center}
-.seg button[aria-pressed="true"]{background:var(--paper);color:var(--accent);font-weight:700;box-shadow:inset 0 0 0 2px var(--accent);border-radius:12px}
-.seg button:disabled{opacity:.3;cursor:default}
-.seg .ic{width:24px;height:24px}
-.seg var{font-size:1.35rem}
-.zahl button{width:38px;height:50px;border:0;background:transparent;color:var(--btn-fg);font-size:1.4rem}
-.zahl button:disabled{opacity:.3;cursor:default}
-.zahl output{min-width:28px;text-align:center;font-weight:700;font-size:1.35rem;color:var(--ink);font-variant-numeric:tabular-nums}
-.anwenden{display:grid;gap:10px;margin-top:12px}
-.anwenden.paar{grid-template-columns:1fr 1fr}
-.anwenden button{min-height:58px;padding:4px 8px;border:0;border-radius:14px;background:var(--accent);color:var(--accent-fg);display:flex;flex-direction:column;align-items:center;justify-content:center}
-.anwenden button:active:not(:disabled){transform:translateY(1px)}
-.anwenden button:disabled{opacity:.3;cursor:default}
-.anwenden .not{font-size:1.3rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
-.anwenden .not var{font-weight:700}
-.anwenden .wo{font-size:.82rem;opacity:.9}
+.seiten{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mitte{max-width:260px;margin:0 auto}
+.feld{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.feld .teilen{grid-column:1 / span 2}
+.taste{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:52px;padding:0 6px;border:1px solid var(--btn-line);border-radius:14px;background:var(--btn);color:var(--btn-fg);font-size:1.45rem;line-height:1;-webkit-touch-callout:none}
+.taste:active:not(:disabled){transform:translateY(1px);background:var(--line)}
+.taste:disabled{opacity:.3;cursor:default}
+.taste .ic{width:24px;height:24px}
+.taste var,.taste .z{font-size:1.3rem;font-weight:600;color:var(--ink)}
+.taste .ic.t{width:34px;height:26px}
+.ic .rahmen2{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:3 2}
+.ic .blass{opacity:.3}
 .eingabe{display:grid;grid-template-columns:1fr auto auto;gap:8px}
 #feld{min-width:0;height:52px;padding:0 14px;font:inherit;font-size:1.2rem;color:var(--ink);border:1px solid var(--btn-line);border-radius:14px;background:var(--paper)}
 .knopf{min-height:52px;padding:0 18px;border:1px solid var(--btn-line);border-radius:14px;background:var(--btn);color:var(--btn-fg)}
@@ -144,9 +138,10 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
 .blatt h3{font-size:1rem;margin:18px 0 6px}
 .blatt p{margin:0 0 10px}
 .blatt .bsp{display:inline-block;padding:0 6px;border-radius:6px;background:var(--btn);color:var(--ink);font-weight:600;white-space:nowrap}
-.blatt dl{display:grid;grid-template-columns:44px 1fr;gap:8px 12px;align-items:center;margin:4px 0 16px}
-.blatt dt{display:grid;place-items:center;height:36px;border-radius:10px;background:var(--btn);color:var(--btn-fg);font-size:1.25rem;font-weight:600}
+.blatt dl{display:grid;grid-template-columns:56px 1fr;gap:8px 12px;align-items:center;margin:4px 0 16px}
+.blatt dt{display:flex;align-items:center;justify-content:center;gap:2px;height:36px;border-radius:10px;background:var(--btn);color:var(--btn-fg);font-size:1.25rem;font-weight:600}
 .blatt dt .ic{width:24px;height:24px}
+.blatt dt .ic.t{width:32px}
 .blatt dd{margin:0}
 .blatt .stufe{display:grid;grid-template-columns:28px 1fr;gap:8px;margin:0 0 8px}
 .blatt .stufe b{display:grid;place-items:center;width:24px;height:24px;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-size:.85rem}
@@ -201,13 +196,13 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
     <p>Auf der Waage liegen Schachteln und Streichhölzer. In jeder Schachtel stecken gleich viele Hölzer. Wie viele? Das findest du heraus.</p>
     <p>Die Waage ist im Gleichgewicht. Links ist also genauso viel wie rechts. Deshalb steht in der Rechnung ein Gleichheitszeichen.</p>
     <p>Dein Ziel: Am Ende liegt auf einer Seite nur noch eine einzige Schachtel. Auf der anderen Seite siehst du dann, wie viele Hölzer drin sind.</p>
-    <h3>So machst du einen Schritt</h3>
-    <p>Stell oben zusammen, was du tun willst, zum Beispiel <span class="bsp">− 2 Hölzer</span>. Dann tippst du auf den blauen Knopf darunter.</p>
+    <h3>Die Knöpfe</h3>
+    <p>Jeder Tipp macht einen Schritt. Wenn du einen Knopf gedrückt hältst, geht es schneller.</p>
     <dl id="legende"></dl>
     <h3>Die drei Stufen</h3>
     <p class="stufe"><b>1</b><span>Du machst den Schritt erst auf einer Seite. Schau, was die Waage tut. Dann machst du genau dasselbe auf der anderen Seite.</span></p>
     <p class="stufe"><b>2</b><span>Jeder Schritt passiert gleich auf beiden Seiten.</span></p>
-    <p class="stufe"><b>3</b><span>Jetzt ohne Waage. Du rechnest nur noch mit der Gleichung.</span></p>
+    <p class="stufe"><b>3</b><span>Jetzt ohne Waage. Du rechnest nur noch mit der Gleichung. Statt Holz steht dort 1, statt Schachtel x.</span></p>
     <h3>Was steht hinter dem Strich?</h3>
     <p>Rechts neben der Rechnung steht, was du auf beiden Seiten gemacht hast, zum Beispiel <span class="bsp">| −2</span>. So einen Schritt nennt man Äquivalenzumformung. Die Waage bleibt dabei im Gleichgewicht.</p>
     <button type="button" class="knopf primaer" id="hilfe-zu" style="width:100%;margin-top:6px">Los geht's</button>
@@ -229,21 +224,22 @@ const reduceMotion = () => !!(window.matchMedia && matchMedia('(prefers-reduced-
 
 const ICON = {
   holz: '<svg class="ic" viewBox="0 0 26 26" aria-hidden="true"><rect x="11" y="7" width="4" height="16" rx="1.2" class="wd"/><ellipse cx="13" cy="7" rx="3.2" ry="3.8" class="hd"/></svg>',
-  box: '<svg class="ic" viewBox="0 0 26 26" aria-hidden="true"><rect x="3" y="6" width="20" height="15" rx="2" class="bx"/><rect x="3" y="6" width="20" height="3.6" class="bs"/></svg>'
+  box: '<svg class="ic" viewBox="0 0 26 26" aria-hidden="true"><rect x="3" y="6" width="20" height="15" rx="2" class="bx"/><rect x="3" y="6" width="20" height="3.6" class="bs"/></svg>',
+  teilen: '<svg class="ic t" viewBox="0 0 34 26" aria-hidden="true"><rect x="2.5" y="4.5" width="13" height="17" rx="3" class="rahmen2"/><rect x="18.5" y="4.5" width="13" height="17" rx="3" class="rahmen2 blass"/><rect x="5.5" y="10" width="7" height="8" rx="1.2" class="bx"/><rect x="21.5" y="10" width="7" height="8" rx="1.2" class="bx blass"/></svg>'
 };
+const SEITE = { L: 'links', R: 'rechts' };
 const JUBEL = ['Super!', 'Richtig!', 'Stark!', 'Klasse!', 'Geschafft!', 'Sehr gut!'];
 
 const CFG = {
   1: { x: [2, 5], a: [1, 3], b: [0, 4], dMax: 10 },
   2: { x: [2, 6], a: [1, 4], b: [0, 6], dMax: 15 },
-  3: { x: [2, 9], a: [2, 6], b: [0, 12], dMax: 40 }
+  3: { x: [2, 9], a: [2, 5], b: [0, 8], dMax: 30 }
 };
 const LIMIT = { boxes: 4, sticks: 30 };
 
 let stage = loadStage();
 let S = null;
 let msg = '', msgKind = '', msgBack = false;
-const comp = { op: '-', k: 1, obj: 'n' };   // die zusammengestellte Umformung
 let entering = false, entryText = '';
 let streak = 0;
 let suggest = false;
@@ -385,7 +381,6 @@ function applyStep(s, op) {
   else applyTo(s, op.kind, op.k);
 }
 const DELTA = { subN: ['n', -1], addN: ['n', 1], subX: ['x', -1], addX: ['x', 1] };
-const compKind = () => comp.op === ':' ? 'div' : (comp.op === '-' ? 'sub' : 'add') + (comp.obj === 'x' ? 'X' : 'N');
 
 // Die Schritte einer Seite als Folge: Wegnehmen und Dazulegen wird zusammengefasst, bis geteilt wird.
 function stepsOf(side, p) {
@@ -419,7 +414,7 @@ function samePlan(p) {
 function commit(op, L, R) {
   L = L || S.L; R = R || S.R;
   const ch = S.chain, last = ch[ch.length - 1], prev = ch[ch.length - 2];
-  const merge = stage < 3 && prev && prev.op && prev.op.kind === op.kind && ['subN', 'subX', 'addN', 'addX'].includes(op.kind);
+  const merge = prev && prev.op && prev.op.kind === op.kind && ['subN', 'subX', 'addN', 'addX'].includes(op.kind);
   if (merge) {
     prev.op = { kind: op.kind, k: prev.op.k + op.k };
     last.L = clone(L); last.R = clone(R);
@@ -704,31 +699,37 @@ function renderControls() {
     return;
   }
   if (S.solved) { el.innerHTML = ''; return; }
-  const isDiv = comp.op === ':';
-  const pressed = c => ` aria-pressed="${c}"`;
-  const opBtn = (o, sym, label) => `<button type="button" data-op="${o}" aria-label="${label}" title="${label}"${pressed(comp.op === o)}>${sym}</button>`;
-  const objBtn = (o, inner, label) => `<button type="button" data-obj="${o}" aria-label="${label}" title="${label}"${pressed(!isDiv && comp.obj === o)}${isDiv ? ' disabled' : ''}>${inner}</button>`;
   const ohne = stage === 3;
-  const minK = isDiv ? 2 : 1;
-  let h = '<div class="baukasten">' +
-    '<div class="seg" role="group" aria-label="Rechenart">' + opBtn('-', M, 'wegnehmen') + opBtn('+', '+', 'dazulegen') + opBtn(':', ':', 'teilen') + '</div>' +
-    '<div class="zahl" role="group" aria-label="Anzahl">' +
-      `<button type="button" data-step="-1" aria-label="weniger"${comp.k <= minK ? ' disabled' : ''}>‹</button>` +
-      `<output>${comp.k}</output>` +
-      `<button type="button" data-step="1" aria-label="mehr"${comp.k >= 20 ? ' disabled' : ''}>›</button></div>` +
-    '<div class="seg" role="group" aria-label="Was">' +
-      objBtn('n', ohne ? '1' : ICON.holz, ohne ? 'Zahl' : 'Hölzer') + objBtn('x', ohne ? X : ICON.box, ohne ? 'x' : 'Schachteln') + '</div>' +
-    '</div>';
-  const kind = compKind();
-  const note = opText({ kind, k: comp.k });
-  const go = (side, wo) => {
-    const ok = kind === 'div' ? sidesOf(side).every(sd => S[sd].x + S[sd].n > 0) : allowed(side, kind, comp.k);
-    return `<button type="button" data-apply="${side}"${ok ? '' : ' disabled'}><span class="not">${note}</span><span class="wo">${wo}</span></button>`;
+  const t = (sd, kind, inner, label, ok, cls) =>
+    `<button type="button" class="taste${cls || ''}" data-side="${sd}" data-kind="${kind}" aria-label="${label}" title="${label}"${ok ? '' : ' disabled'}>${inner}</button>`;
+  const feld = sd => {
+    const wo = sd === 'B' ? 'auf beiden Seiten' : SEITE[sd];
+    const holz = ohne ? '<span class="z">1</span>' : ICON.holz, box = ohne ? X : ICON.box;
+    const k = divisor(sd);
+    const teil = ohne ? '<span class="z">:' + (k || '') + '</span>' : ICON.teilen;
+    return '<div class="feld">' +
+      t(sd, 'subN', M + holz, (ohne ? '1 abziehen ' : 'Ein Holz wegnehmen ') + wo, allowed(sd, 'subN', 1)) +
+      t(sd, 'addN', '+' + holz, (ohne ? '1 dazurechnen ' : 'Ein Holz dazulegen ') + wo, allowed(sd, 'addN', 1)) +
+      t(sd, 'subX', M + box, (ohne ? 'x abziehen ' : 'Eine Schachtel wegnehmen ') + wo, allowed(sd, 'subX', 1)) +
+      t(sd, 'addX', '+' + box, (ohne ? 'x dazurechnen ' : 'Eine Schachtel dazulegen ') + wo, allowed(sd, 'addX', 1)) +
+      t(sd, 'div', teil, 'Teilen ' + wo, !!k, ' teilen') + '</div>';
   };
-  h += stage === 1
-    ? `<div class="anwenden paar">${go('L', 'links')}${go('R', 'rechts')}</div>`
-    : `<div class="anwenden">${go('B', 'auf beiden Seiten')}</div>`;
-  el.innerHTML = h;
+  el.innerHTML = stage === 1 ? `<div class="seiten">${feld('L')}${feld('R')}</div>` : `<div class="mitte">${feld('B')}</div>`;
+}
+// Teilen geht immer in so viele Teile, wie Schachteln (x) auf der Schachtelseite liegen.
+function divisor(side) {
+  if (side === 'B') {
+    if (S.L.x && S.R.x) return 0;
+    const k = Math.max(S.L.x, S.R.x);
+    return k >= 2 ? k : 0;
+  }
+  const other = side === 'L' ? 'R' : 'L';
+  const done = S.pending.filter(o => o.kind === 'div');
+  const mine = done.filter(o => o.side === side).length, theirs = done.filter(o => o.side === other);
+  if (theirs.length > mine) return theirs[mine].k;
+  if (S[side].x >= 2 && !S[other].x) return S[side].x;
+  if (!S[side].x && S[other].x >= 2) return S[other].x;
+  return 0;
 }
 function renderMsg() {
   const el = $('meldung');
@@ -784,12 +785,11 @@ function openEntry() {
 function buildLegend() {
   const l = p => `<svg class="l" viewBox="0 0 24 24">${p}</svg>`;
   const rows = [
-    [M, 'wegnehmen'],
-    ['+', 'dazulegen'],
-    [':', 'in gleiche Teile aufteilen, ein Teil bleibt liegen'],
-    ['‹ ›', 'wie viele'],
-    [ICON.holz, 'Hölzer (in Stufe 3 einfach Zahlen)'],
-    [ICON.box, 'Schachteln (in Stufe 3 das x)'],
+    [M + ICON.holz, 'ein Holz wegnehmen'],
+    ['+' + ICON.holz, 'ein Holz dazulegen'],
+    [M + ICON.box, 'eine Schachtel wegnehmen'],
+    ['+' + ICON.box, 'eine Schachtel dazulegen'],
+    [ICON.teilen, 'Teilen: in so viele gleiche Teile, wie Schachteln da sind. Ein Teil bleibt liegen.'],
     [l('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>'), 'Tipp, wenn du nicht weiterweißt'],
     [l('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'), 'letzten Schritt zurücknehmen'],
     [l('<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/>'), 'neue Aufgabe'],
@@ -810,23 +810,47 @@ $('steuer').addEventListener('click', e => {
   const d = b.dataset;
   if (d.act === 'los') { submitEntry(); return; }
   if (d.act === 'abbr') { entering = false; $('steuer').innerHTML = ''; say(''); render(); return; }
-  if (d.op) {
-    comp.op = d.op;
-    if (comp.op === ':' && comp.k < 2) comp.k = 2;
-    render(); return;
-  }
-  if (d.obj) { comp.obj = d.obj; render(); return; }
-  if (d.step) { comp.k = Math.max(comp.op === ':' ? 2 : 1, Math.min(20, comp.k + Number(d.step))); render(); return; }
-  if (d.apply) {
-    const kind = compKind(), side = d.apply;
-    if (!allowed(side, kind, comp.k)) {
-      shake(b);
-      if (kind === 'div') { say('Das lässt sich nicht in ' + comp.k + ' gleiche Teile aufteilen.', 'fehler'); renderMsg(); }
-      return;
-    }
-    if (kind === 'div') doDivide(side, comp.k); else doOp(side, kind, comp.k);
+  if (d.kind) {
+    if (skipClick) { skipClick = false; return; }
+    act(b, d.side, d.kind);
   }
 });
+function act(b, side, kind) {
+  if (kind === 'div') {
+    const k = divisor(side);
+    if (!k) return;
+    if (!allowed(side, 'div', k)) {
+      shake(b);
+      say('Das lässt sich nicht in ' + k + ' gleiche Teile aufteilen.', 'fehler');
+      renderMsg();
+      return;
+    }
+    doDivide(side, k);
+  } else if (allowed(side, kind, 1)) {
+    doOp(side, kind, 1);
+  }
+}
+let hold = null, skipClick = false;
+function stopHold() {
+  if (hold) { clearTimeout(hold.t); clearInterval(hold.i); hold = null; }
+  if (skipClick) setTimeout(() => { skipClick = false; }, 0);
+}
+$('steuer').addEventListener('pointerdown', e => {
+  const b = e.target.closest('button[data-kind]');
+  if (!b || b.disabled || busy || b.dataset.kind === 'div') return;
+  const side = b.dataset.side, kind = b.dataset.kind;
+  stopHold();
+  skipClick = false;
+  hold = { t: setTimeout(() => {
+    skipClick = true;
+    doOp(side, kind, 1);
+    hold.i = setInterval(() => {
+      if (busy || S.solved || !allowed(side, kind, 1)) { stopHold(); return; }
+      doOp(side, kind, 1);
+    }, 140);
+  }, 420) };
+});
+['pointerup', 'pointercancel', 'blur'].forEach(ev => window.addEventListener(ev, stopHold));
 document.querySelector('.stufen').addEventListener('click', e => {
   const b = e.target.closest('button[data-stufe]');
   if (b && !busy) setStage(Number(b.dataset.stufe));
