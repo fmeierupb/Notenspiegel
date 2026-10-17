@@ -63,16 +63,17 @@ svg#waage{display:block;width:100%;height:auto}
 .rahmen{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3}
 .grp{transition:opacity .45s ease}.grp.weg{opacity:0}
 
-#kette{display:flex;justify-content:center;padding:10px 8px 14px;overflow-x:auto}
-#kette table{border-collapse:collapse;color:var(--ink);font-size:1.3rem;font-variant-numeric:tabular-nums lining-nums}
+#kette{padding:10px 8px 14px;overflow-x:auto}
+#kette table{margin:0 auto;border-collapse:collapse;color:var(--ink);font-size:1.3rem;font-variant-numeric:tabular-nums lining-nums}
 #kette td{height:40px;padding:0 4px;white-space:nowrap;vertical-align:middle}
 #kette .l{text-align:right}#kette .m{text-align:center;min-width:1.5em}#kette .r{text-align:left}
 #kette .o{color:var(--muted);font-size:.85em;padding-left:16px}
 #kette tr.akt td:not(.o){font-weight:600}
+#kette tr.rechnung td{font-size:.9em}
 #kette tr.live td{color:var(--warn);font-weight:600}
 #kette tr.ok td:not(.o){color:var(--ok);font-weight:700}
 body[data-stufe="3"] #kette{padding:22px 8px}
-body[data-stufe="3"] #kette table{font-size:1.5rem}
+body[data-stufe="3"] #kette table{font-size:1.4rem}
 @media (min-width:700px){#kette table{font-size:1.55rem}body[data-stufe="3"] #kette table{font-size:1.8rem}}
 
 #meldung{min-height:24px;margin:10px 4px 4px;text-align:center;font-size:.95rem;color:var(--muted)}
@@ -110,7 +111,7 @@ body[data-stufe="3"] #kette table{font-size:1.5rem}
 
 #ziel{text-align:center;margin-top:4px}
 #ziel .jubel{font-size:1.25rem;font-weight:700;color:var(--ok)}
-#ziel .gross{font-size:1.9rem;font-weight:700;color:var(--ok);margin-bottom:2px}
+#ziel .gross{display:inline-block;font-size:1.9rem;font-weight:700;color:var(--ok);margin-bottom:2px}
 #ziel .probe{color:var(--muted);font-variant-numeric:tabular-nums;margin-bottom:14px}
 #ziel .probe b{color:var(--fg);font-weight:500}
 #ziel.neu .gross{animation:hupf .6s ease}
@@ -153,6 +154,8 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
 .blatt dd{margin:0}
 .blatt .stufe{display:grid;grid-template-columns:28px 1fr;gap:8px;margin:0 0 8px}
 .blatt .stufe b{display:grid;place-items:center;width:24px;height:24px;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-size:.85rem}
+@media (max-width:400px){#kette table,body[data-stufe="3"] #kette table{font-size:1.2rem}#kette .o{padding-left:10px}}
+@media (max-width:340px){#kette table,body[data-stufe="3"] #kette table{font-size:1.02rem}}
 </style>
 </head>
 <body>
@@ -705,11 +708,26 @@ function animateTo(t, instant) {
 function row(cls, l, m, r, op) {
   return `<tr class="${cls}"><td class="l">${l}</td><td class="m">${relHtml(m)}</td><td class="r">${r}</td><td class="o">${opText(op)}</td></tr>`;
 }
+// Die Umformung ausgeschrieben, etwa x + 2 − 2 = 6 − 2.
+function applied(s, op) {
+  const t = term(s), kx = k => (k === 1 ? '' : k) + X;
+  switch (op.kind) {
+    case 'subN': return t + ' ' + M + ' ' + op.k;
+    case 'addN': return t + ' + ' + op.k;
+    case 'subX': return t + ' ' + M + ' ' + kx(op.k);
+    case 'addX': return t + ' + ' + kx(op.k);
+    case 'mix': return t + ' ' + (op.x < 0 ? M : '+') + ' ' + kx(Math.abs(op.x)) + ' ' + (op.n < 0 ? M : '+') + ' ' + Math.abs(op.n);
+    case 'div': return (s.x && s.n ? '(' + t + ')' : t) + ' : ' + op.k;
+  }
+  return t;
+}
 function renderChain() {
-  const rows = S.chain.map((ln, i) => {
+  const rows = [];
+  S.chain.forEach((ln, i) => {
     const last = i === S.chain.length - 1;
     const cls = last && !S.pending.length ? (S.solved && !S.weighed ? 'ok' : 'akt') : '';
-    return row(cls, term(ln.L), '=', term(ln.R), ln.op);
+    rows.push(row(cls, term(ln.L), '=', term(ln.R), ln.op));
+    if (ln.op) rows.push(`<tr class="rechnung"><td class="l">${applied(ln.L, ln.op)}</td><td class="m">=</td><td class="r">${applied(ln.R, ln.op)}</td><td class="o"></td></tr>`);
   });
   if (S.pending.length) rows.push(row('live', term(S.L), rel(), term(S.R), null));
   if (S.weighed) {

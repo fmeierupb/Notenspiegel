@@ -1,5 +1,5 @@
 // Eigener Cache-Präfix, damit der Notenspiegel unter derselben Domain unberührt bleibt.
-const CACHE = 'aequi-v10';
+const CACHE = 'aequi-v11';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
