@@ -289,7 +289,8 @@ function makeTask() {
     const d = (a - cc) * x + b;
     if (d > c.dMax) continue;
     if (a === 1 && cc === 0 && b === 0) continue;
-    const swap = Math.random() < 0.5;
+    // x vorzugsweise links: die Seite mit mehr x steht meist links, nur selten rechts.
+    const swap = Math.random() < 0.1;
     const L = swap ? { x: cc, n: d } : { x: a, n: b };
     const R = swap ? { x: a, n: b } : { x: cc, n: d };
     const key = [L.x, L.n, R.x, R.n].join();
