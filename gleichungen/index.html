@@ -38,7 +38,7 @@
 html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 main{max-width:520px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
 @media (min-width:700px){main{max-width:640px}}
-@media (max-width:370px){.stufen button{width:30px}.seiten{gap:10px}}
+@media (max-width:370px){.seiten{gap:10px}}
 button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 var{font-style:italic;font-family:Georgia,"Times New Roman",serif}
@@ -47,9 +47,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .wahlen{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;margin-bottom:10px}
 h1{font-size:1.05rem;font-weight:650;margin:0}
 .kopf-r{display:flex;align-items:center;gap:8px}
-.stufen{display:flex;align-items:center;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px}
-.stufen span{font-size:.8rem;color:var(--muted);padding:0 3px 0 7px}
-.stufen button{width:31px;height:34px;border:0;border-radius:999px;background:transparent;font-weight:600;font-variant-numeric:tabular-nums}
+.stufen{display:flex;align-items:center;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:2px}
+.stufen span{font-size:.75rem;color:var(--muted);padding:0 2px 0 6px}
+.stufen button{width:29px;height:34px;border:0;border-radius:999px;background:transparent;font-weight:600;font-variant-numeric:tabular-nums}
 .stufen button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
 .rund{width:42px;height:42px;border-radius:999px;border:1px solid var(--line);background:var(--paper);font-weight:700;font-size:1.05rem}
 
@@ -95,6 +95,8 @@ body[data-stufe="3"] #kette table{font-size:1.4rem}
 .wahl p{margin:0;color:var(--muted)}
 .zahlen{display:grid;grid-template-columns:repeat(4,60px);gap:8px;justify-content:center}
 .zahlen .taste{font-weight:600;font-variant-numeric:tabular-nums}
+.zahlen.mit-vz{grid-template-columns:repeat(5,56px)}
+.zahlen .vz{color:var(--accent)}
 .taste{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:52px;padding:0 6px;border:1px solid var(--btn-line);border-radius:14px;background:var(--btn);color:var(--btn-fg);font-size:1.45rem;line-height:1;-webkit-touch-callout:none}
 .taste:active:not(:disabled){transform:translateY(1px);background:var(--line)}
 .taste:disabled{opacity:.3;cursor:default}
@@ -182,6 +184,7 @@ body.busy #steuer,body.busy .leiste,body.busy .wahlen{pointer-events:none;opacit
       <button type="button" data-level="2" aria-label="Level 2">2</button>
       <button type="button" data-level="3" aria-label="Level 3">3</button>
       <button type="button" data-level="4" aria-label="Level 4">4</button>
+      <button type="button" data-level="5" aria-label="Level 5">5</button>
     </div>
   </div>
 
@@ -234,6 +237,7 @@ body.busy #steuer,body.busy .leiste,body.busy .wahlen{pointer-events:none;opacit
     <p class="stufe"><b>2</b><span>Level 2: Du brauchst zwei Schritte.</span></p>
     <p class="stufe"><b>3</b><span>Level 3: Zwei Schritte, manchmal mit Minus.</span></p>
     <p class="stufe"><b>4</b><span>Level 4: x steht auf beiden Seiten. Du brauchst drei Schritte.</span></p>
+    <p class="stufe"><b>5</b><span>Level 5: Schwierige Aufgaben mit negativen Zahlen. In Stufe 3 kann auch x negativ sein.</span></p>
     <h3>Die drei Stufen</h3>
     <p class="stufe"><b>1</b><span>Du machst den Schritt erst auf einer Seite. Schau, was die Waage tut. Dann machst du genau dasselbe auf der anderen Seite.</span></p>
     <p class="stufe"><b>2</b><span>Jeder Schritt passiert gleich auf beiden Seiten.</span></p>
@@ -284,6 +288,7 @@ let S = null;
 let msg = '', msgKind = '', msgBack = false;
 let entering = false, entryText = '';
 let picker = null;   // Seite, die gerade geteilt werden soll
+let pickNeg = false; // Stufe 3: durch negative Zahlen teilen
 let streak = 0;
 let suggest = false;
 let lastKey = '';
@@ -299,7 +304,7 @@ function loadStage() {
 }
 function saveStage() { try { localStorage.setItem(KEY, String(stage)); } catch (e) {} }
 function loadLevel() {
-  try { const v = parseInt(localStorage.getItem(KEY_LEVEL), 10); if (v >= 1 && v <= 4) return v; } catch (e) {}
+  try { const v = parseInt(localStorage.getItem(KEY_LEVEL), 10); if (v >= 1 && v <= 5) return v; } catch (e) {}
   return 1;
 }
 function saveLevel() { try { localStorage.setItem(KEY_LEVEL, String(level)); } catch (e) {} }
@@ -311,7 +316,37 @@ function say(text, kind, back) { msg = text || ''; msgKind = kind || ''; msgBack
 // 2: zwei Schritte, kein Minus, x auf einer Seite (ax + b = d)
 // 3: zwei Schritte, Minus möglich, x auf einer Seite (ax ± b = d)
 // 4: x auf beiden Seiten, drei Schritte, Minus möglich (ax ± b = cx + d, auch d − cx)
+// 5: negative Zahlen überall, größere Zahlen, x mit Minus auf beiden Seiten. In Stufe 3 kann auch
+//    die Lösung negativ sein. Auf der Waage bleibt x positiv, eine Schachtel enthält nie weniger als nichts.
+const RANGE5 = {
+  1: { a: 3, b: 10, d: 20 },
+  2: { a: 4, b: 12, d: 24 },
+  3: { a: 9, b: 30, d: 60 }
+};
+function makeTask5() {
+  const r = RANGE[stage], q = RANGE5[stage];
+  for (let i = 0; i < 8000; i++) {
+    const x = stage === 3 && Math.random() < 0.5 ? -rnd(1, 9) : rnd(r.x[0], r.x[1]);
+    const a = rnd(-q.a, q.a), c = rnd(-q.a, q.a);
+    if (!a || !c || a - c < 2 || a - c > 9) continue;   // geteilt wird höchstens durch 9
+    const b = rnd(-q.b, q.b);
+    if (!b) continue;
+    const d = (a - c) * x + b;
+    if (!d || Math.abs(d) > q.d) continue;
+    if ([a, b, c, d].filter(v => v < 0).length < 2 && x > 0) continue;   // mindestens zwei negative Zahlen oder negative Lösung
+    if (stage < 3 && !fitsScale({ x: a, n: b }, { x: c, n: d })) continue;
+    const swap = Math.random() < 0.1;
+    const L = swap ? { x: c, n: d } : { x: a, n: b };
+    const R = swap ? { x: a, n: b } : { x: c, n: d };
+    const key = [L.x, L.n, R.x, R.n].join();
+    if (key === lastKey) continue;
+    lastKey = key;
+    return { x, L, R };
+  }
+  return { x: 2, L: { x: 3, n: -4 }, R: { x: -1, n: 4 } };
+}
 function makeTask() {
+  if (level === 5) return makeTask5();
   const r = RANGE[stage];
   for (let i = 0; i < 4000; i++) {
     const x = rnd(r.x[0], r.x[1]);
@@ -393,7 +428,8 @@ function parseTask(text) {
   if (!L || !R) return { err: 'Das kann ich nicht lesen. Beispiel: 3x + 2 = x + 10' };
   if (L.x === R.x) return { err: 'Auf beiden Seiten gleich viele x. Dann gibt es keine eindeutige Lösung.' };
   const x = (R.n - L.n) / (L.x - R.x);
-  if (!(x > 0) || !Number.isInteger(x)) return { err: 'Hier kommt keine ganze Zahl größer als 0 heraus.' };
+  if (!Number.isInteger(x)) return { err: 'Hier kommt keine ganze Zahl heraus.' };
+  if (stage < 3 && x <= 0) return { err: 'Hier kommt keine Zahl größer als 0 heraus. Eine Schachtel kann nicht weniger als nichts enthalten. Probier es in Stufe 3.' };
   const done = s => s.x === 1 && s.n === 0;
   if ((done(L) && R.x === 0) || (done(R) && L.x === 0)) return { err: 'Die Gleichung ist schon gelöst.' };
   if (stage < 3 && !fitsScale(L, R)) {
@@ -431,7 +467,7 @@ function opText(op, bar) {
     case 'subX': return b + M + kx(op.k);
     case 'addX': return b + '+' + kx(op.k);
     case 'mix': return b + (op.x < 0 ? M : '+') + kx(Math.abs(op.x)) + (op.n < 0 ? ' ' + M + ' ' : ' + ') + Math.abs(op.n);
-    case 'div': return b + ':' + op.k;
+    case 'div': return b + ':' + (op.k < 0 ? '(' + M + Math.abs(op.k) + ')' : op.k);
   }
   return '';
 }
@@ -451,7 +487,7 @@ function canApply(s, kind, k) {
   if (kind === 'subX') return s.x - k >= -lim.negBoxes;
   if (kind === 'addN') return s.n + k <= lim.sticks;
   if (kind === 'addX') return s.x + k <= lim.boxes;
-  return k >= 2 && (s.x !== 0 || s.n !== 0) && s.x % k === 0 && s.n % k === 0;
+  return (k >= 2 || k <= -1) && (s.x !== 0 || s.n !== 0) && s.x % k === 0 && s.n % k === 0;
 }
 const allowed = (side, kind, k) => sidesOf(side).every(sd => canApply(S[sd], kind, k));
 function applyTo(s, kind, k) {
@@ -640,9 +676,9 @@ function checkSolved() {
   const nxt = nextStep();
   if (nxt && streak >= 3 && !declined[stage + '/' + level]) suggest = true;
 }
-// Nach dem Level 4 geht es mit der nächsten Stufe weiter.
+// Nach Level 5 geht es mit der nächsten Stufe weiter.
 function nextStep() {
-  if (level < 4) return { what: 'Level', n: level + 1 };
+  if (level < 5) return { what: 'Level', n: level + 1 };
   if (stage < 3) return { what: 'Stufe', n: stage + 1 };
   return null;
 }
@@ -837,7 +873,7 @@ function applied(s, op) {
     case 'subX': return t + ' ' + M + ' ' + kx(op.k);
     case 'addX': return t + ' + ' + kx(op.k);
     case 'mix': return t + ' ' + (op.x < 0 ? M : '+') + ' ' + kx(Math.abs(op.x)) + ' ' + (op.n < 0 ? M : '+') + ' ' + Math.abs(op.n);
-    case 'div': return ((s.x && s.n) || t.startsWith(M) ? '(' + t + ')' : t) + ' : ' + op.k;
+    case 'div': return ((s.x && s.n) || t.startsWith(M) ? '(' + t + ')' : t) + ' : ' + (op.k < 0 ? '(' + M + Math.abs(op.k) + ')' : op.k);
   }
   return t;
 }
@@ -852,7 +888,7 @@ function renderChain() {
   if (S.pending.length) rows.push(row('live', term(S.L), rel(), term(S.R), null));
   if (S.weighed) {
     rows.push(`<tr class="notiz"><td colspan="4">Waage: ${weighText(true)}</td></tr>`);
-    rows.push(row('ok', X, '=', S.x, null));
+    rows.push(row('ok', X, '=', term({ x: 0, n: S.x }), null));
   }
   $('kette').innerHTML = '<table><tbody>' + rows.join('') + '</tbody></table>';
 }
@@ -864,7 +900,8 @@ function weighText(kurz) {
 }
 function probeHtml() {
   const v = S.x, L0 = S.chain[0].L, R0 = S.chain[0].R;
-  const xt = c => (Math.abs(c) === 1 ? String(v) : Math.abs(c) + ' · ' + v);
+  const vs = v < 0 ? '(' + M + Math.abs(v) + ')' : String(v);
+  const xt = c => (Math.abs(c) === 1 ? vs : Math.abs(c) + ' · ' + vs);
   const sub = s => {
     if (!s.x) return s.n < 0 ? M + Math.abs(s.n) : String(s.n);
     if (!s.n) return (s.x < 0 ? M : '') + xt(s.x);
@@ -894,9 +931,11 @@ function renderControls() {
   }
   if (S.solved) { el.innerHTML = ''; return; }
   if (picker) {
-    const frage = picker === 'B' ? 'In wie viele gleiche Teile?' : GROSS[picker] + ': in wie viele gleiche Teile?';
-    el.innerHTML = `<div class="wahl"><p>${frage}</p><div class="zahlen">` +
-      [2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button type="button" class="taste" data-pick="${n}">${n}</button>`).join('') +
+    const frage = stage === 3 ? 'Durch welche Zahl teilen?' : picker === 'B' ? 'In wie viele gleiche Teile?' : GROSS[picker] + ': in wie viele gleiche Teile?';
+    const nums = pickNeg ? [-1, -2, -3, -4, -5, -6, -7, -8, -9] : [2, 3, 4, 5, 6, 7, 8, 9];
+    const vz = stage === 3 ? `<button type="button" class="taste vz" data-act="vz" aria-label="Vorzeichen wechseln">${pickNeg ? '+' : M}</button>` : '';
+    el.innerHTML = `<div class="wahl"><p>${frage}</p><div class="zahlen${stage === 3 ? ' mit-vz' : ''}">` + vz +
+      nums.map(n => `<button type="button" class="taste" data-pick="${n}">${n < 0 ? M + Math.abs(n) : n}</button>`).join('') +
       '</div><button type="button" class="knopf" data-act="zu">Abbrechen</button></div>';
     return;
   }
@@ -921,7 +960,7 @@ function divReason(side, k) {
   for (const sd of sidesOf(side)) {
     const s = S[sd];
     if (!s.x && !s.n) return (side === 'B' ? 'Auf einer Seite' : GROSS[sd]) + ' liegt nichts zum Teilen.';
-    if (stage === 3 && (s.x % k || s.n % k)) return 'Durch ' + k + ' geht es nicht glatt auf. Es würden Brüche entstehen.';
+    if (stage === 3 && (s.x % k || s.n % k)) return 'Durch ' + (k < 0 ? M + Math.abs(k) : k) + ' geht es nicht glatt auf. Es würden Brüche entstehen.';
     const im = v => v < 0 ? ' im Finger' : '';
     if (s.x % k) return (Math.abs(s.x) === 1 ? '1 Schachtel' + im(s.x) + ' lässt' : Math.abs(s.x) + ' Schachteln' + im(s.x) + ' lassen') + ' sich nicht in ' + k + ' gleiche Teile aufteilen.';
     if (s.n % k) return (Math.abs(s.n) === 1 ? '1 Holz' + im(s.n) + ' lässt' : Math.abs(s.n) + ' Hölzer' + im(s.n) + ' lassen') + ' sich nicht in ' + k + ' gleiche Teile aufteilen.';
@@ -961,7 +1000,7 @@ function render(instant) {
   if (S.weighed) $('erkl').textContent = weighText(false);
   $('wiegen').hidden = !S.weighed;
   $('weiter').hidden = !!S.weighed;
-  $('loesung').textContent = S.x;
+  $('loesung').textContent = S.x < 0 ? M + Math.abs(S.x) : S.x;
   if (S.solved) $('probe').innerHTML = probeHtml();
   $('vorschlag').hidden = !suggest;
   if (suggest) { const n = nextStep(); $('vtext').textContent = 'Das klappt schon richtig gut. Willst du ' + n.what + ' ' + n.n + ' probieren?'; }
@@ -1013,6 +1052,7 @@ $('steuer').addEventListener('click', e => {
   if (d.act === 'los') { submitEntry(); return; }
   if (d.act === 'abbr') { entering = false; $('steuer').innerHTML = ''; say(''); render(); return; }
   if (d.act === 'zu') { picker = null; say(''); render(); return; }
+  if (d.act === 'vz') { pickNeg = !pickNeg; render(); return; }
   if (d.pick) {
     if (!picker) return;
     const k = Number(d.pick), side = picker;
@@ -1030,6 +1070,7 @@ $('steuer').addEventListener('click', e => {
 function act(b, side, kind) {
   if (kind === 'div') {
     picker = side;
+    pickNeg = false;
     say('');
     render();
   } else if (allowed(side, kind, 1)) {
@@ -1038,7 +1079,7 @@ function act(b, side, kind) {
 }
 let hold = null, skipClick = false;
 function stopHold() {
-  if (hold) { clearTimeout(hold.t); clearInterval(hold.i); hold = null; }
+  if (hold) { clearTimeout(hold.t); hold = null; }
   if (skipClick) setTimeout(() => { skipClick = false; }, 0);
 }
 $('steuer').addEventListener('pointerdown', e => {
@@ -1047,14 +1088,17 @@ $('steuer').addEventListener('pointerdown', e => {
   const side = b.dataset.side, kind = b.dataset.kind;
   stopHold();
   skipClick = false;
-  hold = { t: setTimeout(() => {
+  // Gedrückt halten wiederholt den Schritt und wird dabei schneller.
+  let n = 0;
+  const tick = () => {
+    if (!hold) return;
+    if (busy || S.solved || !allowed(side, kind, 1)) { stopHold(); return; }
     skipClick = true;
     doOp(side, kind, 1);
-    hold.i = setInterval(() => {
-      if (busy || S.solved || !allowed(side, kind, 1)) { stopHold(); return; }
-      doOp(side, kind, 1);
-    }, 140);
-  }, 420) };
+    n++;
+    hold.t = setTimeout(tick, n < 6 ? 140 : n < 16 ? 80 : 45);
+  };
+  hold = { t: setTimeout(tick, 420) };
 });
 ['pointerup', 'pointercancel', 'blur'].forEach(ev => window.addEventListener(ev, stopHold));
 document.querySelector('.wahlen').addEventListener('click', e => {
