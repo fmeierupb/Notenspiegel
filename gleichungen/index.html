@@ -69,7 +69,7 @@ svg#waage{display:block;width:100%;height:auto}
 #kette .l{text-align:right}#kette .m{text-align:center;min-width:1.5em}#kette .r{text-align:left}
 #kette .o{color:var(--muted);font-size:.85em;padding-left:16px}
 #kette tr.akt td:not(.o){font-weight:600}
-#kette tr.rechnung td{font-size:.9em}
+#kette tr.rechnung td{font-size:.9em;color:var(--muted)}
 #kette tr.live td{color:var(--warn);font-weight:600}
 #kette tr.ok td:not(.o){color:var(--ok);font-weight:700}
 body[data-stufe="3"] #kette{padding:22px 8px}
@@ -147,6 +147,7 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
 .blatt h3{font-size:1rem;margin:18px 0 6px}
 .blatt p{margin:0 0 10px}
 .blatt .bsp{display:inline-block;padding:0 6px;border-radius:6px;background:var(--btn);color:var(--ink);font-weight:600;white-space:nowrap}
+.blatt .bsp.kopf{color:var(--muted);font-weight:500}
 .blatt dl{display:grid;grid-template-columns:56px 1fr;gap:8px 12px;align-items:center;margin:4px 0 16px}
 .blatt dt{display:flex;align-items:center;justify-content:center;gap:2px;height:36px;border-radius:10px;background:var(--btn);color:var(--btn-fg);font-size:1.25rem;font-weight:600}
 .blatt dt .ic{width:24px;height:24px}
@@ -221,6 +222,8 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
     <p class="stufe"><b>3</b><span>Jetzt ohne Waage. Du rechnest nur noch mit der Gleichung. Statt Holz steht dort 1, statt Schachtel x.</span></p>
     <h3>Was steht hinter dem Strich?</h3>
     <p>Rechts neben der Rechnung steht, was du auf beiden Seiten gemacht hast, zum Beispiel <span class="bsp">| −2</span>. So einen Schritt nennt man Äquivalenzumformung. Die Waage bleibt dabei im Gleichgewicht.</p>
+    <h3>Und die grauen Zeilen?</h3>
+    <p>Sie zeigen, wie gerechnet wird, zum Beispiel <span class="bsp kopf">x + 2 − 2 = 6 − 2</span>. Das rechnest du im Kopf. Ins Heft musst du diese Zeilen nicht schreiben.</p>
     <button type="button" class="knopf primaer" id="hilfe-zu" style="width:100%;margin-top:6px">Los geht's</button>
   </div>
 </div>
