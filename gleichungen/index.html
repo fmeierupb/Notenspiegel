@@ -86,6 +86,10 @@ body[data-stufe="3"] #kette table{font-size:1.5rem}
 .mitte{max-width:260px;margin:0 auto}
 .feld{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .feld .teilen{grid-column:1 / span 2}
+.wahl{display:grid;gap:10px;justify-items:center}
+.wahl p{margin:0;color:var(--muted)}
+.zahlen{display:grid;grid-template-columns:repeat(4,60px);gap:8px;justify-content:center}
+.zahlen .taste{font-weight:600;font-variant-numeric:tabular-nums}
 .taste{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:52px;padding:0 6px;border:1px solid var(--btn-line);border-radius:14px;background:var(--btn);color:var(--btn-fg);font-size:1.45rem;line-height:1;-webkit-touch-callout:none}
 .taste:active:not(:disabled){transform:translateY(1px);background:var(--line)}
 .taste:disabled{opacity:.3;cursor:default}
@@ -237,6 +241,7 @@ const ICON = {
   teilen: '<svg class="ic t" viewBox="0 0 34 26" aria-hidden="true"><rect x="2.5" y="4.5" width="13" height="17" rx="3" class="rahmen2"/><rect x="18.5" y="4.5" width="13" height="17" rx="3" class="rahmen2 blass"/><rect x="5.5" y="10" width="7" height="8" rx="1.2" class="bx"/><rect x="21.5" y="10" width="7" height="8" rx="1.2" class="bx blass"/></svg>'
 };
 const SEITE = { L: 'links', R: 'rechts' };
+const GROSS = { L: 'Links', R: 'Rechts' };
 const JUBEL = ['Super!', 'Richtig!', 'Stark!', 'Klasse!', 'Geschafft!', 'Sehr gut!'];
 
 const CFG = {
@@ -248,8 +253,9 @@ const LIMIT = { boxes: 4, sticks: 30 };
 
 let stage = loadStage();
 let S = null;
-let msg = '', msgKind = '';
+let msg = '', msgKind = '', msgBack = false;
 let entering = false, entryText = '';
+let picker = null;   // Seite, die gerade geteilt werden soll
 let streak = 0;
 let suggest = false;
 let lastKey = '';
@@ -264,7 +270,7 @@ function loadStage() {
   return 1;
 }
 function saveStage() { try { localStorage.setItem(KEY, String(stage)); } catch (e) {} }
-function say(text, kind) { msg = text || ''; msgKind = kind || ''; }
+function say(text, kind, back) { msg = text || ''; msgKind = kind || ''; msgBack = !!back; }
 
 /* Aufgaben */
 function makeTask() {
@@ -294,6 +300,7 @@ function startTask(t) {
     pending: [], hist: [], usedUndo: false, usedTip: false, weighed: null, solved: false, seqStart: 0
   };
   entering = false;
+  picker = null;
   say('');
   suggest = false;
   viewTop = Math.min(40, Math.floor(101 - Math.max(contentHeight(t.L), contentHeight(t.R)) - 8));
@@ -455,12 +462,13 @@ function doOp(side, kind, k) {
     settle();
   }
   checkSolved();
+  noteBalanced();
   render();
 }
 
 // Teilen: erst die Gruppen zeigen, dann alle bis auf eine ausblenden, dann rechnen.
 function doDivide(side, k) {
-  if (S.solved || !allowed(side, 'div', k)) return;
+  if (S.solved || !allowed(side, 'div', k)) { render(); return; }
   if (stage === 3 || reduceMotion()) { doOp(side, 'div', k); return; }
   busy = true;
   say('');
@@ -474,8 +482,12 @@ function doDivide(side, k) {
 
 // Stufe 1: Was bedeuten die einseitigen Schritte seit der letzten Gleichung?
 // Gleiche Änderung auf beiden Seiten ist eine Äquivalenzumformung, auch wenn sie auf
-// verschiedenen Wegen entstanden ist. Bleibt die Waage bei verschiedener Änderung gerade,
-// wiegt das links Geänderte so viel wie das rechts Geänderte. Daraus folgt x.
+// verschiedenen Wegen entstanden ist. Sonst zählt nur, was auf der Waage liegt: Steht sie
+// gerade und liegt auf einer Seite eine Schachtel allein, auf der anderen nur Hölzer, dann
+// ist x abgelesen. Andere gerade Stände sind wahr, aber noch keine Lösung.
+const loneBox = s => s.x === 1 && s.n === 0;
+const solvedForm = () => (loneBox(S.L) && S.R.x === 0) || (loneBox(S.R) && S.L.x === 0);
+const sameSides = () => S.L.x === S.R.x && S.L.n === S.R.n;
 function settle() {
   const plan = samePlan(S.pending);
   if (plan) { if (plan.length) commitPlan(plan); S.pending = []; return; }
@@ -487,13 +499,17 @@ function settle() {
     S.pending = [];
     return;
   }
-  if (rel() !== '=') return;
-  let k = dL.x - dR.x, m = dR.n - dL.n;
-  if (k < 0) { k = -k; m = -m; }
-  S.weighed = { k, m };
+  if (rel() !== '=' || !solvedForm()) return;
+  S.weighed = { k: 1, m: S.L.x ? S.R.n : S.L.n };
   S.pending = [];
 }
-// Nach dem Wiegen: zurück zur letzten Gleichung und mit gleichen Schritten lösen.
+// Waage gerade nach verschiedenen Schritten, aber x noch nicht abzulesen.
+function noteBalanced() {
+  if (S.solved || !S.pending.length || rel() !== '=') return;
+  if (sameSides()) say('Links und rechts liegt jetzt genau dasselbe. Das stimmt für jede Zahl, deshalb verrät es dir x nicht.', 'fehler', true);
+  else say('Die Waage ist gerade, aber links und rechts hast du nicht dasselbe gemacht.', 'fehler', true);
+}
+// Zurück zur letzten Gleichung, um mit gleichen Schritten weiterzumachen.
 function retry() {
   const h = S.hist[S.seqStart];
   if (!h) return;
@@ -508,11 +524,14 @@ function undo() {
   const h = S.hist.pop();
   S.L = h.L; S.R = h.R; S.chain = h.chain; S.pending = h.pending;
   S.usedUndo = true;
+  picker = null;
   say('');
+  noteBalanced();
   render();
 }
 
 function hintText() {
+  if (S.pending.length && rel() === '=') return 'Geh zurück und mach links und rechts immer genau dasselbe.';
   if (S.pending.length) return 'Die Waage ist schief. Mach auf der anderen Seite genau dasselbe.';
   const L = S.L, R = S.R;
   if (stage === 3) {
@@ -527,7 +546,7 @@ function hintText() {
 function tip() {
   if (S.solved) return;
   S.usedTip = true;
-  say(hintText(), 'tipp');
+  say(hintText(), 'tipp', S.pending.length && rel() === '=');
   render();
 }
 
@@ -617,22 +636,32 @@ function objects(s, cx, yb) {
   }
   return g;
 }
-function groupedObjects(s, cx, yb, k) {
+// Gruppen beim Teilen, bei Platzmangel in mehreren Reihen übereinander.
+function groupLayout(s, k) {
   const part = { x: s.x / k, n: s.n / k };
   const bw = part.x ? part.x * 30 + (part.x - 1) * 4 : 0;
-  const gw = Math.max(bw, sticksWidth(part.n));
+  const gw = Math.max(bw, sticksWidth(Math.min(part.n, 15)));
   const gap = k >= 4 ? 8 : 12;
+  const perRow = Math.max(1, Math.min(k, Math.floor((150 + gap) / (gw + 8 + gap))));
   const h = contentHeight(part);
-  let x0 = cx - (k * gw + (k - 1) * gap) / 2, g = '';
+  return { part, gw, gap, perRow, h, total: Math.ceil(k / perRow) * (h + 12) };
+}
+function groupedObjects(s, cx, yb, k) {
+  const G = groupLayout(s, k);
+  let g = '';
   for (let i = 0; i < k; i++) {
-    g += `<g class="grp${i ? ' aus' : ''}"><rect class="rahmen" x="${x0 - 4}" y="${yb - h - 5}" width="${gw + 8}" height="${h + 7}" rx="5"/>` +
-         objects(part, x0 + gw / 2, yb) + '</g>';
-    x0 += gw + gap;
+    const r = Math.floor(i / G.perRow), c = i % G.perRow;
+    const inRow = Math.min(G.perRow, k - r * G.perRow);
+    const x0 = cx - (inRow * G.gw + (inRow - 1) * G.gap) / 2 + c * (G.gw + G.gap);
+    const y = yb - r * (G.h + 12);
+    g += `<g class="grp${i ? ' aus' : ''}"><rect class="rahmen" x="${x0 - 4}" y="${y - G.h - 5}" width="${G.gw + 8}" height="${G.h + 7}" rx="5"/>` +
+         objects(G.part, x0 + G.gw / 2, y) + '</g>';
   }
   return g;
 }
 function drawScale() {
-  viewTop = Math.min(viewTop, Math.floor(101 - Math.max(contentHeight(S.L), contentHeight(S.R)) - 8));
+  const need = divAnim ? Math.max(...divAnim.sides.map(sd => groupLayout(S[sd], divAnim.k).total)) : 0;
+  viewTop = Math.min(viewTop, Math.floor(101 - Math.max(contentHeight(S.L), contentHeight(S.R), need) - 8));
   const r = angle * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
   const Lx = P.x - H * c, Ly = P.y - H * s, Rx = P.x + H * c, Ry = P.y + H * s;
   let g = '';
@@ -724,42 +753,51 @@ function renderControls() {
     return;
   }
   if (S.solved) { el.innerHTML = ''; return; }
+  if (picker) {
+    const frage = picker === 'B' ? 'In wie viele gleiche Teile?' : GROSS[picker] + ': in wie viele gleiche Teile?';
+    el.innerHTML = `<div class="wahl"><p>${frage}</p><div class="zahlen">` +
+      [2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button type="button" class="taste" data-pick="${n}">${n}</button>`).join('') +
+      '</div><button type="button" class="knopf" data-act="zu">Abbrechen</button></div>';
+    return;
+  }
   const ohne = stage === 3;
   const t = (sd, kind, inner, label, ok, cls) =>
     `<button type="button" class="taste${cls || ''}" data-side="${sd}" data-kind="${kind}" aria-label="${label}" title="${label}"${ok ? '' : ' disabled'}>${inner}</button>`;
   const feld = sd => {
     const wo = sd === 'B' ? 'auf beiden Seiten' : SEITE[sd];
     const holz = ohne ? '<span class="z">1</span>' : ICON.holz, box = ohne ? X : ICON.box;
-    const k = divisor(sd);
-    const teil = ohne ? '<span class="z">:' + (k || '') + '</span>' : ICON.teilen;
+    const teil = ohne ? '<span class="z">:</span>' : ICON.teilen;
     return '<div class="feld">' +
       t(sd, 'subN', M + holz, (ohne ? '1 abziehen ' : 'Ein Holz wegnehmen ') + wo, allowed(sd, 'subN', 1)) +
       t(sd, 'addN', '+' + holz, (ohne ? '1 dazurechnen ' : 'Ein Holz dazulegen ') + wo, allowed(sd, 'addN', 1)) +
       t(sd, 'subX', M + box, (ohne ? 'x abziehen ' : 'Eine Schachtel wegnehmen ') + wo, allowed(sd, 'subX', 1)) +
       t(sd, 'addX', '+' + box, (ohne ? 'x dazurechnen ' : 'Eine Schachtel dazulegen ') + wo, allowed(sd, 'addX', 1)) +
-      t(sd, 'div', teil, 'Teilen ' + wo, !!k, ' teilen') + '</div>';
+      t(sd, 'div', teil, 'Teilen ' + wo, true, ' teilen') + '</div>';
   };
   el.innerHTML = stage === 1 ? `<div class="seiten">${feld('L')}${feld('R')}</div>` : `<div class="mitte">${feld('B')}</div>`;
 }
-// Teilen geht immer in so viele Teile, wie Schachteln (x) auf der Schachtelseite liegen.
-function divisor(side) {
-  if (side === 'B') {
-    if (S.L.x && S.R.x) return 0;
-    const k = Math.max(S.L.x, S.R.x);
-    return k >= 2 ? k : 0;
+// Warum geht Teilen durch k nicht glatt auf?
+function divReason(side, k) {
+  for (const sd of sidesOf(side)) {
+    const s = S[sd];
+    if (!s.x && !s.n) return (side === 'B' ? 'Auf einer Seite' : GROSS[sd]) + ' liegt nichts zum Teilen.';
+    if (stage === 3 && (s.x % k || s.n % k)) return 'Durch ' + k + ' geht es nicht glatt auf. Es würden Brüche entstehen.';
+    if (s.x % k) return (s.x === 1 ? '1 Schachtel lässt' : s.x + ' Schachteln lassen') + ' sich nicht in ' + k + ' gleiche Teile aufteilen.';
+    if (s.n % k) return (s.n === 1 ? '1 Holz lässt' : s.n + ' Hölzer lassen') + ' sich nicht in ' + k + ' gleiche Teile aufteilen.';
   }
-  const other = side === 'L' ? 'R' : 'L';
-  const done = S.pending.filter(o => o.kind === 'div');
-  const mine = done.filter(o => o.side === side).length, theirs = done.filter(o => o.side === other);
-  if (theirs.length > mine) return theirs[mine].k;
-  if (S[side].x >= 2 && !S[other].x) return S[side].x;
-  if (!S[side].x && S[other].x >= 2) return S[other].x;
-  return 0;
+  return '';
 }
 function renderMsg() {
   const el = $('meldung');
   el.className = msgKind;
   el.textContent = msg;
+  if (msgBack) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = 'Zurück';
+    b.addEventListener('click', retry);
+    el.appendChild(b);
+  }
 }
 function render(instant) {
   document.body.dataset.stufe = stage;
@@ -767,6 +805,7 @@ function render(instant) {
   document.querySelectorAll('.stufen button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.stufe === stage)));
   $('bild').hidden = stage === 3;
   renderChain();
+  if (!msg) noteBalanced();
   renderMsg();
   renderControls();
   const z = $('ziel');
@@ -811,7 +850,7 @@ function buildLegend() {
     ['+' + ICON.holz, 'ein Holz dazulegen'],
     [M + ICON.box, 'eine Schachtel wegnehmen'],
     ['+' + ICON.box, 'eine Schachtel dazulegen'],
-    [ICON.teilen, 'Teilen: in so viele gleiche Teile, wie Schachteln da sind. Ein Teil bleibt liegen.'],
+    [ICON.teilen, 'Teilen: du wählst, in wie viele gleiche Teile. Ein Teil bleibt liegen.'],
     [l('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>'), 'Tipp, wenn du nicht weiterweißt'],
     [l('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'), 'letzten Schritt zurücknehmen'],
     [l('<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/>'), 'neue Aufgabe'],
@@ -832,6 +871,16 @@ $('steuer').addEventListener('click', e => {
   const d = b.dataset;
   if (d.act === 'los') { submitEntry(); return; }
   if (d.act === 'abbr') { entering = false; $('steuer').innerHTML = ''; say(''); render(); return; }
+  if (d.act === 'zu') { picker = null; say(''); render(); return; }
+  if (d.pick) {
+    if (!picker) return;
+    const k = Number(d.pick), side = picker;
+    const why = divReason(side, k);
+    if (why) { shake(b); say(why, 'fehler'); renderMsg(); return; }
+    picker = null;
+    doDivide(side, k);
+    return;
+  }
   if (d.kind) {
     if (skipClick) { skipClick = false; return; }
     act(b, d.side, d.kind);
@@ -839,15 +888,9 @@ $('steuer').addEventListener('click', e => {
 });
 function act(b, side, kind) {
   if (kind === 'div') {
-    const k = divisor(side);
-    if (!k) return;
-    if (!allowed(side, 'div', k)) {
-      shake(b);
-      say('Das lässt sich nicht in ' + k + ' gleiche Teile aufteilen.', 'fehler');
-      renderMsg();
-      return;
-    }
-    doDivide(side, k);
+    picker = side;
+    say('');
+    render();
   } else if (allowed(side, kind, 1)) {
     doOp(side, kind, 1);
   }
