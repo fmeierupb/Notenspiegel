@@ -114,6 +114,10 @@ body[data-stufe="3"] #kette table{font-size:1.5rem}
 #vorschlag{margin:14px auto 0;max-width:340px;padding:12px;border-radius:14px;background:var(--ok-bg)}
 #vorschlag p{margin:0 0 10px}
 .zwei{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#ziel .erkl{font-size:1.05rem;margin:2px 0 4px}
+#ziel .frage{max-width:380px;margin:0 auto 12px}
+#wiegen .zwei{max-width:380px;margin:0 auto}
+#kette tr.notiz td{height:30px;padding-top:6px;text-align:center;color:var(--muted);font-size:.72em;font-style:normal}
 
 @keyframes wackeln{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
 .wackelt{animation:wackeln .32s ease}
@@ -171,8 +175,13 @@ body.busy #steuer,body.busy .leiste,body.busy .stufen{pointer-events:none;opacit
   <div id="steuer"></div>
   <div id="ziel" hidden>
     <div class="jubel" id="jubel"></div>
+    <div class="erkl" id="erkl" hidden></div>
     <div class="gross"><var>x</var> = <span id="loesung"></span></div>
     <div class="probe" id="probe"></div>
+    <div id="wiegen" hidden>
+      <p class="frage">Das hat dir die Waage verraten. Ohne Waage geht das nicht. Schaffst du es auch, wenn du links und rechts immer dasselbe machst?</p>
+      <div class="zwei"><button type="button" class="knopf primaer" id="nochmal">Ja, nochmal</button><button type="button" class="knopf" id="weiter2">Nächste Aufgabe</button></div>
+    </div>
     <button type="button" class="knopf primaer" id="weiter">Nächste Aufgabe</button>
     <div id="vorschlag" hidden>
       <p id="vtext"></p>
@@ -239,7 +248,7 @@ const LIMIT = { boxes: 4, sticks: 30 };
 
 let stage = loadStage();
 let S = null;
-let msg = '', msgKind = '', msgBack = false;
+let msg = '', msgKind = '';
 let entering = false, entryText = '';
 let streak = 0;
 let suggest = false;
@@ -255,7 +264,7 @@ function loadStage() {
   return 1;
 }
 function saveStage() { try { localStorage.setItem(KEY, String(stage)); } catch (e) {} }
-function say(text, kind, back) { msg = text || ''; msgKind = kind || ''; msgBack = !!back; }
+function say(text, kind) { msg = text || ''; msgKind = kind || ''; }
 
 /* Aufgaben */
 function makeTask() {
@@ -282,7 +291,7 @@ function startTask(t) {
   S = {
     x: t.x, L: clone(t.L), R: clone(t.R),
     chain: [{ L: clone(t.L), R: clone(t.R), op: null }],
-    pending: [], hist: [], usedUndo: false, usedTip: false, hadMix: false, solved: false, seqStart: 0
+    pending: [], hist: [], usedUndo: false, usedTip: false, weighed: null, solved: false, seqStart: 0
   };
   entering = false;
   say('');
@@ -443,18 +452,9 @@ function doOp(side, kind, k) {
     commit({ kind, k });
   } else {
     S.pending.push({ side, kind, k });
-    if (rel() === '=') {
-      const plan = samePlan(S.pending);
-      if (plan) {
-        if (plan.length) commitPlan(plan);
-        S.pending = [];
-      } else {
-        S.hadMix = true;
-      }
-    }
+    settle();
   }
   checkSolved();
-  checkMix();
   render();
 }
 
@@ -472,18 +472,34 @@ function doDivide(side, k) {
   }, 900);
 }
 
-// Waage wieder gerade, aber links und rechts wurde Verschiedenes gemacht: keine Äquivalenzumformung.
-function checkMix() {
-  if (S.pending.length && rel() === '=') {
-    say('Die Waage ist wieder gerade, aber links und rechts wurde Verschiedenes gemacht.', 'fehler', true);
+// Stufe 1: Was bedeuten die einseitigen Schritte seit der letzten Gleichung?
+// Gleiche Änderung auf beiden Seiten ist eine Äquivalenzumformung, auch wenn sie auf
+// verschiedenen Wegen entstanden ist. Bleibt die Waage bei verschiedener Änderung gerade,
+// wiegt das links Geänderte so viel wie das rechts Geänderte. Daraus folgt x.
+function settle() {
+  const plan = samePlan(S.pending);
+  if (plan) { if (plan.length) commitPlan(plan); S.pending = []; return; }
+  const start = S.chain[S.chain.length - 1];
+  const dL = { x: S.L.x - start.L.x, n: S.L.n - start.L.n };
+  const dR = { x: S.R.x - start.R.x, n: S.R.n - start.R.n };
+  if (dL.x === dR.x && dL.n === dR.n) {
+    if (dL.x || dL.n) commit(stepOp(dL));
+    S.pending = [];
+    return;
   }
+  if (rel() !== '=') return;
+  let k = dL.x - dR.x, m = dR.n - dL.n;
+  if (k < 0) { k = -k; m = -m; }
+  S.weighed = { k, m };
+  S.pending = [];
 }
-function backToBalance() {
+// Nach dem Wiegen: zurück zur letzten Gleichung und mit gleichen Schritten lösen.
+function retry() {
   const h = S.hist[S.seqStart];
   if (!h) return;
   S.hist.length = S.seqStart;
   S.L = h.L; S.R = h.R; S.chain = h.chain; S.pending = h.pending;
-  S.usedUndo = true;
+  S.weighed = null; S.solved = false;
   say('');
   render();
 }
@@ -493,12 +509,10 @@ function undo() {
   S.L = h.L; S.R = h.R; S.chain = h.chain; S.pending = h.pending;
   S.usedUndo = true;
   say('');
-  checkMix();
   render();
 }
 
 function hintText() {
-  if (S.pending.length && rel() === '=') return 'Geh zurück und mach links und rechts genau dasselbe.';
   if (S.pending.length) return 'Die Waage ist schief. Mach auf der anderen Seite genau dasselbe.';
   const L = S.L, R = S.R;
   if (stage === 3) {
@@ -513,7 +527,7 @@ function hintText() {
 function tip() {
   if (S.solved) return;
   S.usedTip = true;
-  say(hintText(), 'tipp', S.pending.length && rel() === '=');
+  say(hintText(), 'tipp');
   render();
 }
 
@@ -523,10 +537,11 @@ function isSolved() {
   return (one(S.L) && num(S.R)) || (one(S.R) && num(S.L));
 }
 function checkSolved() {
+  if (S.weighed) { S.solved = true; freshWin = true; return; }
   if (!isSolved()) return;
   S.solved = true;
   freshWin = true;
-  const clean = !S.usedTip && (stage === 1 ? !S.hadMix : !S.usedUndo);
+  const clean = !S.usedTip && (stage === 1 || !S.usedUndo);
   streak = clean ? streak + 1 : 0;
   if (stage < 3 && streak >= 3 && !declined[stage]) suggest = true;
 }
@@ -539,11 +554,11 @@ function setStage(n) {
 }
 
 /* Jubel: nur Bild, kein Ton */
-function cheer() {
+function cheer(n) {
   if (reduceMotion()) return;
   const box = $('konfetti');
   let h = '';
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < (n || 70); i++) {
     const s = i % 6 === 0 ? ' class="s"' : '';
     h += `<i${s} style="--x:${rnd(0, 100)}vw;--dx:${rnd(-60, 60)}px;--r:${rnd(0, 360)}deg;--r2:${rnd(360, 1080)}deg;--d:${(1.6 + Math.random()).toFixed(2)}s;--t:${(Math.random() * 0.5).toFixed(2)}s"></i>`;
   }
@@ -553,7 +568,7 @@ function cheer() {
 
 /* Waage */
 const P = { x: 180, y: 150 }, H = 95, POST = 26;
-const contentHeight = s => (s.x ? 22 : 0) + Math.ceil(s.n / 15) * 30;
+const contentHeight = s => (s.x ? (S && S.solved && s.x === 1 ? 30 : 22) : 0) + Math.ceil(s.n / 15) * 30;
 const sticksWidth = m => m ? (m - 1) * 8 + (Math.ceil(m / 5) - 1) * 5 + 6 : 0;
 
 function stick(x, yb) {
@@ -581,12 +596,12 @@ function openBox(cx, yb) {
 function objects(s, cx, yb) {
   let g = '', y = yb;
   if (s.x) {
-    if (S.solved && s.x === 1) g += openBox(cx, y);
+    if (S.solved && s.x === 1) { g += openBox(cx, y); y -= 30; }
     else {
       let x = cx - (s.x * 30 + (s.x - 1) * 4) / 2;
       for (let i = 0; i < s.x; i++) { g += box(x, y - 20); x += 34; }
+      y -= 22;
     }
-    y -= 22;
   }
   let left = s.n;
   while (left > 0) {
@@ -664,11 +679,21 @@ function row(cls, l, m, r, op) {
 function renderChain() {
   const rows = S.chain.map((ln, i) => {
     const last = i === S.chain.length - 1;
-    const cls = last && !S.pending.length ? (S.solved ? 'ok' : 'akt') : '';
+    const cls = last && !S.pending.length ? (S.solved && !S.weighed ? 'ok' : 'akt') : '';
     return row(cls, term(ln.L), '=', term(ln.R), ln.op);
   });
   if (S.pending.length) rows.push(row('live', term(S.L), rel(), term(S.R), null));
+  if (S.weighed) {
+    rows.push(`<tr class="notiz"><td colspan="4">Waage: ${weighText(true)}</td></tr>`);
+    rows.push(row('ok', X, '=', S.x, null));
+  }
   $('kette').innerHTML = '<table><tbody>' + rows.join('') + '</tbody></table>';
+}
+function weighText(kurz) {
+  const { k, m } = S.weighed;
+  const sch = k === 1 ? '1 Schachtel' : k + ' Schachteln';
+  const hz = m === 1 ? '1 Holz' : m + ' Hölzer';
+  return kurz ? sch + ' = ' + hz : sch + (k === 1 ? ' wiegt' : ' wiegen') + ' so viel wie ' + hz + '.';
 }
 function probeHtml() {
   const v = S.x, L0 = S.chain[0].L, R0 = S.chain[0].R;
@@ -735,13 +760,6 @@ function renderMsg() {
   const el = $('meldung');
   el.className = msgKind;
   el.textContent = msg;
-  if (msgBack) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = 'Zurück';
-    b.addEventListener('click', backToBalance);
-    el.appendChild(b);
-  }
 }
 function render(instant) {
   document.body.dataset.stufe = stage;
@@ -755,10 +773,14 @@ function render(instant) {
   z.hidden = !S.solved || entering;
   if (S.solved && freshWin) {
     freshWin = false;
-    $('jubel').textContent = JUBEL[rnd(0, JUBEL.length - 1)];
+    $('jubel').textContent = S.weighed ? 'Stimmt!' : JUBEL[rnd(0, JUBEL.length - 1)];
     z.classList.remove('neu'); void z.offsetWidth; z.classList.add('neu');
-    cheer();
+    cheer(S.weighed ? 24 : 70);
   }
+  $('erkl').hidden = !S.weighed;
+  if (S.weighed) $('erkl').textContent = weighText(false);
+  $('wiegen').hidden = !S.weighed;
+  $('weiter').hidden = !!S.weighed;
   $('loesung').textContent = S.x;
   if (S.solved) $('probe').innerHTML = probeHtml();
   $('vorschlag').hidden = !suggest;
@@ -860,6 +882,8 @@ $('tipp').addEventListener('click', () => { if (!busy) tip(); });
 $('neu').addEventListener('click', () => { if (!busy) newTask(); });
 $('eigen').addEventListener('click', () => { if (!busy) openEntry(); });
 $('weiter').addEventListener('click', newTask);
+$('weiter2').addEventListener('click', newTask);
+$('nochmal').addEventListener('click', retry);
 $('vja').addEventListener('click', () => setStage(stage + 1));
 $('vnein').addEventListener('click', () => { declined[stage] = true; suggest = false; render(); });
 $('hilfe').addEventListener('click', () => showHelp(true));
