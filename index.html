@@ -362,7 +362,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 23.10.2026 17:13</span>
+      <span>Fassung 23.10.2026 17:15</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -4414,7 +4414,18 @@ if (typeof document !== "undefined") {
     const rundungHinweis = el("div", { klasse: "summe" });
     const teil = (text, f) => el("label", { klasse: "grenze" }, el("span", { text }), f);
     // Felder nur beim Umschalten neu setzen. Beim Tippen bleibt das Feld stehen, sonst verliert es den Fokus und die Tastatur geht zu
+    // Gleich große Stufen: 2+, 2 und 2− je ein Drittel, die glatte 2 liegt genau bei 2,0
+    const drittel = el("button", { type: "button", klasse: "leise", text: "Gleich große Stufen" });
+    drittel.addEventListener("click", () => {
+      Object.assign(R, { neu: RUNDUNG_DRITTEL.neu, glatt: RUNDUNG_DRITTEL.glatt, minus: RUNDUNG_DRITTEL.minus });
+      [[neuIn, "neu"], [glattIn, "glatt"], [minusIn, "minus"]].forEach(([f, x]) => { f.value = zweiStellen(R[x]); f.classList.remove("ungueltig"); });
+      Z.rundung = R;
+      zeitraeumeSpeichern();
+      rundungTexte();
+      if (k && k.schueler.length) inhaltZeigen();
+    });
     function rundungZeigen() {
+      drittel.hidden = !R.tendenz;
       regeln.innerHTML = "";
       if (R.tendenz) regeln.append(teil("2+ ab", neuIn), teil("2 ab", glattIn), teil("2− ab", minusIn));
       else regeln.append(teil("2 ab", neuIn));
@@ -4434,7 +4445,7 @@ if (typeof document !== "undefined") {
       if (k && k.schueler.length) inhaltZeigen();
     });
     rundungZeigen();
-    schl.append(el("div", { klasse: "rundung" }, el("label", { klasse: "feld" }, "Endnote", artWahl), regeln, naechste), rundungHinweis);
+    schl.append(el("div", { klasse: "rundung" }, el("label", { klasse: "feld" }, "Endnote", artWahl), regeln, naechste, drittel), rundungHinweis);
     p.append(schl);
     if (!k || !k.schueler.length) { ohneKurs(p); return; }
     const eigene = eigeneVon(k, Z);
@@ -4782,7 +4793,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "23.10.2026 17:13";
+  const STAND = "23.10.2026 17:15";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
