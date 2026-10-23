@@ -95,7 +95,7 @@
   button.zweit { background: var(--card); color: var(--text); border: 1px solid var(--border); }
   button.gefahr { background: var(--error); }
   #thema {
-    position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 5;
+    position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 5;
     background: var(--card); color: var(--text); border: 1px solid var(--border);
     font-weight: 500; font-size: 14px; padding: 6px 12px;
   }
@@ -129,6 +129,31 @@
   }
   .eintrag td.note input.note-manuell { width: 4.2em; text-align: center; padding: 5px 6px; }
   .stat-hinweis { color: var(--muted); font-size: 14px; margin: -4px 0 8px; }
+  /* Bereiche Arbeit, Mitarbeit, Leistung im Zeitraum */
+  #eingabe.breit-leistung { max-width: 1000px; }
+  .bereiche { margin: 2px 0 16px; }
+  .kopfzeilen label.haken { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; font-size: 15px; font-weight: 400; color: var(--text); }
+  .mitarbeit-tab, .leistung-tab { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .mitarbeit-tab { margin-top: 12px; }
+  .mitarbeit-tab th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .mitarbeit-tab td { padding: 4px 8px; border-bottom: 1px solid var(--linie); vertical-align: middle; }
+  .mitarbeit-tab td.nr, .mitarbeit-tab td.klasse { color: var(--muted); }
+  .mitarbeit-tab td.name { white-space: nowrap; }
+  .wahl3 { display: inline-flex; gap: 6px; }
+  .wahl3 button { min-width: 46px; padding: 6px 0; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 17px; }
+  .wahl3 button.an { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .zaehlung { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .stunden { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .stunden button { padding: 3px 9px; font-size: 13px; font-weight: 500; }
+  .stunden button.an { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .leistung-tab th { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 6px 4px; border-bottom: 1px solid var(--text); text-align: center; vertical-align: bottom; hyphens: manual; }
+  .leistung-tab { font-size: 15px; }
+  .leistung-tab td { padding: 5px 4px; border-bottom: 1px solid var(--linie); text-align: center; white-space: nowrap; }
+  .leistung-tab th:nth-child(-n+2), .leistung-tab td:nth-child(-n+2) { text-align: left; }
+  .leistung-tab td.klasse { color: var(--muted); }
+  .leistung-tab input { width: 3.6em; text-align: center; padding: 5px 6px; }
+  .leistung-tab .dezimal { color: var(--muted); font-size: 12px; margin-left: 5px; }
+  @media (max-width: 520px) { .mitarbeit-tab td.nr, .mitarbeit-tab th:first-child, .mitarbeit-tab td.zaehlung, .mitarbeit-tab th:last-child { display: none; } .mitarbeit-tab td { padding: 4px 5px; } .wahl3 { gap: 4px; } .wahl3 button { min-width: 42px; } }
   .hinweisbox { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; font-size: 14px; }
   .hinweisbox p { margin: 0; flex: 1 1 320px; }
   .leer { text-align: center; padding: 28px 12px; color: var(--muted); }
@@ -244,17 +269,27 @@
   <section id="eingabe">
     <h1>Notenauswertung</h1>
     <div id="heim-hinweis" class="hinweisbox" hidden></div>
+    <div class="reiter bereiche" role="tablist">
+      <button id="bereich-arbeit" role="tab" aria-selected="true" type="button">Arbeit</button>
+      <button id="bereich-mitarbeit" role="tab" aria-selected="false" type="button">Mitarbeit</button>
+      <button id="bereich-leistung" role="tab" aria-selected="false" type="button">Leistung im Zeitraum</button>
+    </div>
+    <div id="panel-arbeit">
     <div class="kopfzeilen">
       <label class="feld">Kurs<select id="kurswahl"></select></label>
       <label class="feld">Arbeit<input id="arbeit" type="text" placeholder="z. B. 2. Klassenarbeit"></label>
       <label class="feld">Datum<input id="datum" type="date"></label>
       <label class="feld">Gesamtpunktzahl<input id="gesamt-start" type="number" min="1" step="0.5"></label>
+      <label class="haken"><input id="sonstige" type="checkbox"> Zählt zu den sonstigen Leistungen, etwa ein Test oder das Heft</label>
     </div>
     <div id="eintragbereich"></div>
     <div id="datenstatus" class="status"></div>
     <div class="knoepfe">
       <button id="auswerten" class="gross" type="button" disabled>Auswerten</button>
     </div>
+    </div>
+    <div id="panel-mitarbeit" hidden></div>
+    <div id="panel-leistung" hidden></div>
     <div class="knoepfe">
       <button id="kurse-oeffnen" class="leise" type="button">Kurse verwalten</button>
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
@@ -262,7 +297,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 16.10.2026 10:28</span>
+      <span>Fassung 23.10.2026 11:09</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -726,6 +761,35 @@ function statistik(e, tendenzen) {
   return { verteilung, kennzahlen, klassen, n, unterBez, grenzfaelle };
 }
 
+// Note als Zahl: 2+ = 1,67, 2 = 2, 2− = 2,33
+function notenWert(text) {
+  const n = noteLesen(text);
+  return n.note == null ? null : n.note + 1 + (n.tendenz === "+" ? -1 / 3 : n.tendenz === "−" ? 1 / 3 : 0);
+}
+// Alles, was im Zeitraum für eine Person zusammenkommt, und der Notenvorschlag aus beiden Bereichen
+function leistungBerechnen(k, L) {
+  const drin = (d) => !!d && (!L.von || d >= L.von) && (!L.bis || d <= L.bis);
+  const arbeiten = (k.arbeiten || []).filter((a) => Array.isArray(a.punkte) && drin(a.datum)).sort((a, b) => a.datum.localeCompare(b.datum));
+  const ka = arbeiten.filter((a) => a.bereich !== "sonstige"), so = arbeiten.filter((a) => a.bereich === "sonstige");
+  const stunden = (k.mitarbeit || []).filter((m) => drin(m.datum));
+  const eintrag = (a, s) => a.punkte.find((x) => x.id && x.id === s.id) ||
+    a.punkte.find((x) => namensSchluessel(x.name) === namensSchluessel(s.name) && (x.klasse || "") === (s.klasse || ""));
+  const noteIn = (a, s) => { const x = eintrag(a, s); return x && notenWert(x.note) != null ? noteLesen(x.note).text : ""; };
+  const w = (L.gewicht >= 0 && L.gewicht <= 100 ? L.gewicht : 50) / 100;
+  const zeilen = k.schueler.map((s, i) => {
+    const kaNoten = ka.map((a) => noteIn(a, s));
+    const werte = kaNoten.map(notenWert).filter((v) => v != null);
+    const schrift = werte.length ? werte.reduce((x, y) => x + y, 0) / werte.length : null;
+    const weitere = so.map((a) => noteIn(a, s)).filter(Boolean);
+    const zaehl = { "+": 0, o: 0, "−": 0 };
+    stunden.forEach((m) => { const v = m.werte && m.werte[s.id]; if (v in zaehl) zaehl[v]++; });
+    const sonst = notenWert((L.sonstige || {})[s.id]);
+    const vorschlag = schrift != null && sonst != null ? w * schrift + (1 - w) * sonst : schrift != null ? schrift : sonst;
+    return { s, nr: i + 1, kaNoten, schrift, weitere, zaehl, sonst, vorschlag, gerundet: vorschlag == null ? null : Math.min(6, Math.max(1, Math.round(vorschlag))) };
+  });
+  return { ka, so, stunden, zeilen };
+}
+
 // Vergleich mit der letzten früher gespeicherten Arbeit desselben Kurses
 function verlaufBerechnen(e, arbeiten) {
   if (!Array.isArray(arbeiten) || !arbeiten.length) return null;
@@ -1153,14 +1217,19 @@ const W_KOPF = { kopf: true, caps: true, gr: 7.5, farbe: W_GRAU, fett: true, unt
 const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr: 8.5, fett: true }),
   { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
+// Kopf einer Seite: Titel links, Datum rechts, darunter grau die Unterzeile. Bündig mit dem Text der Tabellen
+function wTitel(titel, datumText, unterzeile) {
+  let b = `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${TEXTBREITE - 110}"/></w:tabs><w:spacing w:before="0" w:after="40"/><w:ind w:left="110" w:right="110"/></w:pPr>` +
+    wR(titel, { fett: true, gr: 24, serif: true }) + (datumText ? `<w:r><w:tab/></w:r>` + wR(datumText, { gr: 10.5, farbe: W_GRAU }) : "") + "</w:p>";
+  if (unterzeile) b += wP(wR(unterzeile, { gr: 10.5, farbe: W_GRAU }), { nach: 0, einzug: 110 });
+  return b;
+}
 function wordDokument(info) {
   const { titel, unterzeile, datumText, grundwerte, notenBereich, liste, bild, verteilung, kennzahlen, klassen, unterBez, grenzfaelle, verlauf, tendenzen, farben, meta } = info;
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
   // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
-  let body = `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${TEXTBREITE - 110}"/></w:tabs><w:spacing w:before="0" w:after="40"/><w:ind w:left="110" w:right="110"/></w:pPr>` +
-    wR(titel, { fett: true, gr: 24, serif: true }) + (datumText ? `<w:r><w:tab/></w:r>` + wR(datumText, { gr: 10.5, farbe: W_GRAU }) : "") + "</w:p>";
-  if (unterzeile) body += wP(wR(unterzeile, { gr: 10.5, farbe: W_GRAU }), { nach: 0, einzug: 110 });
+  let body = wTitel(titel, datumText, unterzeile);
   body += wP("", { nach: 180 });
   // Gleiche Breite und gleiche Zellränder wie die Notenliste darunter, damit Text und Linien bündig stehen
   const kachelB = Math.floor(TEXTBREITE / grundwerte.length);
@@ -1272,8 +1341,28 @@ function wordDokument(info) {
       } else body += wP(wR("Niemand.", { gr: 9.5 }), { nach: 0 });
     }
   }
-  body += `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>`;
+  return docxPaket(body, { titel, kurs: meta.kurs, beschreibung: "Notenauswertung " + JSON.stringify(meta), bild });
+}
 
+function leistungDokument({ titel, unterzeile, datumText, angaben, zeilen, kurs }) {
+  let body = wTitel(titel, datumText, unterzeile);
+  angaben.forEach((t, i) => { body += wP(wR(t, { gr: 9, farbe: W_GRAU }), { vor: i ? 0 : 60, nach: i === angaben.length - 1 ? 220 : 0, einzug: 110 }); });
+  // Trennt „Klassenarbeiten“ nur wenn nötig, und dann an der richtigen Stelle
+  const K = { caps: true, gr: 7.5, farbe: W_GRAU, fett: true, sperren: 16 };
+  const trennstrich = wR("", K).replace('<w:t xml:space="preserve"></w:t>', "<w:softHyphen/>");
+  body += wTab(gleichSpalten(namensBreite(zeilen.map((z) => z.name), 2400), 5), [
+    { ...W_KOPF, zellen: ["Name", "Klasse", { laeufe: wR("Klassen", K) + trennstrich + wR("arbeiten", K) }, "Mitarbeit", "Sonstige", "Note"] },
+    ...zeilen.map((z, i) => ({
+      fuellung: i % 2 ? W_HELL : null, gr: 10,
+      zellen: [z.name, { text: z.klasse, farbe: W_GRAU }, z.ka, { text: z.mitarbeit, farbe: W_GRAU }, z.sonstige, { text: z.note, fett: true }],
+    })),
+  ], { hoehe: 290, rand: [40, 110] });
+  return docxPaket(body, { titel, kurs, beschreibung: "Leistung im Zeitraum" });
+}
+
+// Fertige .docx-Datei aus dem Seiteninhalt
+function docxPaket(body, { titel, kurs, beschreibung, bild }) {
+  body += `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>`;
   const dokument = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
     'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
@@ -1311,8 +1400,8 @@ function wordDokument(info) {
     '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ' +
     'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" ' +
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
-    `<dc:title>${xml(titel)}</dc:title><dc:subject>${xml(meta.kurs || "")}</dc:subject><dc:creator>Notenauswertung</dc:creator>` +
-    `<dc:description>${xml("Notenauswertung " + JSON.stringify(meta))}</dc:description>` +
+    `<dc:title>${xml(titel)}</dc:title><dc:subject>${xml(kurs || "")}</dc:subject><dc:creator>Notenauswertung</dc:creator>` +
+    `<dc:description>${xml(beschreibung || "")}</dc:description>` +
     `<dcterms:created xsi:type="dcterms:W3CDTF">${zeitstempel}</dcterms:created></cp:coreProperties>`;
   const dateien = [
     { name: "[Content_Types].xml", daten: typen },
@@ -1445,6 +1534,7 @@ async function docxLesen(zip) {
       try {
         const m = JSON.parse(beschreibung.slice("Notenauswertung ".length));
         if (m.kurs) meta.kurs = m.kurs;
+        if (m.bereich) meta.bereich = m.bereich;
         meta.arbeit = m.arbeit || "";
         if (m.datum) meta.datum = m.datum;
         if (m.einst && m.einst.gesamt > 0) { meta.gesamt = m.einst.gesamt; meta.einst = m.einst; }
@@ -2149,6 +2239,7 @@ if (typeof document !== "undefined") {
   let aktiverKurs = (lesen(KURSE_KEY + "-aktiv") && kurse.find((k) => k.id === lesen(KURSE_KEY + "-aktiv"))) ? lesen(KURSE_KEY + "-aktiv") : (kurse[0] && kurse[0].id);
   const punkte = new Map(); // Kurs-ID -> Map(Schüler-ID -> Eingabe), gespeichert nur als Arbeit beim Word-Export
   let ungesichert = false;
+  let aktiverBereich = "arbeit";
   let ergebnis = null;
 
   const einstSpeichern = () => schreiben(EINST_KEY, einst);
@@ -2168,7 +2259,7 @@ if (typeof document !== "undefined") {
   let entwurfTimer = 0;
   function entwurfSchreiben() {
     clearTimeout(entwurfTimer);
-    const d = { arbeit: $("arbeit").value, datum: $("datum").value, ungesichert, kurse: {} };
+    const d = { arbeit: $("arbeit").value, datum: $("datum").value, sonstige: $("sonstige").checked, ungesichert, kurse: {} };
     kurse.forEach((k) => {
       const pk = alsObjekt(punkte.get(k.id)), mk = alsObjekt(manuell.get(k.id));
       if (Object.keys(pk).length || Object.keys(mk).length) d.kurse[k.id] = { punkte: pk, manuell: mk };
@@ -2186,10 +2277,12 @@ if (typeof document !== "undefined") {
     });
     if (typeof d.arbeit === "string") $("arbeit").value = d.arbeit;
     if (/^\d{4}-\d{2}-\d{2}$/.test(d.datum || "")) $("datum").value = d.datum;
+    $("sonstige").checked = !!d.sonstige;
     ungesichert = !!d.ungesichert;
   }
   $("arbeit").addEventListener("input", entwurfMerken);
   $("datum").addEventListener("change", entwurfMerken);
+  $("sonstige").addEventListener("change", () => { ungesichert = true; entwurfMerken(); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") entwurfSchreiben(); });
   window.addEventListener("pagehide", entwurfSchreiben);
 
@@ -2238,7 +2331,7 @@ if (typeof document !== "undefined") {
     const bereich = $("eintragbereich");
     bereich.innerHTML = "";
     const k = kurs();
-    $("testpunkte").hidden = !(k && k.beispiel && k.schueler.length);
+    $("testpunkte").hidden = !(k && k.beispiel && k.schueler.length) || aktiverBereich !== "arbeit";
     if (!k) {
       bereich.append(el("div", { klasse: "karte leer", stil: "margin-top:14px" },
         el("p", { text: "Noch kein Kurs angelegt. Lege einen Kurs mit seinen Namen an, dann kannst du hier die Punkte eintragen." }),
@@ -2274,7 +2367,7 @@ if (typeof document !== "undefined") {
         return;
       }
       punkteVon(k).clear(); manuellVon(k).clear();
-      $("arbeit").value = ""; $("datum").value = new Date().toISOString().slice(0, 10);
+      $("arbeit").value = ""; $("datum").value = new Date().toISOString().slice(0, 10); $("sonstige").checked = false;
       ungesichert = false;
       eintragAufbauen();
     });
@@ -2422,7 +2515,7 @@ if (typeof document !== "undefined") {
     });
     const a = auswertung(eintraege, ns, einst);
     return {
-      ...a, ns, schritt: einst.rundung, kursId: k.id, kursName: k.name, arbeit: $("arbeit").value.trim(), datum: $("datum").value,
+      ...a, ns, schritt: einst.rundung, kursId: k.id, kursName: k.name, bereich: $("sonstige").checked ? "sonstige" : "schriftlich", arbeit: $("arbeit").value.trim(), datum: $("datum").value,
       chart: { noten: ns.noten, maxPunkte: ns.maxPunkte, r: a.r, o: einst.diagramm },
     };
   }
@@ -2563,7 +2656,9 @@ if (typeof document !== "undefined") {
           el("td", { text: g.name }), el("td", { text: g.klasse }), el("td", {}, noteChip(g.vorherN.note, g.vorherN.tendenz, noten)),
           el("td", {}, noteChip(g.z.note, g.z.tendenz, noten))))));
       } else box.append(el("p", { text: "Niemand." }));
-    } else box.append(el("p", { klasse: "stat-hinweis", text: "Noch keine frühere Arbeit im Kurs gespeichert. Das geht mit „Im Kurs speichern“ oder beim Word-Export." }));
+    } else box.append(el("p", { klasse: "stat-hinweis", text: e.bereich === "sonstige"
+      ? "Noch keine frühere sonstige Leistung im Kurs gespeichert. Verglichen wird nur mit Arbeiten derselben Art."
+      : "Noch keine frühere Arbeit im Kurs gespeichert. Das geht mit „Im Kurs speichern“ oder beim Word-Export." }));
   }
 
   // Grenzfälle und Verlauf fertig zum Anzeigen, für Bildschirm und Word gleich
@@ -2573,7 +2668,7 @@ if (typeof document !== "undefined") {
       z, name: anzeige(z.name), klasse: z.klasse || "", punkte: deG(z.punkte), note: noteText(z), fehlen: `${deG(z.bis)} P zur ${z.note}`,
     }));
     let verlauf = null;
-    const v = k ? verlaufBerechnen(e, k.arbeiten) : null;
+    const v = k ? verlaufBerechnen(e, (k.arbeiten || []).filter((a) => (a.bereich === "sonstige") === (e.bereich === "sonstige"))) : null;
     if (v) {
       const pzt = (w) => (w == null ? "" : `${de(w)} %`);
       verlauf = {
@@ -2669,7 +2764,7 @@ if (typeof document !== "undefined") {
     if (!k || !ergebnis) return null;
     const e = ergebnis;
     const eintrag = {
-      id: neueId(), arbeit: e.arbeit, datum: e.datum, gesichert: new Date().toISOString(),
+      id: neueId(), arbeit: e.arbeit, datum: e.datum, bereich: e.bereich || "schriftlich", gesichert: new Date().toISOString(),
       einst: { noten: kopie(einst.noten), gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: kopie(einst.tendenzen) },
       punkte: e.zeilen.map((z) => ({ id: z.id, name: z.name, klasse: z.klasse || "", punkte: bewertet(z) ? deG(z.punkte) : z.vermerk || "",
         note: bewertet(z) ? `${z.note + 1}${z.tendenz}` : z.noteManuell ? z.noteManuell.text : "" })),
@@ -2683,12 +2778,13 @@ if (typeof document !== "undefined") {
     entwurfMerken();
     return alt >= 0 ? "aktualisiert" : "gespeichert";
   }
-  const arbeitTitel = (a) => [a.arbeit || "Ohne Titel", datumDE(a.datum)].filter(Boolean).join(" · ");
+  const arbeitTitel = (a) => [a.arbeit || "Ohne Titel", datumDE(a.datum), a.bereich === "sonstige" ? "sonstige Leistung" : ""].filter(Boolean).join(" · ");
   function arbeitLaden(k, a) {
     if (a.einst) { einst = zusammenfuehren(STANDARD_EINST, { ...einst, ...a.einst }); einstSpeichern(); }
     $("gesamt-start").value = einst.gesamt;
     $("arbeit").value = a.arbeit || "";
     if (a.datum) $("datum").value = a.datum;
+    $("sonstige").checked = a.bereich === "sonstige";
     const werte = punkteVon(k);
     werte.clear();
     const man = manuellVon(k);
@@ -2759,7 +2855,7 @@ if (typeof document !== "undefined") {
         bild, verteilung: w.statistik ? st.verteilung : null, kennzahlen: w.statistik ? st.kennzahlen : null,
         klassen: w.statistik ? st.klassen : null, unterBez: st.unterBez, tendenzen: einst.tendenzen,
         ...(w.statistik ? zusatz(e, st) : {}),
-        meta: { kurs: e.kursName, arbeit: e.arbeit, datum: e.datum, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen } },
+        meta: { kurs: e.kursName, arbeit: e.arbeit, datum: e.datum, bereich: e.bereich, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen } },
       });
       const gesichert = arbeitSichern();
       $("hinweis").textContent = gesichert === "aktualisiert" ? "Die Arbeit ist außerdem im Kurs gespeichert, der vorherige Stand dieser Arbeit wurde ersetzt." : "Die Arbeit ist außerdem im Kurs gespeichert.";
@@ -2800,6 +2896,17 @@ if (typeof document !== "undefined") {
     const VERSCHIEBUNG = [4, -3, 0, 9, -5, 2, -1, 8, -4, 0, 3, -6, 10, -2, 1];
     const vorher = k.schueler.map((s, i) => Math.max(0, Math.min(52, TESTPUNKTE[i % TESTPUNKTE.length] + VERSCHIEBUNG[i % VERSCHIEBUNG.length])));
     const r0 = berechne(vorher, ns0.noten, 52);
+    // Ein paar Stunden Mitarbeit, damit die Leistung im Zeitraum etwas zeigt
+    k.mitarbeit = [2, 5, 9, 12, 16, 19].map((tage, j) => {
+      const d = new Date(Date.now() - tage * 864e5);
+      const werte = {};
+      k.schueler.forEach((s, i) => {
+        if ((i + j) % 5 === 0) return;
+        const q = TESTPUNKTE[i % TESTPUNKTE.length] / 52 + (((i * 7 + j * 3) % 5) - 2) * 0.06;
+        werte[s.id] = q > 0.68 ? "+" : q < 0.42 ? "−" : "o";
+      });
+      return { datum: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, werte };
+    });
     k.arbeiten = [{
       id: neueId(), arbeit: "1. Klassenarbeit", datum: new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10), gesichert: new Date().toISOString(),
       einst: { noten: kopie(STANDARD_EINST.noten), gesamt: 52, rundung: 0.5, tendenzen: kopie(STANDARD_EINST.tendenzen) },
@@ -2903,6 +3010,7 @@ if (typeof document !== "undefined") {
     kurseSpeichern();
     kurswahlAufbauen();
     eintragAufbauen();
+    if (aktiverBereich !== "arbeit") bereichZeigen(aktiverBereich);
   }
   $("kurse-fertig").addEventListener("click", () => kursDialog.close());
   kursDialog.addEventListener("close", kurseSchliessen);
@@ -2939,8 +3047,12 @@ if (typeof document !== "undefined") {
     const geladen = daten.kurse.filter((k) => k && Array.isArray(k.schueler)).map((k) => ({
       id: String(k.id || neueId()), name: String(k.name || ""), beispiel: !!k.beispiel,
       schueler: k.schueler.filter((s) => s && s.name).map((s) => ({ id: String(s.id || neueId()), name: String(s.name), klasse: String(s.klasse || "") })),
+      mitarbeit: (Array.isArray(k.mitarbeit) ? k.mitarbeit : []).filter((m) => m && /^\d{4}-\d{2}-\d{2}$/.test(m.datum || "")).map((m) => ({
+        datum: m.datum, werte: Object.fromEntries(Object.entries(m.werte && typeof m.werte === "object" ? m.werte : {}).filter(([, v]) => MARKEN.includes(v))),
+      })),
+      ...(k.leistung && typeof k.leistung === "object" ? { leistung: k.leistung } : {}),
       arbeiten: (Array.isArray(k.arbeiten) ? k.arbeiten : []).filter((a) => a && Array.isArray(a.punkte)).map((a) => ({
-        id: String(a.id || neueId()), arbeit: String(a.arbeit || ""), datum: String(a.datum || ""), gesichert: String(a.gesichert || ""),
+        id: String(a.id || neueId()), arbeit: String(a.arbeit || ""), datum: String(a.datum || ""), bereich: a.bereich === "sonstige" ? "sonstige" : "schriftlich", gesichert: String(a.gesichert || ""),
         einst: a.einst && typeof a.einst === "object" ? a.einst : null,
         punkte: a.punkte.filter((p) => p && p.name).map((p) => ({ id: String(p.id || ""), name: String(p.name), klasse: String(p.klasse || ""), punkte: p.punkte == null ? "" : String(p.punkte), note: String(p.note || "") })),
       })),
@@ -3213,6 +3325,7 @@ if (typeof document !== "undefined") {
     if (imp.metaNehmen) {
       if (m.gesamt > 0) { einst.gesamt = m.gesamt; einst.noten.forEach((n) => { n.manuell = null; }); $("gesamt-start").value = m.gesamt; }
       if (m.arbeit) $("arbeit").value = m.arbeit;
+      $("sonstige").checked = m.bereich === "sonstige";
       if (m.datum) $("datum").value = m.datum;
     }
     if (imp.grenzenNehmen && m.einst) {
@@ -3368,8 +3481,206 @@ if (typeof document !== "undefined") {
     }
   });
 
+  // ----- Bereiche: Arbeit, Mitarbeit, Leistung im Zeitraum -----
+  const MARKEN = ["+", "o", "−"];
+  const heuteISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const datumKurz = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? `${m[3]}.${m[2]}.` : ""; };
+  function bereichZeigen(b) {
+    aktiverBereich = b;
+    ["arbeit", "mitarbeit", "leistung"].forEach((x) => { $("panel-" + x).hidden = x !== b; $("bereich-" + x).setAttribute("aria-selected", String(x === b)); });
+    $("eingabe").classList.toggle("breit-leistung", b === "leistung");
+    if (b === "mitarbeit") mitarbeitAufbauen(); else if (b === "leistung") leistungAufbauen(); else eintragAufbauen();
+    $("testpunkte").hidden = b !== "arbeit" || !(kurs() && kurs().beispiel && kurs().schueler.length);
+  }
+  ["arbeit", "mitarbeit", "leistung"].forEach((x) => $("bereich-" + x).addEventListener("click", () => bereichZeigen(x)));
+  // Kurswahl für Mitarbeit und Leistung, verbunden mit der Kurswahl der Arbeit
+  function kursFeld() {
+    const s = el("select");
+    if (!kurse.length) s.append(el("option", { value: "", text: "Noch kein Kurs" }));
+    kurse.forEach((k) => s.append(el("option", { value: k.id, text: `${k.name || "Ohne Namen"} (${k.schueler.length})` })));
+    s.value = aktiverKurs || "";
+    s.addEventListener("change", () => { aktiverKurs = s.value; kurseSpeichern(); kurswahlAufbauen(); bereichZeigen(aktiverBereich); });
+    return el("label", { klasse: "feld", stil: "flex:1 1 240px" }, "Kurs", s);
+  }
+  // Reihenfolge der Personen wie in der Eingabe eingestellt. Nach Punkten geht hier nicht, dann nach Nachname
+  function personenReihenfolge(k) {
+    const art = ["eingabe", "nachname", "vorname", "klasse"].includes(einst.sortierung) ? einst.sortierung : "nachname";
+    const name = namensVergleich(art === "vorname" ? "vorname" : "nachname");
+    const z = k.schueler.map((s, i) => ({ s, nr: i + 1, roh: s.name, name: s.name, klasse: s.klasse || "" }));
+    const vgl = art === "eingabe" ? (a, b) => a.nr - b.nr : art === "klasse" ? (a, b) => a.klasse.localeCompare(b.klasse, "de", { numeric: true }) || name(a, b) : name;
+    return z.sort(vgl).map((x) => x.s);
+  }
+  const ohneKurs = (p) => p.append(el("p", { klasse: "hint", stil: "margin-top:14px", text: "Lege zuerst unter „Kurse verwalten“ einen Kurs mit Namen an." }));
+
+  // ----- Mitarbeit pro Stunde: +, o oder −, sofort gespeichert -----
+  let mitarbeitDatum = heuteISO();
+  function mitarbeitAufbauen() {
+    const p = $("panel-mitarbeit");
+    p.innerHTML = "";
+    const k = kurs();
+    const datumIn = el("input", { type: "date" });
+    datumIn.value = mitarbeitDatum;
+    datumIn.addEventListener("change", () => { if (datumIn.value) { mitarbeitDatum = datumIn.value; mitarbeitAufbauen(); } });
+    p.append(el("div", { klasse: "reihe" }, kursFeld(), el("label", { klasse: "feld", stil: "flex:0 1 200px" }, "Datum der Stunde", datumIn)));
+    if (!k || !k.schueler.length) { ohneKurs(p); return; }
+    k.mitarbeit = Array.isArray(k.mitarbeit) ? k.mitarbeit : [];
+    const stunde = () => k.mitarbeit.find((m) => m.datum === mitarbeitDatum);
+    const stundenZeile = el("div", { klasse: "stunden" });
+    const stundenZeigen = () => {
+      const daten = k.mitarbeit.map((m) => m.datum).sort();
+      stundenZeile.innerHTML = "";
+      stundenZeile.append(daten.length ? `Erfasste Stunden (${daten.length}):` : "Noch keine Stunde erfasst.",
+        ...daten.map((d) => el("button", { type: "button", klasse: "zweit" + (d === mitarbeitDatum ? " an" : ""), text: datumKurz(d), title: datumDE(d),
+          onclick: () => { mitarbeitDatum = d; mitarbeitAufbauen(); } })));
+    };
+    stundenZeigen();
+    p.append(stundenZeile);
+    const summe = (sid) => { const z = { "+": 0, o: 0, "−": 0 }; k.mitarbeit.forEach((m) => { const v = m.werte && m.werte[sid]; if (v in z) z[v]++; }); return z; };
+    const summeText = (sid) => { const z = summe(sid); return `${z["+"]} / ${z.o} / ${z["−"]}`; };
+    const tbody = el("tbody");
+    personenReihenfolge(k).forEach((s, idx) => {
+      const knoepfe = MARKEN.map((m) => el("button", { type: "button", text: m, "aria-label": `${m} für ${anzeige(s.name)}` }));
+      const bisher = el("td", { klasse: "zaehlung", text: summeText(s.id) });
+      const zeigen = () => { const st = stunde(), v = st && st.werte[s.id]; knoepfe.forEach((b, i) => b.classList.toggle("an", v === MARKEN[i])); };
+      knoepfe.forEach((b, i) => b.addEventListener("click", () => {
+        let st = stunde();
+        if (!st) { st = { datum: mitarbeitDatum, werte: {} }; k.mitarbeit.push(st); }
+        if (st.werte[s.id] === MARKEN[i]) delete st.werte[s.id]; else st.werte[s.id] = MARKEN[i];
+        if (!Object.keys(st.werte).length) k.mitarbeit = k.mitarbeit.filter((m) => m !== st);
+        kurseSpeichern();
+        zeigen(); bisher.textContent = summeText(s.id); stundenZeigen(); loeschen.hidden = !stunde();
+      }));
+      zeigen();
+      tbody.append(el("tr", {}, el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name", text: anzeige(s.name) }),
+        el("td", { klasse: "klasse", text: s.klasse || "" }), el("td", {}, el("span", { klasse: "wahl3" }, knoepfe)), bisher));
+    });
+    p.append(el("p", { klasse: "hint", stil: "margin:12px 0 0;font-size:13px", text: "Tippen setzt +, o oder − für diese Stunde, erneutes Tippen nimmt es zurück. Alles wird sofort gespeichert." }));
+    p.append(el("div", { klasse: "eintrag-rahmen" }, el("table", { klasse: "mitarbeit-tab" },
+      el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Diese Stunde" }), el("th", { text: "Bisher + / o / −" }))), tbody)));
+    let stufe = 0;
+    const loeschen = el("button", { type: "button", klasse: "zweit", text: "Diese Stunde löschen" });
+    loeschen.hidden = !stunde();
+    loeschen.addEventListener("click", () => {
+      if (stufe === 0) { stufe = 1; loeschen.className = "gefahr"; loeschen.textContent = "Wirklich löschen?"; setTimeout(() => { stufe = 0; loeschen.className = "zweit"; loeschen.textContent = "Diese Stunde löschen"; }, 4000); return; }
+      k.mitarbeit = k.mitarbeit.filter((m) => m.datum !== mitarbeitDatum);
+      kurseSpeichern();
+      mitarbeitAufbauen();
+    });
+    p.append(el("div", { klasse: "knoepfe" }, loeschen));
+  }
+
+  // ----- Leistung im Zeitraum -----
+  function leistungVon(k) {
+    if (!k.leistung || typeof k.leistung !== "object") {
+      const j = new Date(), y = j.getMonth() >= 7 ? j.getFullYear() : j.getFullYear() - 1;
+      k.leistung = { titel: "Leistung 1. Halbjahr", von: `${y}-08-01`, bis: `${y + 1}-01-31`, gewicht: 50, sonstige: {}, note: {} };
+    }
+    const L = k.leistung;
+    if (!L.sonstige || typeof L.sonstige !== "object") L.sonstige = {};
+    if (!L.note || typeof L.note !== "object") L.note = {};
+    if (!(L.gewicht >= 0 && L.gewicht <= 100)) L.gewicht = 50;
+    return L;
+  }
+  const komma2 = (w) => w.toFixed(2).replace(".", ",");
+  function leistungAufbauen() {
+    const p = $("panel-leistung");
+    p.innerHTML = "";
+    const k = kurs();
+    if (!k || !k.schueler.length) { p.append(el("div", { klasse: "reihe" }, kursFeld())); ohneKurs(p); return; }
+    const L = leistungVon(k);
+    const titelIn = el("input", { type: "text" }); titelIn.value = L.titel || "";
+    const vonIn = el("input", { type: "date" }); vonIn.value = L.von || "";
+    const bisIn = el("input", { type: "date" }); bisIn.value = L.bis || "";
+    const gewIn = el("input", { type: "number", min: "0", max: "100", step: "5", stil: "width:6em" }); gewIn.value = L.gewicht;
+    titelIn.addEventListener("input", () => { L.titel = titelIn.value; kurseSpeichern(); });
+    const neu = () => { kurseSpeichern(); inhaltZeigen(); };
+    vonIn.addEventListener("change", () => { L.von = vonIn.value; neu(); });
+    bisIn.addEventListener("change", () => { L.bis = bisIn.value; neu(); });
+    gewIn.addEventListener("input", () => { const w = parseFloat(String(gewIn.value).replace(",", ".")); if (w >= 0 && w <= 100) { L.gewicht = w; neu(); } });
+    const kf = kursFeld(); kf.style.flex = "1 1 200px";
+    p.append(el("div", { klasse: "reihe" }, kf, el("label", { klasse: "feld", stil: "flex:1 1 180px" }, "Titel", titelIn),
+      el("label", { klasse: "feld", stil: "flex:0 1 160px" }, "Von", vonIn), el("label", { klasse: "feld", stil: "flex:0 1 160px" }, "Bis", bisIn),
+      el("label", { klasse: "feld", stil: "flex:0 1 150px" }, "Klassenarbeiten in %", gewIn)));
+    const info = el("p", { klasse: "hint", stil: "margin:12px 0 0;font-size:13px" });
+    const rahmen = el("div", { klasse: "tabelle-rahmen", stil: "padding:2px 6px;margin-top:12px" });
+    const hinweis = el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px" });
+    const uebernehmen = el("button", { type: "button", klasse: "zweit", text: "Vorschläge übernehmen" });
+    const word = el("button", { type: "button", text: "Word-Export" });
+    const status = el("span", { klasse: "status", stil: "margin:0" });
+    p.append(info, rahmen, hinweis, el("div", { klasse: "knoepfe" }, uebernehmen, word, status));
+    const noten = notenspiegel(einst).noten;
+    function inhaltZeigen() {
+      const D = leistungBerechnen(k, L);
+      const liste = (arr) => arr.length ? arr.map((a) => `${a.arbeit || "Ohne Titel"} (${datumKurz(a.datum)})`).join(", ") : "keine";
+      info.textContent = `Klassenarbeiten im Zeitraum: ${liste(D.ka)}. Sonstige Leistungen: ${liste(D.so)}. Mitarbeit: ${D.stunden.length} ${D.stunden.length === 1 ? "Stunde" : "Stunden"}, gezählt als + / o / −.`;
+      hinweis.textContent = `Vorschlag: ${deG(L.gewicht)} % Schnitt der Klassenarbeiten und ${deG(100 - L.gewicht)} % deine Note für die sonstigen Leistungen, auf eine ganze Note gerundet. Die Note legst du fest. Die Gewichtung steht im Leistungskonzept eurer Fachschaft.`;
+      const nach = new Map(D.zeilen.map((z) => [z.s.id, z]));
+      const tbody = el("tbody");
+      personenReihenfolge(k).forEach((s) => {
+        const z = nach.get(s.id);
+        const sonstIn = el("input", { type: "text", autocomplete: "off", "aria-label": `Sonstige Leistungen ${anzeige(s.name)}` });
+        sonstIn.value = L.sonstige[s.id] || "";
+        const noteIn = el("input", { type: "text", autocomplete: "off", "aria-label": `Note ${anzeige(s.name)}` });
+        noteIn.value = L.note[s.id] || "";
+        const vorschlag = el("td");
+        const vorschlagZeigen = () => {
+          const w = L.gewicht / 100, so = notenWert(L.sonstige[s.id]);
+          const v = z.schrift != null && so != null ? w * z.schrift + (1 - w) * so : z.schrift != null ? z.schrift : so;
+          z.gerundet = v == null ? null : Math.min(6, Math.max(1, Math.round(v)));
+          vorschlag.innerHTML = "";
+          if (v != null) vorschlag.append(noteChip(z.gerundet - 1, "", noten), el("span", { klasse: "dezimal", text: komma2(v) }));
+        };
+        const pruefen = (f) => f.classList.toggle("ungueltig", !!noteLesen(f.value).fehler);
+        sonstIn.addEventListener("input", () => { L.sonstige[s.id] = sonstIn.value; pruefen(sonstIn); kurseSpeichern(); vorschlagZeigen(); });
+        noteIn.addEventListener("input", () => { L.note[s.id] = noteIn.value; pruefen(noteIn); kurseSpeichern(); });
+        noteIn._vorschlag = () => z.gerundet;
+        pruefen(sonstIn); pruefen(noteIn); vorschlagZeigen();
+        tbody.append(el("tr", {},
+          el("td", { text: anzeige(s.name) }), el("td", { klasse: "klasse", text: s.klasse || "" }),
+          el("td", { text: z.kaNoten.length ? z.kaNoten.map((n) => n || "–").join("  ") : "" }),
+          el("td", { text: z.schrift != null ? komma2(z.schrift) : "" }),
+          el("td", { text: `${z.zaehl["+"]} / ${z.zaehl.o} / ${z.zaehl["−"]}` }),
+          D.so.length ? el("td", { text: z.weitere.join("  ") }) : null,
+          el("td", {}, sonstIn), vorschlag, el("td", {}, noteIn)));
+      });
+      rahmen.innerHTML = "";
+      rahmen.append(el("table", { klasse: "leistung-tab" },
+        el("thead", {}, el("tr", {}, ["Name", "Klasse", "Klassen\u00ADarbeiten", "Schnitt", "Mitarbeit", ...(D.so.length ? ["Weitere Noten"] : []), "Sonstige", "Vorschlag", "Note"].map((t) => el("th", { text: t })))),
+        tbody));
+    }
+    inhaltZeigen();
+    uebernehmen.addEventListener("click", () => {
+      let n = 0;
+      rahmen.querySelectorAll("tbody tr").forEach((tr) => {
+        const f = tr.querySelector("td:last-child input");
+        const g = f && f._vorschlag();
+        if (f && !f.value.trim() && g) { f.value = String(g); f.dispatchEvent(new Event("input")); n++; }
+      });
+      status.textContent = n ? `${n} ${n === 1 ? "Vorschlag" : "Vorschläge"} übernommen.` : "Keine leeren Notenfelder mit Vorschlag.";
+    });
+    word.addEventListener("click", async () => {
+      const D = leistungBerechnen(k, L);
+      const nach = new Map(D.zeilen.map((z) => [z.s.id, z]));
+      const zeilen = personenReihenfolge(k).map((s) => {
+        const z = nach.get(s.id);
+        return { name: anzeige(s.name), klasse: s.klasse || "", ka: z.kaNoten.map((x) => x || "–").join("  "),
+          mitarbeit: `${z.zaehl["+"]} / ${z.zaehl.o} / ${z.zaehl["−"]}`, sonstige: noteLesen(L.sonstige[s.id]).text || "", note: noteLesen(L.note[s.id]).text || "" };
+      });
+      const klassen = [...new Set(k.schueler.map((s) => s.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
+      const schonDrin = klassen.length && klassen.every((x) => (k.name || "").toLowerCase().includes(x.toLowerCase()));
+      const unter = [k.name, !schonDrin && klassen.length ? klassen.join(", ") : "", L.von || L.bis ? `${datumDE(L.von)} bis ${datumDE(L.bis)}` : ""].filter(Boolean).join(" · ");
+      const liste = (arr) => arr.length ? arr.map((a) => `${a.arbeit || "Ohne Titel"} (${datumDE(a.datum)})`).join(", ") : "keine";
+      const angaben = [`Klassenarbeiten: ${liste(D.ka)}. Sonstige Leistungen: ${liste(D.so)}.`,
+        `Mitarbeit aus ${D.stunden.length} ${D.stunden.length === 1 ? "Stunde" : "Stunden"}, gezählt als + / o / −. Gewichtung: ${deG(L.gewicht)} % Klassenarbeiten, ${deG(100 - L.gewicht)} % sonstige Leistungen.`];
+      const blob = leistungDokument({ titel: L.titel || "Leistung", unterzeile: unter, angaben, zeilen,
+        datumText: new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }), kurs: k.name });
+      const ok = await herunterladen(blob, [dateiTeil(L.titel) || "Leistung", dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".docx");
+      status.textContent = ok ? "Word-Datei erstellt." : "";
+    });
+  }
+
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "16.10.2026 10:28";
+  const STAND = "23.10.2026 11:09";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
