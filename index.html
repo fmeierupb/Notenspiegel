@@ -176,6 +176,10 @@
   .schluessel .prozent { display: flex; align-items: center; gap: 5px; font-weight: 400; color: var(--text); font-size: 15px; }
   .schluessel input { width: 4.6em; text-align: right; }
   .schluessel .summe { flex: 1 1 240px; font-size: 13px; color: var(--muted); align-self: center; }
+  .schluessel .rundung { flex: 1 0 100%; display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: end; padding-top: 10px; border-top: 1px solid var(--linie); }
+  .schluessel .grenzen { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; }
+  .schluessel .grenze { display: flex; gap: 6px; align-items: center; font-size: 15px; }
+  .schluessel .grenze-fest { font-size: 15px; color: var(--muted); padding-bottom: 9px; }
   .leistung-tab td.endnote input { font-weight: 700; }
   .leistung-tab td.endnote input.farbig { border-color: transparent; }
   .leistung-tab td.endnote input.farbig::placeholder { color: var(--ph); opacity: 0.9; }
@@ -358,7 +362,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 23.10.2026 13:29</span>
+      <span>Fassung 23.10.2026 17:08</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -545,12 +549,8 @@
           <label class="feld">+ zählt als<input type="number" min="1" max="6" step="0.5" data-einst="leistung.plus" style="width:6em"></label>
           <label class="feld">o zählt als<input type="number" min="1" max="6" step="0.5" data-einst="leistung.o" style="width:6em"></label>
           <label class="feld">− zählt als<input type="number" min="1" max="6" step="0.5" data-einst="leistung.minus" style="width:6em"></label>
-          <label class="feld">Endnote
-            <select data-einst="leistung.endTendenz"><option value="false">ganze Noten</option><option value="true">mit Tendenz</option></select>
-          </label>
-          <label class="feld" id="tendenz-breite-feld">Bereich für + und −<input type="number" min="0" max="0.5" step="0.01" data-einst="leistung.tendenzBreite" style="width:6em"></label>
         </div>
-        <p class="hint" id="endnote-beispiel" style="margin:10px 0 0"></p>
+        <p class="hint" style="margin:10px 0 0">Wie die Endnote gerundet wird, stellst du in der Übersicht beim Schlüssel ein.</p>
       </div>
       <div class="abschnitt">
         <h3>Sperre</h3>
@@ -883,16 +883,25 @@ const BEREICHE = [
 const STANDARD_SCHLUESSEL = { arbeiten: 50, tests: 20, mitarbeit: 20, mappe: 10 };
 const mittelwert = (w) => (w.length ? w.reduce((a, b) => a + b, 0) / w.length : null);
 const zweiStellen = (w) => w.toFixed(2).replace(".", ",");
-// Zahl als Note. Genau ,5 rundet zur schlechteren Note. Mit Tendenz bekommt der untere Teil einer Notenstufe ein +,
-// der obere ein −, jeweils so breit wie „breite“. Mit 1/3 sind es Drittel: 2+ ab 1,50, 2 ab 1,83, 2− ab 2,17
-function alsNote(w, mitTendenz, breite = 1 / 3, sechsMitTendenz = true) {
+// Rundung eines Schnitts zur Note, beschrieben an der 2 und für alle Noten entsprechend verschoben:
+// „neu“ ist der Schnitt, ab dem die 2 beginnt (1,50), „glatt“ ab dem es 2 ohne Zeichen ist, „minus“ ab dem es 2− ist.
+// Darunter gibt es 2+, ab neu + 1 beginnt die 3. Ohne Tendenz zählt nur „neu“
+const RUNDUNG_DRITTEL = { tendenz: true, neu: 1.5, glatt: 1.5 + 1 / 3, minus: 2.5 - 1 / 3 };
+const RUNDUNG_GANZ = { tendenz: false, neu: 1.5, glatt: 1.5 + 1 / 3, minus: 2.5 - 1 / 3 };
+function rundungPruefen(R, ersatz = RUNDUNG_GANZ) {
+  const zahl = (x) => (typeof x === "number" && Number.isFinite(x) ? x : NaN);
+  const neu = zahl(R && R.neu), glatt = zahl(R && R.glatt), minus = zahl(R && R.minus);
+  const ok = neu >= 1 && neu <= 2 && glatt >= neu && glatt <= minus && minus <= neu + 1;
+  return ok ? { tendenz: !!R.tendenz, neu, glatt, minus } : { ...ersatz, tendenz: R && typeof R.tendenz === "boolean" ? R.tendenz : ersatz.tendenz };
+}
+function alsNote(w, R = RUNDUNG_DRITTEL, sechsMitTendenz = true) {
   if (w == null || !Number.isFinite(w)) return "";
   const v = Math.min(6, Math.max(1, w));
-  const ganz = Math.min(6, Math.max(1, Math.round(v + 1e-9)));
-  if (!mitTendenz || (ganz === 6 && !sechsMitTendenz)) return String(ganz);
-  const b = Math.min(0.5, Math.max(0, Number.isFinite(breite) ? breite : 1 / 3));
-  if (ganz > 1 && v < ganz - 0.5 + b - 1e-9) return `${ganz}+`;
-  if (ganz < 6 && v >= ganz + 0.5 - b - 1e-9) return `${ganz}−`;
+  const ganz = Math.min(6, Math.max(1, Math.floor(v - R.neu + 2 + 1e-9)));
+  if (!R.tendenz || (ganz === 6 && !sechsMitTendenz)) return String(ganz);
+  const verschiebung = ganz - 2;
+  if (ganz > 1 && v < R.glatt + verschiebung - 1e-9) return `${ganz}+`;
+  if (ganz < 6 && v >= R.minus + verschiebung - 1e-9) return `${ganz}−`;
   return String(ganz);
 }
 // Mitarbeit aus den Zeichen: jedes Zeichen zählt als eine Note, davon der Schnitt
@@ -923,7 +932,7 @@ function zeitraumBerechnen(k, Z, eigene, o) {
     const mpp = mappe.map((t) => gueltig((t.noten || {})[s.id]));
     const zaehl = { "+": 0, o: 0, "−": 0 };
     stunden.forEach((m) => { const v = m.werte && m.werte[s.id]; if (v in zaehl) zaehl[v]++; });
-    const mitVorschlag = alsNote(mitarbeitWert(zaehl, o.wert), o.mitTendenz);
+    const mitVorschlag = alsNote(mitarbeitWert(zaehl, o.wert), o.mitTendenz ? RUNDUNG_DRITTEL : RUNDUNG_GANZ);
     const mitEigen = gueltig(eig.mitarbeit[s.id]);
     const mitarbeit = mitEigen || mitVorschlag;
     const werte = { arbeiten: schnittVon(arb), tests: schnittVon(tst), mitarbeit: mitarbeit ? notenWert(mitarbeit) : null, mappe: schnittVon(mpp) };
@@ -940,7 +949,7 @@ function zeitraumBerechnen(k, Z, eigene, o) {
     let g = 0, w = 0;
     BEREICHE.forEach((b) => { if (z.werte[b.id] != null && gewicht(b.id)) { g += gewicht(b.id); w += gewicht(b.id) * z.werte[b.id]; } });
     z.endWert = g ? w / g : null;
-    z.endVorschlag = alsNote(z.endWert, o.endTendenz, o.endBreite, o.endSechs);
+    z.endVorschlag = alsNote(z.endWert, rundungPruefen(Z.rundung), o.endSechs);
     z.endEigen = gueltig(eig.note[z.s.id]);
     z.endnote = z.endEigen || z.endVorschlag;
   });
@@ -3257,7 +3266,7 @@ if (typeof document !== "undefined") {
     const notenAus = (v) => Object.fromEntries(k.schueler.map((s, i) => {
       if ((i + v) % 11 === 0) return null;
       const q = TESTPUNKTE[i % TESTPUNKTE.length] / 52 + (((i * 5 + v) % 7) - 3) * 0.05;
-      return [s.id, alsNote(6 - Math.min(1, Math.max(0, q)) * 5.2, true)];
+      return [s.id, alsNote(6 - Math.min(1, Math.max(0, q)) * 5.2)];
     }).filter(Boolean));
     const testMitPunkten = (titel, tage, v) => {
       const ges = 20, nsT = notenspiegel({ ...kopie(STANDARD_EINST), gesamt: ges });
@@ -3530,7 +3539,7 @@ if (typeof document !== "undefined") {
     if (geladen[0]) { bearbeitet = geladen[0].id; aktiverKurs = geladen[0].id; }
     if (daten.zeitraeume && Array.isArray(daten.zeitraeume.liste)) {
       daten.zeitraeume.liste.filter((Z) => Z && typeof Z === "object" && Z.id).forEach((Z) => {
-        const neu = { id: String(Z.id), titel: String(Z.titel || ""), von: String(Z.von || ""), bis: String(Z.bis || ""), schluessel: schluesselPruefen(Z.schluessel) };
+        const neu = { id: String(Z.id), titel: String(Z.titel || ""), von: String(Z.von || ""), bis: String(Z.bis || ""), schluessel: schluesselPruefen(Z.schluessel), rundung: rundungPruefen(Z.rundung) };
         const i = zr.liste.findIndex((x) => x.id === neu.id);
         if (i >= 0) zr.liste[i] = neu; else zr.liste.push(neu);
       });
@@ -3942,19 +3951,9 @@ if (typeof document !== "undefined") {
       einstSpeichern();
       tendenzHinweis();
       bereicheZeigen();
-      endnoteBeispiel();
     });
   });
-  // So wird die Endnote mit Tendenz gerundet, am Beispiel der 2
-  function endnoteBeispiel() {
-    const L = einst.leistung, an = !!L.endTendenz;
-    $("tendenz-breite-feld").hidden = !an;
-    const b = Number.isFinite(L.tendenzBreite) && L.tendenzBreite >= 0 && L.tendenzBreite <= 0.5 ? L.tendenzBreite : null;
-    $("endnote-beispiel").textContent = !an ? "Die Endnote wird auf eine ganze Note gerundet, ab x,50 zur schlechteren."
-      : b == null ? "Bitte einen Wert zwischen 0 und 0,5 eintragen. 0,33 sind Drittel einer Notenstufe."
-      : `So wird gerundet, am Beispiel der 2: 2+ ab 1,50, 2 ab ${zweiStellen(1.5 + b)}, 2− ab ${zweiStellen(2.5 - b)}, 3+ ab 2,50. Ein größerer Wert vergibt öfter + und −, 0,33 sind Drittel.`;
-  }
-  const einstOeffnen = () => { sperreEinstAufbauen(); $("ns-titel").textContent = schluesselArt === "test" ? "Notenspiegel für Tests" : "Notenspiegel für Arbeiten"; nsAufbauen(); optionenAufbauen(); tendenzHinweis(); endnoteBeispiel(); einstDialog.showModal(); };
+  const einstOeffnen = () => { sperreEinstAufbauen(); $("ns-titel").textContent = schluesselArt === "test" ? "Notenspiegel für Tests" : "Notenspiegel für Arbeiten"; nsAufbauen(); optionenAufbauen(); tendenzHinweis(); einstDialog.showModal(); };
   $("einstellungen-oeffnen").addEventListener("click", einstOeffnen);
   $("einstellungen-ergebnis").addEventListener("click", einstOeffnen);
   let standardStufe = 0;
@@ -4047,7 +4046,13 @@ if (typeof document !== "undefined") {
     return r;
   }
   // Ein neuer Zeitraum übernimmt den Schlüssel des gerade gewählten
-  const neuerZeitraum = (vorlage) => ({ id: neueId(), titel: "Neuer Zeitraum", ...halbjahr(), schluessel: { ...(vorlage ? vorlage.schluessel : STANDARD_SCHLUESSEL) } });
+  const neuerZeitraum = (vorlage) => ({ id: neueId(), titel: "Neuer Zeitraum", ...halbjahr(), schluessel: { ...(vorlage ? vorlage.schluessel : STANDARD_SCHLUESSEL) },
+    rundung: { ...(vorlage && vorlage.rundung ? vorlage.rundung : rundungAusEinst()) } });
+  // Ausgangswert für die Rundung aus der Einstellung der vorigen Fassung: ganze Noten oder + und − mit fester Breite
+  function rundungAusEinst() {
+    const L = einst.leistung, b = Number.isFinite(L.tendenzBreite) && L.tendenzBreite >= 0 && L.tendenzBreite <= 0.5 ? L.tendenzBreite : 1 / 3;
+    return { tendenz: !!L.endTendenz, neu: 1.5, glatt: 1.5 + b, minus: 2.5 - b };
+  }
   function zeitraeume() {
     zr.liste = zr.liste.filter((Z) => Z && typeof Z === "object");
     if (!zr.liste.length) zr.liste.push({ ...neuerZeitraum(), titel: "Leistung 1. Halbjahr" });
@@ -4055,6 +4060,7 @@ if (typeof document !== "undefined") {
       if (!Z.id) Z.id = neueId();
       if (typeof Z.titel !== "string") Z.titel = "";
       Z.schluessel = schluesselPruefen(Z.schluessel);
+      Z.rundung = rundungPruefen(Z.rundung && typeof Z.rundung === "object" ? Z.rundung : rundungAusEinst());
     });
     if (!zr.liste.some((Z) => Z.id === zr.aktiv)) zr.aktiv = zr.liste[0].id;
     return zr.liste;
@@ -4072,8 +4078,7 @@ if (typeof document !== "undefined") {
   function rechenOptionen() {
     const L = einst.leistung, w = (x, d) => (Number.isFinite(x) && x >= 1 && x <= 6 ? x : d);
     const t = kernVon("arbeit").tendenzen;
-    return { wert: { plus: w(L.plus, 1), o: w(L.o, 3), minus: w(L.minus, 5) }, mitTendenz: !!t.an,
-      endTendenz: !!L.endTendenz, endBreite: Number.isFinite(L.tendenzBreite) && L.tendenzBreite >= 0 && L.tendenzBreite <= 0.5 ? L.tendenzBreite : 1 / 3, endSechs: !!t.sechs };
+    return { wert: { plus: w(L.plus, 1), o: w(L.o, 3), minus: w(L.minus, 5) }, mitTendenz: !!t.an, endSechs: !!t.sechs };
   }
   const berechnen = (k, Z) => zeitraumBerechnen(k, Z, eigeneVon(k, Z), rechenOptionen());
   // Auswahl des Zeitraums, in jedem Bereich gleich
@@ -4377,6 +4382,55 @@ if (typeof document !== "undefined") {
       schl.append(el("label", { klasse: "feld" }, b.name, el("span", { klasse: "prozent" }, f, "%")));
     });
     schl.append(anteilZeile);
+    // Rundung der Endnote: ganze Noten oder mit + und −, die Grenzen stehen am Beispiel der 2
+    const R = Z.rundung;
+    const artWahl = el("select", { "aria-label": "Rundung der Endnote" });
+    [["false", "ganze Noten"], ["true", "mit + und −"]].forEach(([w, t]) => artWahl.append(el("option", { value: w, text: t })));
+    artWahl.value = String(!!R.tendenz);
+    const grenze = (feld, name) => {
+      const f = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", "aria-label": name, stil: "width:4.6em;text-align:right" });
+      f.value = zweiStellen(R[feld]);
+      f.addEventListener("input", () => {
+        const w = parseFloat(String(f.value).replace(",", "."));
+        // Verschiebt sich der Beginn der 2, wandern + und − mit
+        const d = feld === "neu" && Number.isFinite(w) ? w - R.neu : 0;
+        const neu = feld === "neu" ? { ...R, neu: w, glatt: R.glatt + d, minus: R.minus + d } : { ...R, [feld]: w };
+        const ok = Number.isFinite(w) && rundungPruefen(neu, { neu: NaN })[feld] === w;
+        f.classList.toggle("ungueltig", !ok);
+        if (!ok) return;
+        Object.assign(R, { neu: neu.neu, glatt: neu.glatt, minus: neu.minus });
+        if (feld === "neu") { glattIn.value = zweiStellen(R.glatt); minusIn.value = zweiStellen(R.minus); }
+        Z.rundung = R;
+        zeitraeumeSpeichern();
+        rundungZeigen();
+        if (k && k.schueler.length) inhaltZeigen();
+      });
+      f.addEventListener("blur", () => { if (!f.classList.contains("ungueltig")) f.value = zweiStellen(R[feld]); });
+      return f;
+    };
+    const neuIn = grenze("neu", "Ab diesem Schnitt beginnt die 2"), glattIn = grenze("glatt", "Ab diesem Schnitt ist es eine glatte 2"), minusIn = grenze("minus", "Ab diesem Schnitt ist es eine 2−");
+    const naechste = el("span", { klasse: "grenze-fest" });
+    const regeln = el("span", { klasse: "grenzen" });
+    const rundungHinweis = el("div", { klasse: "summe" });
+    const teil = (text, f) => el("label", { klasse: "grenze" }, el("span", { text }), f);
+    function rundungZeigen() {
+      regeln.innerHTML = "";
+      if (R.tendenz) regeln.append(teil("2+ ab", neuIn), teil("2 ab", glattIn), teil("2− ab", minusIn));
+      else regeln.append(teil("2 ab", neuIn));
+      naechste.textContent = `${R.tendenz ? "3+" : "3"} ab ${zweiStellen(R.neu + 1)}`;
+      rundungHinweis.textContent = R.tendenz
+        ? `Für alle Noten entsprechend, die 3 also ab ${zweiStellen(R.glatt + 1)} und die 3− ab ${zweiStellen(R.minus + 1)}.`
+        : `Für alle Noten entsprechend, die 4 also ab ${zweiStellen(R.neu + 2)}.`;
+    }
+    artWahl.addEventListener("change", () => {
+      R.tendenz = artWahl.value === "true";
+      Z.rundung = R;
+      zeitraeumeSpeichern();
+      rundungZeigen();
+      if (k && k.schueler.length) inhaltZeigen();
+    });
+    rundungZeigen();
+    schl.append(el("div", { klasse: "rundung" }, el("label", { klasse: "feld" }, "Endnote", artWahl), regeln, naechste), rundungHinweis);
     p.append(schl);
     if (!k || !k.schueler.length) { ohneKurs(p); return; }
     const eigene = eigeneVon(k, Z);
@@ -4580,7 +4634,10 @@ if (typeof document !== "undefined") {
         if (D.aktiv.mappe) angaben.push(`Mappe: ${titel(D.mappe)}.`);
         if (D.stunden.length) angaben.push(`Mitarbeit aus ${D.stunden.length} ${D.stunden.length === 1 ? "Stunde" : "Stunden"}.`);
         const t = anteilText(D);
-        if (t) angaben.push(`Endnote: ${t}.`);
+        const R2 = rundungPruefen(Z.rundung);
+        if (t) angaben.push(`Endnote: ${t}. ` + (R2.tendenz
+          ? `Gerundet am Beispiel der 2: 2+ ab ${zweiStellen(R2.neu)}, 2 ab ${zweiStellen(R2.glatt)}, 2− ab ${zweiStellen(R2.minus)}.`
+          : `Ganze Noten, die 2 ab ${zweiStellen(R2.neu)}.`));
         const blob = zeitraumDokument({
           titel: Z.titel || "Leistung", unterzeile: unter, angaben, kurs: k.name,
           datumText: new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }),
@@ -4678,8 +4735,11 @@ if (typeof document !== "undefined") {
     } else if (geht) {
       $("sperre-hinweis").textContent = "Mit der Sperre öffnet sich das Tool nur nach Fingerabdruck, Face ID oder Gerätecode. Dafür legt das iPad einen Passkey für diese Seite an, er steht danach bei den gespeicherten Passwörtern. Die Daten auf dem Gerät schützt wie bisher die Verschlüsselung des iPads.";
       k.textContent = "Sperre einrichten"; k.disabled = false;
+    } else if (window.PublicKeyCredential && navigator.credentials) {
+      $("sperre-hinweis").textContent = "Der Browser meldet hier keinen Fingerabdruck und keinen Gerätecode. Versuchen lässt es sich trotzdem, die Antwort des Geräts steht dann hier. Auf iPad und iPhone braucht ein Passkey den iCloud-Schlüsselbund oder einen anderen Passwort-Manager mit Passkeys.";
+      k.textContent = "Sperre einrichten"; k.disabled = false;
     } else {
-      $("sperre-hinweis").textContent = "Dieser Browser bietet hier keinen Fingerabdruck, kein Face ID und keinen Gerätecode an. Auf iPad und iPhone braucht ein Passkey den iCloud-Schlüsselbund oder einen anderen Passwort-Manager mit Passkeys.";
+      $("sperre-hinweis").textContent = "Dieser Browser kann keine Passkeys anlegen, deshalb geht die Sperre hier nicht.";
       k.textContent = "Sperre einrichten"; k.disabled = true;
     }
   }
@@ -4699,7 +4759,8 @@ if (typeof document !== "undefined") {
         await sperreEinrichten();
       } catch (e) {
         st.classList.add("fehler");
-        st.textContent = e.name === "NotAllowedError" ? "Abgebrochen oder nicht erlaubt. Auf Dienstgeräten kann die Schule Passkeys abgeschaltet haben." : "Das ging nicht: " + (e.message || e.name);
+        st.textContent = (e.name === "NotAllowedError" ? "Abgebrochen oder nicht erlaubt. Auf Dienstgeräten kann die Schule Passkeys abgeschaltet haben." : "Das ging nicht.") +
+          ` Meldung des Geräts: ${e.name}${e.message ? ", " + e.message : ""}`;
         sperreEinstAufbauen();
         return;
       }
@@ -4717,7 +4778,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "23.10.2026 13:29";
+  const STAND = "23.10.2026 17:08";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
