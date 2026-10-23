@@ -176,6 +176,8 @@
   .schluessel input { width: 4.6em; text-align: right; }
   .schluessel .summe { flex: 1 1 240px; font-size: 13px; color: var(--muted); align-self: center; }
   .leistung-tab td.endnote input { font-weight: 700; }
+  .leistung-tab td.endnote input.farbig { border-color: transparent; }
+  .leistung-tab td.endnote input.farbig::placeholder { color: var(--ph); opacity: 0.9; }
   .leistung-tab .dezimal { color: var(--muted); font-size: 12px; margin-right: 6px; }
   .leistung-tab .schnitt { color: var(--muted); font-size: 12px; margin-left: 6px; }
   .balken { height: 10px; min-width: 70px; background: var(--linie); border-radius: 5px; overflow: hidden; }
@@ -313,7 +315,7 @@
     <div id="panel-arbeit">
     <div class="kopfzeilen">
       <label class="feld">Kurs<select id="kurswahl"></select></label>
-      <label class="feld">Arbeit<input id="arbeit" type="text" placeholder="z. B. 2. Klassenarbeit"></label>
+      <label class="feld"><span id="arbeit-name">Arbeit</span><input id="arbeit" type="text" placeholder="z. B. 2. Klassenarbeit"></label>
       <label class="feld">Datum<input id="datum" type="date"></label>
       <label class="feld">Gesamtpunktzahl<input id="gesamt-start" type="number" min="1" step="0.5"></label>
     </div>
@@ -323,7 +325,6 @@
       <button id="auswerten" class="gross" type="button" disabled>Auswerten</button>
     </div>
     </div>
-    <div id="panel-tests" hidden></div>
     <div id="panel-mitarbeit" hidden></div>
     <div id="panel-mappe" hidden></div>
     <div id="panel-leistung" hidden></div>
@@ -334,7 +335,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 23.10.2026 12:24</span>
+      <span>Fassung 23.10.2026 12:48</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -439,7 +440,7 @@
     <div class="dialog-kopf"><h2 tabindex="-1" autofocus>Einstellungen</h2></div>
     <div class="dialog-inhalt">
       <div class="abschnitt">
-        <h3>Notenspiegel</h3>
+        <h3 id="ns-titel">Notenspiegel</h3>
         <p class="hint">Die Punktgrenzen werden aus den Prozentgrenzen berechnet. Eine Punktgrenze lässt sich auch direkt überschreiben, dann gilt dein Wert, bis du die Prozentgrenze oder die Gesamtpunktzahl änderst.</p>
         <table class="ns-tabelle">
           <thead><tr><th></th><th>Note</th><th>ab Prozent</th><th>ab Punkten</th><th id="ns-bereich-kopf">Bereich</th><th>Farbe</th></tr></thead>
@@ -554,6 +555,10 @@ const STANDARD_EINST = {
 };
 
 const kopie = (o) => JSON.parse(JSON.stringify(o));
+// Notenschlüssel einer Art. Arbeiten und Tests haben je einen eigenen
+const KERN = (e) => ({ noten: kopie(e.noten), gesamt: e.gesamt, rundung: e.rundung, tendenzen: kopie(e.tendenzen), notenBereich: e.notenBereich });
+STANDARD_EINST.schluessel = { arbeit: KERN(STANDARD_EINST), test: { ...KERN(STANDARD_EINST), gesamt: 20 } };
+STANDARD_EINST.schluesselArt = "arbeit";
 function zusammenfuehren(basis, neu) {
   if (Array.isArray(basis)) return Array.isArray(neu) && neu.length === basis.length ? basis.map((b, i) => zusammenfuehren(b, neu[i])) : kopie(basis);
   if (basis && typeof basis === "object") {
@@ -845,7 +850,7 @@ function zeitraumBerechnen(k, Z, eigene, o) {
   const drin = (d) => !!d && (!Z.von || d >= Z.von) && (!Z.bis || d <= Z.bis);
   const nachDatum = (a, b) => (a.datum || "").localeCompare(b.datum || "");
   const arbeiten = (k.arbeiten || []).filter((a) => Array.isArray(a.punkte) && drin(a.datum)).sort(nachDatum);
-  const tests = (k.tests || []).filter((t) => t && drin(t.datum)).sort(nachDatum);
+  const tests = (k.tests || []).filter((t) => t && Array.isArray(t.punkte) && drin(t.datum)).sort(nachDatum);
   const mappe = (k.mappe || []).filter((t) => t && drin(t.datum)).sort(nachDatum);
   const stunden = (k.mitarbeit || []).filter((m) => drin(m.datum)).sort(nachDatum);
   const eig = { mitarbeit: (eigene && eigene.mitarbeit) || {}, note: (eigene && eigene.note) || {} };
@@ -854,10 +859,11 @@ function zeitraumBerechnen(k, Z, eigene, o) {
   const gueltig = (t) => { const n = noteLesen(t); return n.note != null ? n.text : ""; };
   const schnittVon = (liste) => mittelwert(liste.filter(Boolean).map(notenWert));
   const zeilen = k.schueler.map((s, i) => {
-    const arb = arbeiten.map((a) => { const x = eintrag(a, s); return x ? gueltig(x.note) : ""; });
+    const noteIn = (a) => { const x = eintrag(a, s); return x ? gueltig(x.note) : ""; };
     // Fehlt heißt: keine Punkte und kein Vermerk, also nachschreiben
-    const arbFehlt = arbeiten.map((a) => { const x = eintrag(a, s); return !x || !String(x.punkte || "").trim(); });
-    const tst = tests.map((t) => gueltig((t.noten || {})[s.id]));
+    const fehltIn = (a) => { const x = eintrag(a, s); return !x || !String(x.punkte || "").trim(); };
+    const arb = arbeiten.map(noteIn), arbFehlt = arbeiten.map(fehltIn);
+    const tst = tests.map(noteIn), tstFehlt = tests.map(fehltIn);
     const mpp = mappe.map((t) => gueltig((t.noten || {})[s.id]));
     const zaehl = { "+": 0, o: 0, "−": 0 };
     stunden.forEach((m) => { const v = m.werte && m.werte[s.id]; if (v in zaehl) zaehl[v]++; });
@@ -865,7 +871,7 @@ function zeitraumBerechnen(k, Z, eigene, o) {
     const mitEigen = gueltig(eig.mitarbeit[s.id]);
     const mitarbeit = mitEigen || mitVorschlag;
     const werte = { arbeiten: schnittVon(arb), tests: schnittVon(tst), mitarbeit: mitarbeit ? notenWert(mitarbeit) : null, mappe: schnittVon(mpp) };
-    return { s, nr: i + 1, arb, arbFehlt, tst, mpp, zaehl, mitVorschlag, mitEigen, mitarbeit, werte };
+    return { s, nr: i + 1, arb, arbFehlt, tst, tstFehlt, mpp, zaehl, mitVorschlag, mitEigen, mitarbeit, werte };
   });
   const aktiv = {};
   BEREICHE.forEach((b) => { aktiv[b.id] = zeilen.some((z) => z.werte[b.id] != null); });
@@ -926,7 +932,7 @@ function zeitraumStatistik(D) {
   const fehlend = D.zeilen.map((z) => {
     const f = [];
     D.arbeiten.forEach((a, i) => { if (z.arbFehlt[i]) f.push(a.arbeit || "Arbeit"); });
-    D.tests.forEach((t, i) => { if (!z.tst[i] && D.zeilen.some((x) => x.tst[i])) f.push(t.titel || "Test"); });
+    D.tests.forEach((t, i) => { if (z.tstFehlt[i]) f.push(t.arbeit || "Test"); });
     D.mappe.forEach((t, i) => { if (!z.mpp[i] && D.zeilen.some((x) => x.mpp[i])) f.push(t.titel || "Mappe"); });
     return f.length ? { z, fehlt: f } : null;
   }).filter(Boolean).sort(nachName);
@@ -1730,6 +1736,7 @@ async function docxLesen(zip) {
         const m = JSON.parse(beschreibung.slice("Notenauswertung ".length));
         if (m.kurs) meta.kurs = m.kurs;
         meta.arbeit = m.arbeit || "";
+        if (m.art === "test" || m.art === "arbeit") meta.art = m.art;
         if (m.datum) meta.datum = m.datum;
         if (m.einst && m.einst.gesamt > 0) { meta.gesamt = m.einst.gesamt; meta.einst = m.einst; }
       } catch (e) { /* ältere oder fremde Datei */ }
@@ -2436,27 +2443,58 @@ if (typeof document !== "undefined") {
   let aktiverBereich = "arbeit";
   let ergebnis = null;
 
-  const einstSpeichern = () => schreiben(EINST_KEY, einst);
+  // Die Felder noten, gesamt, rundung, tendenzen und notenBereich gehören immer zur gerade benutzten Art
+  let schluesselArt = einst.schluesselArt === "test" ? "test" : "arbeit";
+  let modus = schluesselArt;
+  const einstSpeichern = () => { einst.schluessel[schluesselArt] = KERN(einst); einst.schluesselArt = schluesselArt; return schreiben(EINST_KEY, einst); };
+  function schluesselWechseln(art) {
+    if (art === schluesselArt) return;
+    einst.schluessel[schluesselArt] = KERN(einst);
+    Object.assign(einst, kopie(einst.schluessel[art]));
+    schluesselArt = art;
+    einstSpeichern();
+  }
+  const kernVon = (art) => (art === schluesselArt ? KERN(einst) : einst.schluessel[art]);
+  // Nach dem Laden gelten die Felder für die gespeicherte Art. Ohne eigenen Schlüssel für Tests übernehmen Tests den der Arbeiten
+  function schluesselNachLaden(roh) {
+    schluesselArt = einst.schluesselArt === "test" ? "test" : "arbeit";
+    einst.schluessel[schluesselArt] = KERN(einst);
+    if (!(roh && roh.schluessel && roh.schluessel.test)) {
+      const t = KERN(einst.schluessel.arbeit);
+      t.noten.forEach((n) => { n.manuell = null; });
+      einst.schluessel.test = { ...t, gesamt: 20 };
+    }
+  }
+  schluesselNachLaden(lesen(EINST_KEY));
+  modus = schluesselArt;
   const kurseSpeichern = () => { schreiben(KURSE_KEY, kurse); schreiben(KURSE_KEY + "-aktiv", aktiverKurs || null); };
   const kurs = () => kurse.find((k) => k.id === aktiverKurs) || null;
   const anzeige = (name) => nameAnzeigen(name, einst.namen);
   const SORTIERUNGEN = [["eingabe", "Reihenfolge im Kurs"], ["nachname", "Nachname"], ["vorname", "Vorname"], ["klasse", "Klasse, dann Nachname"], ["punkte-ab", "Punkte absteigend"], ["punkte-auf", "Punkte aufsteigend"]];
   if (einst.sortierung === "name") einst.sortierung = "nachname";
-  const punkteVon = (k) => { if (!punkte.has(k.id)) punkte.set(k.id, new Map()); return punkte.get(k.id); };
+  const entwurfId = (k) => (modus === "test" ? "t:" : "") + k.id;
+  const punkteVon = (k) => { const id = entwurfId(k); if (!punkte.has(id)) punkte.set(id, new Map()); return punkte.get(id); };
   // Bei einem Vermerk lässt sich eine Note direkt eintragen, etwa aus einer anderen Bewertung
   const manuell = new Map();
-  const manuellVon = (k) => { if (!manuell.has(k.id)) manuell.set(k.id, new Map()); return manuell.get(k.id); };
+  const manuellVon = (k) => { const id = entwurfId(k); if (!manuell.has(id)) manuell.set(id, new Map()); return manuell.get(id); };
 
   // ----- Entwurf: jede Eingabe sofort lokal sichern, damit nichts verloren geht, wenn die App geschlossen wird -----
   const ENTWURF_KEY = "notenauswertung-entwurf-v1";
   const alsObjekt = (m) => { const o = {}; if (m) m.forEach((v, id) => { if (String(v || "").trim()) o[id] = String(v); }); return o; };
   let entwurfTimer = 0;
+  const kopfLeer = () => ({ arbeit: "", datum: new Date().toISOString().slice(0, 10), ungesichert: false });
+  const kopfFelder = { arbeit: kopfLeer(), test: kopfLeer() };
+  function kopfMerken() { kopfFelder[modus] = { arbeit: $("arbeit").value, datum: $("datum").value, ungesichert }; }
+  function kopfAnwenden() { const f = kopfFelder[modus]; $("arbeit").value = f.arbeit; $("datum").value = f.datum; ungesichert = f.ungesichert; }
+  const kursDa = (id) => kurse.some((k) => k.id === id.replace(/^t:/, ""));
   function entwurfSchreiben() {
     clearTimeout(entwurfTimer);
-    const d = { arbeit: $("arbeit").value, datum: $("datum").value, ungesichert, kurse: {} };
-    kurse.forEach((k) => {
-      const pk = alsObjekt(punkte.get(k.id)), mk = alsObjekt(manuell.get(k.id));
-      if (Object.keys(pk).length || Object.keys(mk).length) d.kurse[k.id] = { punkte: pk, manuell: mk };
+    kopfMerken();
+    const d = { kopf: kopfFelder, kurse: {} };
+    new Set([...punkte.keys(), ...manuell.keys()]).forEach((id) => {
+      if (!kursDa(id)) return;
+      const pk = alsObjekt(punkte.get(id)), mk = alsObjekt(manuell.get(id));
+      if (Object.keys(pk).length || Object.keys(mk).length) d.kurse[id] = { punkte: pk, manuell: mk };
     });
     schreiben(ENTWURF_KEY, d);
   }
@@ -2465,13 +2503,41 @@ if (typeof document !== "undefined") {
     const d = lesen(ENTWURF_KEY);
     if (!d || typeof d !== "object") return;
     Object.entries(d.kurse || {}).forEach(([id, x]) => {
-      if (!x || !kurse.some((k) => k.id === id)) return;
+      if (!x || !kursDa(id)) return;
       punkte.set(id, new Map(Object.entries(x.punkte || {})));
       manuell.set(id, new Map(Object.entries(x.manuell || {})));
     });
-    if (typeof d.arbeit === "string") $("arbeit").value = d.arbeit;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(d.datum || "")) $("datum").value = d.datum;
-    ungesichert = !!d.ungesichert;
+    const kopf = d.kopf && typeof d.kopf === "object" ? d.kopf : { arbeit: { arbeit: d.arbeit, datum: d.datum, ungesichert: d.ungesichert } };
+    ["arbeit", "test"].forEach((m) => {
+      const x = kopf[m];
+      if (!x || typeof x !== "object") return;
+      kopfFelder[m] = { arbeit: typeof x.arbeit === "string" ? x.arbeit : "", datum: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || "") ? x.datum : kopfFelder[m].datum, ungesichert: !!x.ungesichert };
+    });
+    kopfAnwenden();
+  }
+  // Wörter je Art, damit Hinweise zu Arbeit oder Test passen
+  const WORTE = {
+    arbeit: { titel: "Arbeit", platzhalter: "z. B. 2. Klassenarbeit", neu: "Neue Arbeit", gespeichert: "Gespeicherte Arbeiten",
+      im: "Die Arbeit ist im Kurs gespeichert.", imErsetzt: "Die Arbeit ist im Kurs gespeichert, der vorherige Stand dieser Arbeit wurde ersetzt.",
+      auch: "Die Arbeit ist außerdem im Kurs gespeichert.", auchErsetzt: "Die Arbeit ist außerdem im Kurs gespeichert, der vorherige Stand dieser Arbeit wurde ersetzt.",
+      keineFruehere: "Noch keine frühere Arbeit im Kurs gespeichert. Das geht mit „Im Kurs speichern“ oder beim Word-Export.",
+      nichtMehr: (n) => `${n} ${n === 1 ? "Person aus dieser Arbeit ist" : "Personen aus dieser Arbeit sind"} nicht mehr im Kurs.` },
+    test: { titel: "Test", platzhalter: "z. B. 1. Test", neu: "Neuer Test", gespeichert: "Gespeicherte Tests",
+      im: "Der Test ist im Kurs gespeichert.", imErsetzt: "Der Test ist im Kurs gespeichert, der vorherige Stand dieses Tests wurde ersetzt.",
+      auch: "Der Test ist außerdem im Kurs gespeichert.", auchErsetzt: "Der Test ist außerdem im Kurs gespeichert, der vorherige Stand dieses Tests wurde ersetzt.",
+      keineFruehere: "Noch kein früherer Test im Kurs gespeichert. Das geht mit „Im Kurs speichern“ oder beim Word-Export.",
+      nichtMehr: (n) => `${n} ${n === 1 ? "Person aus diesem Test ist" : "Personen aus diesem Test sind"} nicht mehr im Kurs.` },
+  };
+  const worte = (art = modus) => WORTE[art === "test" ? "test" : "arbeit"];
+  const listeVon = (k, art = modus) => { const f = art === "test" ? "tests" : "arbeiten"; if (!Array.isArray(k[f])) k[f] = []; return k[f]; };
+  // Arbeiten und Tests nutzen dieselbe Eingabe. Beim Wechsel tauschen Titel, Datum, Eingaben und Notenschlüssel
+  function modusSetzen(m) {
+    if (m !== modus) { kopfMerken(); modus = m; kopfAnwenden(); }
+    schluesselWechseln(m);
+    $("gesamt-start").value = einst.gesamt;
+    $("arbeit-name").textContent = worte().titel;
+    $("arbeit").placeholder = worte().platzhalter;
+    entwurfMerken();
   }
   $("arbeit").addEventListener("input", entwurfMerken);
   $("datum").addEventListener("change", entwurfMerken);
@@ -2523,7 +2589,7 @@ if (typeof document !== "undefined") {
     const bereich = $("eintragbereich");
     bereich.innerHTML = "";
     const k = kurs();
-    $("testpunkte").hidden = !(k && k.beispiel && k.schueler.length) || aktiverBereich !== "arbeit";
+    $("testpunkte").hidden = !(k && k.beispiel && k.schueler.length) || !["arbeit", "tests"].includes(aktiverBereich);
     if (!k) {
       bereich.append(el("div", { klasse: "karte leer", stil: "margin-top:14px" },
         el("p", { text: "Noch kein Kurs angelegt. Lege einen Kurs mit seinen Namen an, dann kannst du hier die Punkte eintragen." }),
@@ -2550,12 +2616,12 @@ if (typeof document !== "undefined") {
     sortWahl.addEventListener("change", () => { einst.sortierung = sortWahl.value; einstSpeichern(); eintragAufbauen(); });
     // Neue Arbeit: Eingaben leeren. Nicht gespeicherte Eingaben erst nach Rückfrage
     let neuStufe = 0;
-    const neuKnopf = el("button", { type: "button", klasse: "zweit", text: "Neue Arbeit" });
+    const neuKnopf = el("button", { type: "button", klasse: "zweit", text: worte().neu });
     neuKnopf.addEventListener("click", () => {
       const etwas = [...punkteVon(k).values(), ...manuellVon(k).values()].some((v) => String(v || "").trim());
       if (etwas && ungesichert && neuStufe === 0) {
         neuStufe = 1; neuKnopf.className = "gefahr"; neuKnopf.textContent = "Nicht im Kurs gespeichert. Trotzdem leeren?";
-        setTimeout(() => { neuStufe = 0; neuKnopf.className = "zweit"; neuKnopf.textContent = "Neue Arbeit"; }, 4000);
+        setTimeout(() => { neuStufe = 0; neuKnopf.className = "zweit"; neuKnopf.textContent = worte().neu; }, 4000);
         return;
       }
       punkteVon(k).clear(); manuellVon(k).clear();
@@ -2707,7 +2773,7 @@ if (typeof document !== "undefined") {
     });
     const a = auswertung(eintraege, ns, einst);
     return {
-      ...a, ns, schritt: einst.rundung, kursId: k.id, kursName: k.name, arbeit: $("arbeit").value.trim(), datum: $("datum").value,
+      ...a, ns, schritt: einst.rundung, kursId: k.id, kursName: k.name, art: modus, arbeit: $("arbeit").value.trim(), datum: $("datum").value,
       chart: { noten: ns.noten, maxPunkte: ns.maxPunkte, r: a.r, o: einst.diagramm },
     };
   }
@@ -2849,7 +2915,7 @@ if (typeof document !== "undefined") {
           el("td", { text: g.name }), el("td", { text: g.klasse }), el("td", {}, noteChip(g.vorherN.note, g.vorherN.tendenz, noten)),
           el("td", {}, noteChip(g.z.note, g.z.tendenz, noten))))));
       } else box.append(el("p", { text: "Niemand." }));
-    } else box.append(el("p", { klasse: "stat-hinweis", text: "Noch keine frühere Arbeit im Kurs gespeichert. Das geht mit „Im Kurs speichern“ oder beim Word-Export." }));
+    } else box.append(el("p", { klasse: "stat-hinweis", text: worte(e.art).keineFruehere }));
   }
 
   // Grenzfälle und Verlauf fertig zum Anzeigen, für Bildschirm und Word gleich
@@ -2859,7 +2925,7 @@ if (typeof document !== "undefined") {
       z, name: anzeige(z.name), klasse: z.klasse || "", punkte: deG(z.punkte), note: noteText(z), fehlen: `${deG(z.bis)} P zur ${z.note}`,
     }));
     let verlauf = null;
-    const v = k ? verlaufBerechnen(e, k.arbeiten) : null;
+    const v = k ? verlaufBerechnen(e, listeVon(k, e.art)) : null;
     if (v) {
       const pzt = (w) => (w == null ? "" : `${de(w)} %`);
       verlauf = {
@@ -2960,10 +3026,10 @@ if (typeof document !== "undefined") {
       punkte: e.zeilen.map((z) => ({ id: z.id, name: z.name, klasse: z.klasse || "", punkte: bewertet(z) ? deG(z.punkte) : z.vermerk || "",
         note: bewertet(z) ? `${z.note + 1}${z.tendenz}` : z.noteManuell ? z.noteManuell.text : "" })),
     };
-    k.arbeiten = Array.isArray(k.arbeiten) ? k.arbeiten : [];
-    const alt = k.arbeiten.findIndex((a) => a.arbeit === eintrag.arbeit && a.datum === eintrag.datum);
-    if (alt >= 0) { eintrag.id = k.arbeiten[alt].id; k.arbeiten[alt] = eintrag; } else k.arbeiten.push(eintrag);
-    k.arbeiten.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
+    const liste = listeVon(k, e.art);
+    const alt = liste.findIndex((a) => a.arbeit === eintrag.arbeit && a.datum === eintrag.datum);
+    if (alt >= 0) { eintrag.id = liste[alt].id; liste[alt] = eintrag; } else liste.push(eintrag);
+    liste.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
     kurseSpeichern();
     ungesichert = false;
     entwurfMerken();
@@ -2989,14 +3055,15 @@ if (typeof document !== "undefined") {
     });
     ungesichert = false;
     eintragAufbauen();
-    if (fehlen) $("datenstatus").textContent = `${fehlen} ${fehlen === 1 ? "Person aus dieser Arbeit ist" : "Personen aus dieser Arbeit sind"} nicht mehr im Kurs.\n` + $("datenstatus").textContent;
+    if (fehlen) $("datenstatus").textContent = worte().nichtMehr(fehlen) + "\n" + $("datenstatus").textContent;
   }
   function arbeitenLeiste(k) {
-    if (!Array.isArray(k.arbeiten) || !k.arbeiten.length) return null;
+    const feld = modus === "test" ? "tests" : "arbeiten", liste = listeVon(k);
+    if (!liste.length) return null;
     const wahl = el("select");
-    k.arbeiten.forEach((a) => wahl.append(el("option", { value: a.id, text: arbeitTitel(a) })));
-    wahl.value = k.arbeiten[k.arbeiten.length - 1].id;
-    const gewaehlt = () => k.arbeiten.find((a) => a.id === wahl.value);
+    liste.forEach((a) => wahl.append(el("option", { value: a.id, text: arbeitTitel(a) })));
+    wahl.value = liste[liste.length - 1].id;
+    const gewaehlt = () => liste.find((a) => a.id === wahl.value);
     let ladeStufe = 0;
     const laden = el("button", { type: "button", klasse: "zweit", text: "Laden" });
     laden.addEventListener("click", () => {
@@ -3014,17 +3081,17 @@ if (typeof document !== "undefined") {
     const loeschen = el("button", { type: "button", klasse: "zweit", text: "Löschen" });
     loeschen.addEventListener("click", () => {
       if (stufe === 0) { stufe = 1; loeschen.className = "gefahr"; loeschen.textContent = "Wirklich löschen?"; setTimeout(() => { stufe = 0; loeschen.className = "zweit"; loeschen.textContent = "Löschen"; }, 4000); return; }
-      k.arbeiten = k.arbeiten.filter((a) => a.id !== wahl.value);
+      k[feld] = k[feld].filter((a) => a.id !== wahl.value);
       kurseSpeichern();
       eintragAufbauen();
     });
-    return [el("label", { klasse: "feld", stil: "flex:1 1 260px" }, `Gespeicherte Arbeiten (${k.arbeiten.length})`, wahl), laden, loeschen];
+    return [el("label", { klasse: "feld", stil: "flex:1 1 260px" }, `${worte().gespeichert} (${liste.length})`, wahl), laden, loeschen];
   }
 
   $("speichern").addEventListener("click", () => {
     const r = arbeitSichern();
     $("hinweis").classList.remove("fehler");
-    $("hinweis").textContent = r === "aktualisiert" ? "Die Arbeit ist im Kurs gespeichert, der vorherige Stand dieser Arbeit wurde ersetzt." : r ? "Die Arbeit ist im Kurs gespeichert." : "";
+    $("hinweis").textContent = r === "aktualisiert" ? worte(ergebnis.art).imErsetzt : r ? worte(ergebnis.art).im : "";
   });
 
   // ----- Word-Export -----
@@ -3045,10 +3112,10 @@ if (typeof document !== "undefined") {
         bild, verteilung: w.statistik ? st.verteilung : null, kennzahlen: w.statistik ? st.kennzahlen : null,
         klassen: w.statistik ? st.klassen : null, unterBez: st.unterBez, tendenzen: einst.tendenzen,
         ...(w.statistik ? zusatz(e, st) : {}),
-        meta: { kurs: e.kursName, arbeit: e.arbeit, datum: e.datum, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen } },
+        meta: { kurs: e.kursName, art: e.art, arbeit: e.arbeit, datum: e.datum, einst: { noten: einst.noten, gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: einst.tendenzen } },
       });
       const gesichert = arbeitSichern();
-      $("hinweis").textContent = gesichert === "aktualisiert" ? "Die Arbeit ist außerdem im Kurs gespeichert, der vorherige Stand dieser Arbeit wurde ersetzt." : "Die Arbeit ist außerdem im Kurs gespeichert.";
+      $("hinweis").textContent = gesichert === "aktualisiert" ? worte(e.art).auchErsetzt : worte(e.art).auch;
       herunterladen(blob, dateiname(label, "docx"));
     } catch (err) {
       $("hinweis").textContent = "Der Word-Export hat nicht geklappt: " + err.message;
@@ -3093,7 +3160,21 @@ if (typeof document !== "undefined") {
       const q = TESTPUNKTE[i % TESTPUNKTE.length] / 52 + (((i * 5 + v) % 7) - 3) * 0.05;
       return [s.id, alsNote(6 - Math.min(1, Math.max(0, q)) * 5.2, true)];
     }).filter(Boolean));
-    k.tests = [{ id: neueId(), titel: "1. Test", datum: vorTagen(21), noten: notenAus(1) }, { id: neueId(), titel: "2. Test", datum: vorTagen(7), noten: notenAus(4) }];
+    const testMitPunkten = (titel, tage, v) => {
+      const ges = 20, nsT = notenspiegel({ ...kopie(STANDARD_EINST), gesamt: ges });
+      const pkt = k.schueler.map((s, i) => Math.max(0, Math.min(ges, Math.round(TESTPUNKTE[i % TESTPUNKTE.length] * ges / 52) + ((i * 3 + v) % 5) - 2)));
+      const rT = berechne(pkt, nsT.noten, ges);
+      return {
+        id: neueId(), arbeit: titel, datum: vorTagen(tage), gesichert: new Date().toISOString(),
+        einst: { noten: kopie(STANDARD_EINST.noten), gesamt: ges, rundung: 0.5, tendenzen: kopie(STANDARD_EINST.tendenzen) },
+        punkte: k.schueler.map((s, i) => {
+          if ((i + v) % 11 === 0) return { id: s.id, name: s.name, klasse: s.klasse, punkte: "", note: "" };
+          const j = rT.noteIndex(pkt[i]);
+          return { id: s.id, name: s.name, klasse: s.klasse, punkte: deG(pkt[i]), note: `${j + 1}${tendenz(pkt[i], j, rT, STANDARD_EINST.tendenzen, nsT.noten.length - 1)}` };
+        }),
+      };
+    };
+    k.tests = [testMitPunkten("1. Test", 21, 1), testMitPunkten("2. Test", 7, 4)];
     k.mappe = [{ id: neueId(), titel: "1. Mappenkontrolle", datum: vorTagen(10), noten: notenAus(2) }];
     k.mitarbeit = [2, 5, 9, 12, 16, 19].map((tage, j) => {
       const d = new Date(Date.now() - tage * 864e5);
@@ -3139,8 +3220,7 @@ if (typeof document !== "undefined") {
     loeschen.addEventListener("click", () => {
       if (loeschStufe === 0) { loeschStufe = 1; loeschen.className = "gefahr"; loeschen.textContent = "Wirklich löschen?"; setTimeout(() => { loeschStufe = 0; loeschen.className = "zweit"; loeschen.textContent = "Kurs löschen"; }, 4000); return; }
       kurse = kurse.filter((x) => x.id !== k.id);
-      punkte.delete(k.id);
-      manuell.delete(k.id);
+      ["", "t:"].forEach((v) => { punkte.delete(v + k.id); manuell.delete(v + k.id); });
       entwurfMerken();
       if (aktiverKurs === k.id) aktiverKurs = kurse[0] ? kurse[0].id : null;
       bearbeitet = kurse[0] ? kurse[0].id : null;
@@ -3242,6 +3322,11 @@ if (typeof document !== "undefined") {
   $("backup-laden").addEventListener("click", () => $("backup-datei").click());
   function backupEinlesen(daten) {
     if (!daten || !Array.isArray(daten.kurse)) throw new Error("keine Kurse in der Datei");
+    const arbeitLesen = (a) => ({
+      id: String(a.id || neueId()), arbeit: String(a.arbeit || ""), datum: String(a.datum || ""), gesichert: String(a.gesichert || ""),
+      einst: a.einst && typeof a.einst === "object" ? a.einst : null,
+      punkte: a.punkte.filter((p) => p && p.name).map((p) => ({ id: String(p.id || ""), name: String(p.name), klasse: String(p.klasse || ""), punkte: p.punkte == null ? "" : String(p.punkte), note: String(p.note || "") })),
+    });
     const listeLesen = (a) => (Array.isArray(a) ? a : []).filter((t) => t && typeof t === "object").map((t) => ({
       id: String(t.id || neueId()), titel: String(t.titel || ""), datum: /^\d{4}-\d{2}-\d{2}$/.test(t.datum || "") ? t.datum : "",
       noten: Object.fromEntries(Object.entries(t.noten && typeof t.noten === "object" ? t.noten : {}).filter(([, v]) => noteLesen(v).note != null).map(([id, v]) => [id, noteLesen(v).text])),
@@ -3252,19 +3337,23 @@ if (typeof document !== "undefined") {
       mitarbeit: (Array.isArray(k.mitarbeit) ? k.mitarbeit : []).filter((m) => m && /^\d{4}-\d{2}-\d{2}$/.test(m.datum || "")).map((m) => ({
         datum: m.datum, werte: Object.fromEntries(Object.entries(m.werte && typeof m.werte === "object" ? m.werte : {}).filter(([, v]) => MARKEN.includes(v))),
       })),
-      tests: listeLesen(k.tests), mappe: listeLesen(k.mappe),
+      tests: (Array.isArray(k.tests) ? k.tests : []).filter((t) => t && typeof t === "object").map((t) => (Array.isArray(t.punkte) ? arbeitLesen(t) : listeLesen([t])[0])),
+      mappe: listeLesen(k.mappe),
       zeitraum: k.zeitraum && typeof k.zeitraum === "object" ? k.zeitraum : {},
       ...(Array.isArray(k.leistungen) ? { leistungen: k.leistungen.filter((L) => L && typeof L === "object"), leistungAktiv: String(k.leistungAktiv || "") }
         : k.leistung && typeof k.leistung === "object" ? { leistung: k.leistung } : {}),
-      arbeiten: (Array.isArray(k.arbeiten) ? k.arbeiten : []).filter((a) => a && Array.isArray(a.punkte)).map((a) => ({
-        id: String(a.id || neueId()), arbeit: String(a.arbeit || ""), datum: String(a.datum || ""), gesichert: String(a.gesichert || ""),
-        einst: a.einst && typeof a.einst === "object" ? a.einst : null,
-        punkte: a.punkte.filter((p) => p && p.name).map((p) => ({ id: String(p.id || ""), name: String(p.name), klasse: String(p.klasse || ""), punkte: p.punkte == null ? "" : String(p.punkte), note: String(p.note || "") })),
-      })),
+      arbeiten: (Array.isArray(k.arbeiten) ? k.arbeiten : []).filter((a) => a && Array.isArray(a.punkte)).map(arbeitLesen),
     }));
     const vorhanden = new Set(kurse.map((k) => k.id));
     geladen.forEach((k) => { if (vorhanden.has(k.id)) kurse = kurse.map((x) => (x.id === k.id ? k : x)); else kurse.push(k); });
-    if (daten.einstellungen) { einst = zusammenfuehren(STANDARD_EINST, daten.einstellungen); if (einst.sortierung === "name") einst.sortierung = "nachname"; einstSpeichern(); $("gesamt-start").value = einst.gesamt; }
+    if (daten.einstellungen) {
+      einst = zusammenfuehren(STANDARD_EINST, daten.einstellungen);
+      if (einst.sortierung === "name") einst.sortierung = "nachname";
+      schluesselNachLaden(daten.einstellungen);
+      schluesselWechseln(modus);
+      einstSpeichern();
+      $("gesamt-start").value = einst.gesamt;
+    }
     if (geladen[0]) { bearbeitet = geladen[0].id; aktiverKurs = geladen[0].id; }
     if (daten.zeitraeume && Array.isArray(daten.zeitraeume.liste)) {
       daten.zeitraeume.liste.filter((Z) => Z && typeof Z === "object" && Z.id).forEach((Z) => {
@@ -3307,8 +3396,7 @@ if (typeof document !== "undefined") {
   }
   function nachAenderung(meldung) {
     kurswahlAufbauen();
-    eintragAufbauen();
-    if (aktiverBereich !== "arbeit") bereichZeigen(aktiverBereich);
+    bereichZeigen(aktiverBereich);
     if (kursDialog.open) { kursEditorAufbauen(); $("kurs-status").textContent = meldung; }
     else $("datenstatus").textContent = meldung + "\n" + $("datenstatus").textContent;
   }
@@ -3527,6 +3615,11 @@ if (typeof document !== "undefined") {
     if (!gewaehlt.length) return;
     let k = zielKurs();
     if (!k) { k = { id: neueId(), name: leerzeichen(imp.kursName) || imp.vorschlag, schueler: [] }; kurse.push(k); }
+    if (imp.punkteNehmen || imp.metaNehmen || imp.grenzenNehmen) {
+      const ziel = imp.meta.art === "test" ? "test" : imp.meta.art === "arbeit" ? "arbeit" : aktiverBereich === "tests" ? "test" : "arbeit";
+      modusSetzen(ziel);
+      aktiverBereich = ziel === "test" ? "tests" : "arbeit";
+    }
     const werte = punkteVon(k);
     const mitPunkten = imp.punkteNehmen && imp.d.punkte >= 0;
     let neu = 0, da = 0, punkteZahl = 0;
@@ -3672,7 +3765,7 @@ if (typeof document !== "undefined") {
       bereicheZeigen();
     });
   });
-  const einstOeffnen = () => { nsAufbauen(); optionenAufbauen(); tendenzHinweis(); einstDialog.showModal(); };
+  const einstOeffnen = () => { $("ns-titel").textContent = schluesselArt === "test" ? "Notenspiegel für Tests" : "Notenspiegel für Arbeiten"; nsAufbauen(); optionenAufbauen(); tendenzHinweis(); einstDialog.showModal(); };
   $("einstellungen-oeffnen").addEventListener("click", einstOeffnen);
   $("einstellungen-ergebnis").addEventListener("click", einstOeffnen);
   let standardStufe = 0;
@@ -3680,7 +3773,7 @@ if (typeof document !== "undefined") {
     const k = $("einst-standard");
     if (standardStufe === 0) { standardStufe = 1; k.textContent = "Wirklich alle Einstellungen zurücksetzen?"; setTimeout(() => { standardStufe = 0; k.textContent = "Einstellungen zurücksetzen"; }, 4000); return; }
     standardStufe = 0; k.textContent = "Einstellungen zurücksetzen";
-    einst = kopie(STANDARD_EINST); einstSpeichern(); nsAufbauen(); optionenAufbauen(); tendenzHinweis(); $("gesamt-start").value = einst.gesamt;
+    einst = kopie(STANDARD_EINST); schluesselArt = "arbeit"; schluesselWechseln(modus); einstSpeichern(); nsAufbauen(); optionenAufbauen(); tendenzHinweis(); $("gesamt-start").value = einst.gesamt;
   });
   $("einst-fertig").addEventListener("click", () => {
     if (notenspiegel(einst).fehler.length) { $("ns-status").scrollIntoView({ block: "center" }); return; }
@@ -3710,13 +3803,16 @@ if (typeof document !== "undefined") {
     if (!BEREICH_IDS.includes(b)) b = "arbeit";
     aktiverBereich = b;
     schreiben(BEREICH_KEY, b);
-    BEREICH_IDS.forEach((x) => { $("panel-" + x).hidden = x !== b; $("bereich-" + x).setAttribute("aria-selected", String(x === b)); });
+    const panel = b === "tests" ? "arbeit" : b;
+    ["arbeit", "mitarbeit", "mappe", "leistung"].forEach((x) => { $("panel-" + x).hidden = x !== panel; });
+    BEREICH_IDS.forEach((x) => $("bereich-" + x).setAttribute("aria-selected", String(x === b)));
+    if (panel === "arbeit") modusSetzen(b === "tests" ? "test" : "arbeit");
     if (b === "mitarbeit") mitarbeitAufbauen();
-    else if (b === "tests" || b === "mappe") notenlisteAufbauen(b);
+    else if (b === "mappe") notenlisteAufbauen(b);
     else if (b === "leistung") leistungAufbauen();
     else eintragAufbauen();
     backupStand();
-    $("testpunkte").hidden = b !== "arbeit" || !(kurs() && kurs().beispiel && kurs().schueler.length);
+    $("testpunkte").hidden = panel !== "arbeit" || !(kurs() && kurs().beispiel && kurs().schueler.length);
   }
   BEREICH_IDS.forEach((x) => $("bereich-" + x).addEventListener("click", () => bereichZeigen(x)));
   // Kurswahl für alle Bereiche, verbunden mit der Kurswahl bei den Arbeiten
@@ -3786,7 +3882,7 @@ if (typeof document !== "undefined") {
   }
   function rechenOptionen() {
     const L = einst.leistung, w = (x, d) => (Number.isFinite(x) && x >= 1 && x <= 6 ? x : d);
-    return { wert: { plus: w(L.plus, 1), o: w(L.o, 3), minus: w(L.minus, 5) }, mitTendenz: !!einst.tendenzen.an, endTendenz: !!L.endTendenz };
+    return { wert: { plus: w(L.plus, 1), o: w(L.o, 3), minus: w(L.minus, 5) }, mitTendenz: !!kernVon("arbeit").tendenzen.an, endTendenz: !!L.endTendenz };
   }
   const berechnen = (k, Z) => zeitraumBerechnen(k, Z, eigeneVon(k, Z), rechenOptionen());
   // Auswahl des Zeitraums, in jedem Bereich gleich
@@ -3823,6 +3919,15 @@ if (typeof document !== "undefined") {
         });
       });
       delete k.leistungen; delete k.leistungAktiv; delete k.leistung;
+    });
+    kurse.forEach((k) => {
+      if (!Array.isArray(k.tests) || !k.tests.some((t) => t && !Array.isArray(t.punkte))) return;
+      geaendert = true;
+      k.tests = k.tests.filter((t) => t && typeof t === "object").map((t) => (Array.isArray(t.punkte) ? t : {
+        id: t.id || neueId(), arbeit: t.titel || "Test", datum: t.datum || "", gesichert: new Date().toISOString(), einst: null,
+        punkte: k.schueler.filter((s) => noteLesen((t.noten || {})[s.id]).note != null)
+          .map((s) => ({ id: s.id, name: s.name, klasse: s.klasse || "", punkte: "ohne Punkte", note: noteLesen(t.noten[s.id]).text })),
+      }));
     });
     if (geaendert) { kurseSpeichern(); zeitraeumeSpeichern(); }
   }
@@ -3903,13 +4008,12 @@ if (typeof document !== "undefined") {
 
   // ----- Tests und Mappe: Noten zum Antippen, je Test oder Mappenkontrolle mit Datum -----
   const LISTEN = {
-    tests: { mehrzahl: "Tests", neu: "Neuer Test", keine: "Noch kein Test in diesem Kurs.", titel: (n) => `${n}. Test`, loeschen: "Test löschen" },
     mappe: { mehrzahl: "Mappenkontrollen", neu: "Neue Mappenkontrolle", keine: "Noch keine Mappenkontrolle in diesem Kurs.", titel: (n) => `${n}. Mappenkontrolle`, loeschen: "Mappenkontrolle löschen" },
   };
   const listenAuswahl = { tests: {}, mappe: {} };
   // Note antippen, dann bei Bedarf + oder −. Die gewählte Note trägt ihre Farbe aus dem Notenspiegel
   function notenKnoepfe(x, s, noten, nachher) {
-    const t = einst.tendenzen, letzte = noten.length - 1;
+    const t = kernVon("arbeit").tendenzen, letzte = noten.length - 1;
     const ziffern = noten.map((_, i) => el("button", { type: "button", text: String(i + 1), "aria-label": `Note ${i + 1} für ${anzeige(s.name)}` }));
     const plus = el("button", { type: "button", klasse: "tend", text: "+", "aria-label": `Plus für ${anzeige(s.name)}` });
     const minus = el("button", { type: "button", klasse: "tend", text: "−", "aria-label": `Minus für ${anzeige(s.name)}` });
@@ -3980,7 +4084,7 @@ if (typeof document !== "undefined") {
         (draussen ? `Das Datum liegt außerhalb von „${Z.titel || "Ohne Titel"}“, dort zählt die Note nicht. ` : "") +
         "Note antippen, dann bei Bedarf + oder −. Nochmal tippen nimmt sie zurück. Alles wird sofort gespeichert.";
     };
-    const zellen = new Map(), feld = art === "tests" ? "tst" : "mpp";
+    const zellen = new Map(), feld = "mpp";
     const zeitraumZeigen = () => {
       berechnen(k, Z).zeilen.forEach((z) => {
         const c = zellen.get(z.s.id);
@@ -4143,7 +4247,7 @@ if (typeof document !== "undefined") {
       };
       const notenZelle = (liste, wert) => el("td", {}, liste.map((n) => n || "–").join("  "),
         liste.filter(Boolean).length > 1 && wert != null ? el("span", { klasse: "schnitt", text: komma2(wert) }) : null);
-      const refs = [], tbody = el("tbody");
+      const refs = [], tbody = el("tbody"), notenFarben = notenspiegel(einst).noten;
       zeilenSortiert(D).forEach((z, zi) => {
         const mitIn = feld(eigene.mitarbeit, z.s, "Mitarbeit", "m", zi), endIn = feld(eigene.note, z.s, "Endnote", "e", zi);
         const zaehl = el("span", { klasse: "zaehl" }), dez = el("span", { klasse: "dezimal" });
@@ -4164,6 +4268,12 @@ if (typeof document !== "undefined") {
           r.endIn.placeholder = x.endVorschlag;
           r.zaehl.textContent = N.stunden.length ? `${x.zaehl["+"]} / ${x.zaehl.o} / ${x.zaehl["−"]}` : "";
           r.dez.textContent = x.endWert != null ? komma2(x.endWert) : "";
+          const n = noteLesen(x.endnote), farbe = n.note != null ? notenFarben[n.note].farbe : "";
+          const schrift = farbe ? (helligkeit(farbe) < 0.5 ? "#fff" : "#1c1c1c") : "";
+          r.endIn.classList.toggle("farbig", !!farbe);
+          r.endIn.style.background = farbe;
+          r.endIn.style.color = schrift;
+          r.endIn.style.setProperty("--ph", schrift);
         });
         anteilZeigen(N);
       };
@@ -4230,7 +4340,7 @@ if (typeof document !== "undefined") {
         else niemand();
       }
 
-      abschnitt("Fehlende Noten", "Arbeiten ohne Punkte und Vermerk, Tests und Mappenkontrollen ohne Note");
+      abschnitt("Fehlende Noten", "Arbeiten und Tests ohne Punkte und Vermerk, Mappenkontrollen ohne Note");
       if (st.fehlend.length) inhalt.append(tab(["Name", "Klasse", "Es fehlt"], st.fehlend.map((x) => el("tr", {},
         el("td", { text: anzeige(x.z.s.name) }), el("td", { text: x.z.s.klasse || "" }), el("td", { text: x.fehlt.join(", ") })))));
       else niemand();
@@ -4272,7 +4382,7 @@ if (typeof document !== "undefined") {
   }
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "23.10.2026 12:24";
+  const STAND = "23.10.2026 12:48";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
@@ -4295,6 +4405,7 @@ if (typeof document !== "undefined") {
   zeitraeume();
   zeitraeumeSpeichern();
   kurswahlAufbauen();
+  modusSetzen(modus);
   bereichZeigen(lesen(BEREICH_KEY) || "arbeit");
   // Auf iPad und iPhone: Safari darf Daten eines Tabs nach einiger Zeit ohne Nutzung löschen, die App auf dem Home-Bildschirm nicht
   const eigenstaendig = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
