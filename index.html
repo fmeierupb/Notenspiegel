@@ -362,7 +362,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 23.10.2026 17:09</span>
+      <span>Fassung 23.10.2026 17:13</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -4402,7 +4402,7 @@ if (typeof document !== "undefined") {
         if (feld === "neu") { glattIn.value = zweiStellen(R.glatt); minusIn.value = zweiStellen(R.minus); }
         Z.rundung = R;
         zeitraeumeSpeichern();
-        rundungZeigen();
+        rundungTexte();
         if (k && k.schueler.length) inhaltZeigen();
       });
       f.addEventListener("blur", () => { if (!f.classList.contains("ungueltig")) f.value = zweiStellen(R[feld]); });
@@ -4413,10 +4413,14 @@ if (typeof document !== "undefined") {
     const regeln = el("span", { klasse: "grenzen" });
     const rundungHinweis = el("div", { klasse: "summe" });
     const teil = (text, f) => el("label", { klasse: "grenze" }, el("span", { text }), f);
+    // Felder nur beim Umschalten neu setzen. Beim Tippen bleibt das Feld stehen, sonst verliert es den Fokus und die Tastatur geht zu
     function rundungZeigen() {
       regeln.innerHTML = "";
       if (R.tendenz) regeln.append(teil("2+ ab", neuIn), teil("2 ab", glattIn), teil("2− ab", minusIn));
       else regeln.append(teil("2 ab", neuIn));
+      rundungTexte();
+    }
+    function rundungTexte() {
       naechste.textContent = `${R.tendenz ? "3+" : "3"} ab ${zweiStellen(R.neu + 1)}`;
       rundungHinweis.textContent = R.tendenz
         ? `Für alle Noten entsprechend, die 3 also ab ${zweiStellen(R.glatt + 1)} und die 3− ab ${zweiStellen(R.minus + 1)}.`
@@ -4778,7 +4782,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "23.10.2026 17:09";
+  const STAND = "23.10.2026 17:13";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
