@@ -135,7 +135,7 @@
   .mitarbeit-tab { margin-top: 12px; }
   .mitarbeit-tab th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
   .mitarbeit-tab td { padding: 4px 8px; border-bottom: 1px solid var(--linie); vertical-align: middle; }
-  .mitarbeit-tab td.nr, .mitarbeit-tab td.klasse { color: var(--muted); }
+  .mitarbeit-tab .nr, .mitarbeit-tab td.klasse { color: var(--muted); }
   .mitarbeit-tab td.name { white-space: nowrap; }
   .wahl3 { display: inline-flex; gap: 6px; }
   .wahl3 button { min-width: 46px; padding: 6px 0; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 17px; }
@@ -152,7 +152,42 @@
   .leistung-tab input { width: 3.6em; text-align: center; padding: 5px 6px; }
   .leistung-tab .zaehl { color: var(--muted); font-size: 12px; margin-right: 8px; }
   .leistung-tab input::placeholder { color: var(--muted); opacity: 0.75; font-style: italic; }
-  @media (max-width: 520px) { .mitarbeit-tab td.nr, .mitarbeit-tab th:first-child, .mitarbeit-tab td.zaehlung, .mitarbeit-tab th:last-child { display: none; } .mitarbeit-tab td { padding: 4px 5px; } .wahl3 { gap: 4px; } .wahl3 button { min-width: 42px; } }
+  @media (max-width: 800px) { .mitarbeit-tab .nr { display: none; } .mitarbeit-tab td, .mitarbeit-tab th { padding-left: 5px; padding-right: 5px; } }
+  @media (max-width: 560px) { .mitarbeit-tab .zaehlung { display: none; } .wahl3 { gap: 4px; } .wahl3 button { min-width: 42px; } }
+  /* Reiter oben: auf schmalen Geräten seitlich verschiebbar */
+  .bereiche { overflow-x: auto; scrollbar-width: none; }
+  .bereiche::-webkit-scrollbar { display: none; }
+  .bereiche button { flex: 0 0 auto; }
+  @media (max-width: 560px) { .bereiche button { padding: 9px 11px; } }
+  .reiter.klein { margin: 16px 0 0; }
+  .reiter.klein button { padding: 7px 16px; font-size: 15px; }
+  /* Noten antippen: 1 bis 6, dann + oder − */
+  .notenwahl { display: inline-flex; gap: 4px; align-items: center; }
+  .notenwahl button { min-width: 36px; padding: 6px 0; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 16px; }
+  .notenwahl button.an { border-color: transparent; }
+  .notenwahl button.tend.an { background: var(--accent); color: #fff; }
+  .notenwahl button:disabled { background: var(--card); color: var(--border); }
+  .notenwahl .trenner { width: 6px; }
+  /* Schlüssel für die Endnote */
+  .schluessel { display: flex; gap: 10px 14px; flex-wrap: wrap; align-items: end; margin-top: 14px; padding: 12px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  .schluessel .titel { flex: 1 0 100%; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .schluessel label.feld { flex: 0 0 auto; }
+  .schluessel .prozent { display: flex; align-items: center; gap: 5px; font-weight: 400; color: var(--text); font-size: 15px; }
+  .schluessel input { width: 4.6em; text-align: right; }
+  .schluessel .summe { flex: 1 1 240px; font-size: 13px; color: var(--muted); align-self: center; }
+  .leistung-tab td.endnote input { font-weight: 700; }
+  .leistung-tab .dezimal { color: var(--muted); font-size: 12px; margin-right: 6px; }
+  .leistung-tab .schnitt { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .balken { height: 10px; min-width: 70px; background: var(--linie); border-radius: 5px; overflow: hidden; }
+  .balken span { display: block; height: 100%; border-radius: 5px; }
+  .stat td.balken-zelle { width: 38%; text-align: left; }
+  /* Tabellenköpfe bleiben beim Scrollen stehen, wo die Tabelle in die Seite passt */
+  @media (min-width: 700px) {
+    .eintrag-rahmen { overflow: visible; }
+    .mitarbeit-tab th { position: sticky; top: 0; z-index: 2; background: var(--bg); }
+    .tabelle-rahmen.fest { overflow: visible; }
+    .tabelle-rahmen.fest th { position: sticky; top: 0; z-index: 2; background: var(--card); }
+  }
   .hinweisbox { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; font-size: 14px; }
   .hinweisbox p { margin: 0; flex: 1 1 320px; }
   .leer { text-align: center; padding: 28px 12px; color: var(--muted); }
@@ -269,9 +304,11 @@
     <h1>Notenauswertung</h1>
     <div id="heim-hinweis" class="hinweisbox" hidden></div>
     <div class="reiter bereiche" role="tablist">
-      <button id="bereich-arbeit" role="tab" aria-selected="true" type="button">Arbeit</button>
+      <button id="bereich-arbeit" role="tab" aria-selected="true" type="button">Arbeiten</button>
+      <button id="bereich-tests" role="tab" aria-selected="false" type="button">Tests</button>
       <button id="bereich-mitarbeit" role="tab" aria-selected="false" type="button">Mitarbeit</button>
-      <button id="bereich-leistung" role="tab" aria-selected="false" type="button">Leistung im Zeitraum</button>
+      <button id="bereich-mappe" role="tab" aria-selected="false" type="button">Mappe</button>
+      <button id="bereich-leistung" role="tab" aria-selected="false" type="button">Übersicht</button>
     </div>
     <div id="panel-arbeit">
     <div class="kopfzeilen">
@@ -286,7 +323,9 @@
       <button id="auswerten" class="gross" type="button" disabled>Auswerten</button>
     </div>
     </div>
+    <div id="panel-tests" hidden></div>
     <div id="panel-mitarbeit" hidden></div>
+    <div id="panel-mappe" hidden></div>
     <div id="panel-leistung" hidden></div>
     <div class="knoepfe">
       <button id="kurse-oeffnen" class="leise" type="button">Kurse verwalten</button>
@@ -295,7 +334,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 23.10.2026 11:24</span>
+      <span>Fassung 23.10.2026 12:24</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -458,8 +497,20 @@
         </div>
       </div>
       <div class="abschnitt">
+        <h3>Übersicht</h3>
+        <p class="hint">Vorschlag für die Mitarbeitsnote: Jedes Zeichen im Zeitraum zählt als die Note hier, davon der Schnitt.</p>
+        <div class="reihe">
+          <label class="feld">+ zählt als<input type="number" min="1" max="6" step="0.5" data-einst="leistung.plus" style="width:6em"></label>
+          <label class="feld">o zählt als<input type="number" min="1" max="6" step="0.5" data-einst="leistung.o" style="width:6em"></label>
+          <label class="feld">− zählt als<input type="number" min="1" max="6" step="0.5" data-einst="leistung.minus" style="width:6em"></label>
+          <label class="feld">Endnote
+            <select data-einst="leistung.endTendenz"><option value="false">ganze Noten</option><option value="true">mit Tendenz</option></select>
+          </label>
+        </div>
+      </div>
+      <div class="abschnitt">
         <h3>Word-Export</h3>
-        <p class="hint">Seite 1: Titel, Teilnehmer, Notenschnitt, Mittelwert und die Notenliste in Graustufen. Ab Seite 2: Diagramm und Statistik in Farbe.</p>
+        <p class="hint">Seite 1: Titel, Teilnehmer, Notenschnitt, Mittelwert und die Notenliste in Graustufen. Ab Seite 2: Diagramm und Statistik in Farbe. Die Übersicht bekommt mit „Statistik ab Seite 2“ ebenfalls eine Statistikseite.</p>
         <div class="optionen">
           <label><input type="checkbox" data-einst="word.diagramm"> Diagramm auf Seite 2</label>
           <label><input type="checkbox" data-einst="word.statistik"> Statistik ab Seite 2</label>
@@ -498,6 +549,8 @@ const STANDARD_EINST = {
   diagramm: { kreuze: true, mittel: true, fit: true, legende: true, anzahl: true, xTitel: "Notenstufen [Punkte; Prozent]", yTitel: "Häufigkeit" },
   word: { ueberschrift: "Notenliste", diagramm: true, statistik: true },
   notenBereich: false,
+  leistung: { plus: 1, o: 3, minus: 5, endTendenz: false },
+  uebersichtSortierung: "",
 };
 
 const kopie = (o) => JSON.parse(JSON.stringify(o));
@@ -764,30 +817,120 @@ function notenWert(text) {
   const n = noteLesen(text);
   return n.note == null ? null : n.note + 1 + (n.tendenz === "+" ? -1 / 3 : n.tendenz === "−" ? 1 / 3 : 0);
 }
-// Was im Zeitraum für jede Person zusammenkommt: Noten der gespeicherten Arbeiten mit Schnitt und die Mitarbeit
-function leistungBerechnen(k, L) {
-  const drin = (d) => !!d && (!L.von || d >= L.von) && (!L.bis || d <= L.bis);
-  const arbeiten = (k.arbeiten || []).filter((a) => Array.isArray(a.punkte) && drin(a.datum)).sort((a, b) => a.datum.localeCompare(b.datum));
-  const stunden = (k.mitarbeit || []).filter((m) => drin(m.datum));
-  const eintrag = (a, s) => a.punkte.find((x) => x.id && x.id === s.id) ||
-    a.punkte.find((x) => namensSchluessel(x.name) === namensSchluessel(s.name) && (x.klasse || "") === (s.klasse || ""));
-  const noteIn = (a, s) => { const x = eintrag(a, s); return x && notenWert(x.note) != null ? noteLesen(x.note).text : ""; };
-  const zeilen = k.schueler.map((s) => {
-    const arbNoten = arbeiten.map((a) => noteIn(a, s));
-    const werte = arbNoten.map(notenWert).filter((v) => v != null);
-    const zaehl = { "+": 0, o: 0, "−": 0 };
-    stunden.forEach((m) => { const v = m.werte && m.werte[s.id]; if (v in zaehl) zaehl[v]++; });
-    return { s, arbNoten, schnitt: werte.length ? werte.reduce((x, y) => x + y, 0) / werte.length : null, zaehl, mitVorschlag: mitarbeitVorschlag(zaehl) };
-  });
-  return { arbeiten, stunden, zeilen };
-}
-// Vorschlag für die Mitarbeitsnote: + zählt als 1, o als 3, − als 5. Der Schnitt wird auf Drittel gerundet, also mit Tendenz
-function mitarbeitVorschlag(z) {
-  const n = z["+"] + z.o + z["−"];
-  if (!n) return "";
-  const t = Math.round((z["+"] + 3 * z.o + 5 * z["−"]) / n * 3) / 3;
+// Bereiche einer Leistung im Zeitraum, überall in dieser Reihenfolge
+const BEREICHE = [
+  { id: "arbeiten", name: "Arbeiten" },
+  { id: "tests", name: "Tests" },
+  { id: "mitarbeit", name: "Mitarbeit" },
+  { id: "mappe", name: "Mappe" },
+];
+const STANDARD_SCHLUESSEL = { arbeiten: 50, tests: 20, mitarbeit: 20, mappe: 10 };
+const mittelwert = (w) => (w.length ? w.reduce((a, b) => a + b, 0) / w.length : null);
+const zweiStellen = (w) => w.toFixed(2).replace(".", ",");
+// Zahl als Note: ganz oder auf Drittel gerundet, also mit Tendenz (2,33 wird 2−). Genau ,5 rundet zur schlechteren Note
+function alsNote(w, mitTendenz) {
+  if (w == null || !Number.isFinite(w)) return "";
+  const t = Math.min(6, Math.max(1, mitTendenz ? Math.round(w * 3 + 1e-9) / 3 : Math.round(w + 1e-9)));
   const ganz = Math.round(t), rest = Math.round((t - ganz) * 3);
   return `${ganz}${rest < 0 ? "+" : rest > 0 ? "−" : ""}`;
+}
+// Mitarbeit aus den Zeichen: jedes Zeichen zählt als eine Note, davon der Schnitt
+function mitarbeitWert(z, wert) {
+  const n = z["+"] + z.o + z["−"];
+  return n ? (z["+"] * wert.plus + z.o * wert.o + z["−"] * wert.minus) / n : null;
+}
+// Alles, was in einem Zeitraum für jede Person eines Kurses zusammenkommt, und die Endnote nach dem Schlüssel.
+// Ein Bereich ohne Noten im Zeitraum zählt nicht, sein Anteil verteilt sich auf die anderen. Fehlt einer Person ein Bereich, gilt das für sie allein.
+function zeitraumBerechnen(k, Z, eigene, o) {
+  const drin = (d) => !!d && (!Z.von || d >= Z.von) && (!Z.bis || d <= Z.bis);
+  const nachDatum = (a, b) => (a.datum || "").localeCompare(b.datum || "");
+  const arbeiten = (k.arbeiten || []).filter((a) => Array.isArray(a.punkte) && drin(a.datum)).sort(nachDatum);
+  const tests = (k.tests || []).filter((t) => t && drin(t.datum)).sort(nachDatum);
+  const mappe = (k.mappe || []).filter((t) => t && drin(t.datum)).sort(nachDatum);
+  const stunden = (k.mitarbeit || []).filter((m) => drin(m.datum)).sort(nachDatum);
+  const eig = { mitarbeit: (eigene && eigene.mitarbeit) || {}, note: (eigene && eigene.note) || {} };
+  const eintrag = (a, s) => a.punkte.find((x) => x.id && x.id === s.id) ||
+    a.punkte.find((x) => namensSchluessel(x.name) === namensSchluessel(s.name) && (x.klasse || "") === (s.klasse || ""));
+  const gueltig = (t) => { const n = noteLesen(t); return n.note != null ? n.text : ""; };
+  const schnittVon = (liste) => mittelwert(liste.filter(Boolean).map(notenWert));
+  const zeilen = k.schueler.map((s, i) => {
+    const arb = arbeiten.map((a) => { const x = eintrag(a, s); return x ? gueltig(x.note) : ""; });
+    // Fehlt heißt: keine Punkte und kein Vermerk, also nachschreiben
+    const arbFehlt = arbeiten.map((a) => { const x = eintrag(a, s); return !x || !String(x.punkte || "").trim(); });
+    const tst = tests.map((t) => gueltig((t.noten || {})[s.id]));
+    const mpp = mappe.map((t) => gueltig((t.noten || {})[s.id]));
+    const zaehl = { "+": 0, o: 0, "−": 0 };
+    stunden.forEach((m) => { const v = m.werte && m.werte[s.id]; if (v in zaehl) zaehl[v]++; });
+    const mitVorschlag = alsNote(mitarbeitWert(zaehl, o.wert), o.mitTendenz);
+    const mitEigen = gueltig(eig.mitarbeit[s.id]);
+    const mitarbeit = mitEigen || mitVorschlag;
+    const werte = { arbeiten: schnittVon(arb), tests: schnittVon(tst), mitarbeit: mitarbeit ? notenWert(mitarbeit) : null, mappe: schnittVon(mpp) };
+    return { s, nr: i + 1, arb, arbFehlt, tst, mpp, zaehl, mitVorschlag, mitEigen, mitarbeit, werte };
+  });
+  const aktiv = {};
+  BEREICHE.forEach((b) => { aktiv[b.id] = zeilen.some((z) => z.werte[b.id] != null); });
+  const schl = Z.schluessel || STANDARD_SCHLUESSEL;
+  const gewicht = (id) => (aktiv[id] && schl[id] > 0 ? schl[id] : 0);
+  const summe = BEREICHE.reduce((x, b) => x + gewicht(b.id), 0);
+  const anteile = {};
+  BEREICHE.forEach((b) => { anteile[b.id] = summe ? gewicht(b.id) / summe : 0; });
+  zeilen.forEach((z) => {
+    let g = 0, w = 0;
+    BEREICHE.forEach((b) => { if (z.werte[b.id] != null && gewicht(b.id)) { g += gewicht(b.id); w += gewicht(b.id) * z.werte[b.id]; } });
+    z.endWert = g ? w / g : null;
+    z.endVorschlag = alsNote(z.endWert, o.endTendenz);
+    z.endEigen = gueltig(eig.note[z.s.id]);
+    z.endnote = z.endEigen || z.endVorschlag;
+  });
+  return { arbeiten, tests, mappe, stunden, aktiv, anteile, zeilen };
+}
+// Die Bereiche einer Person kurz als Text, etwa „Arbeiten 4,67 · Mitarbeit 4−“
+const bereichsText = (z, D) => BEREICHE.filter((b) => D.anteile[b.id] > 0 && z.werte[b.id] != null)
+  .map((b) => `${b.name} ${b.id === "mitarbeit" ? z.mitarbeit : zweiStellen(z.werte[b.id])}`).join(" · ");
+// Statistik eines Zeitraums, für Bildschirm und Word gleich
+function zeitraumStatistik(D) {
+  const ganz = (t) => noteLesen(t).note;
+  const mit = D.zeilen.filter((z) => z.endnote);
+  const anzahl = [0, 0, 0, 0, 0, 0];
+  mit.forEach((z) => { anzahl[ganz(z.endnote)]++; });
+  const schnitt = mittelwert(mit.map((z) => notenWert(z.endnote)));
+  const mitNoten = (liste, feld) => liste.filter((_, i) => D.zeilen.some((z) => z[feld][i])).length;
+  const eintraege = {
+    arbeiten: (n) => `${n} ${n === 1 ? "Arbeit" : "Arbeiten"}`,
+    tests: (n) => `${n} ${n === 1 ? "Test" : "Tests"}`,
+    mappe: (n) => `${n} ${n === 1 ? "Mappenkontrolle" : "Mappenkontrollen"}`,
+    mitarbeit: (n) => (n ? `${n} ${n === 1 ? "Stunde" : "Stunden"}` : "eigene Noten"),
+  };
+  const zahlen = { arbeiten: mitNoten(D.arbeiten, "arb"), tests: mitNoten(D.tests, "tst"), mappe: mitNoten(D.mappe, "mpp"), mitarbeit: D.stunden.length };
+  const bereiche = BEREICHE.filter((b) => D.aktiv[b.id]).map((b) => {
+    const w = D.zeilen.map((z) => z.werte[b.id]).filter((v) => v != null);
+    return { id: b.id, name: b.name, anteil: D.anteile[b.id], eintraege: eintraege[b.id](zahlen[b.id]), schnitt: mittelwert(w) };
+  });
+  const nachName = (a, b) => a.z.s.name.localeCompare(b.z.s.name, "de", { sensitivity: "base" });
+  const klassenNamen = [...new Set(D.zeilen.map((z) => z.s.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
+  const klassen = klassenNamen.length > 1 ? klassenNamen.map((kl) => {
+    const zz = mit.filter((z) => z.s.klasse === kl);
+    return { klasse: kl, n: zz.length, gesamt: D.zeilen.filter((z) => z.s.klasse === kl).length,
+      schnitt: mittelwert(zz.map((z) => notenWert(z.endnote))), schwach: zz.filter((z) => ganz(z.endnote) >= 4).length };
+  }) : [];
+  const schwach = mit.filter((z) => ganz(z.endnote) >= 4)
+    .sort((a, b) => notenWert(b.endnote) - notenWert(a.endnote) || a.s.name.localeCompare(b.s.name, "de", { sensitivity: "base" }));
+  const abstand = D.zeilen.map((z) => {
+    const w = BEREICHE.filter((b) => D.anteile[b.id] > 0 && z.werte[b.id] != null).map((b) => ({ b, w: z.werte[b.id], text: b.id === "mitarbeit" ? z.mitarbeit : zweiStellen(z.werte[b.id]) }));
+    if (w.length < 2) return null;
+    const stark = w.reduce((a, x) => (x.w < a.w ? x : a)), schwaecher = w.reduce((a, x) => (x.w > a.w ? x : a));
+    return schwaecher.w - stark.w >= 2 - 1e-9 ? { z, stark, schwach: schwaecher } : null;
+  }).filter(Boolean).sort(nachName);
+  const selten = D.stunden.length >= 3 ? D.zeilen.map((z) => ({ z, n: z.zaehl["+"] + z.zaehl.o + z.zaehl["−"] }))
+    .filter((x) => x.n < D.stunden.length / 3).sort(nachName) : [];
+  const fehlend = D.zeilen.map((z) => {
+    const f = [];
+    D.arbeiten.forEach((a, i) => { if (z.arbFehlt[i]) f.push(a.arbeit || "Arbeit"); });
+    D.tests.forEach((t, i) => { if (!z.tst[i] && D.zeilen.some((x) => x.tst[i])) f.push(t.titel || "Test"); });
+    D.mappe.forEach((t, i) => { if (!z.mpp[i] && D.zeilen.some((x) => x.mpp[i])) f.push(t.titel || "Mappe"); });
+    return f.length ? { z, fehlt: f } : null;
+  }).filter(Boolean).sort(nachName);
+  return { n: mit.length, gesamt: D.zeilen.length, anzahl, schnitt, bereiche, klassen, schwach, abstand, selten, fehlend };
 }
 
 // Vergleich mit der letzten früher gespeicherten Arbeit desselben Kurses
@@ -1344,10 +1487,20 @@ function wordDokument(info) {
   return docxPaket(body, { titel, kurs: meta.kurs, beschreibung: "Notenauswertung " + JSON.stringify(meta), bild });
 }
 
-function leistungDokument({ titel, unterzeile, datumText, angaben, kopf, zeilen, kurs }) {
+function zeitraumDokument({ titel, unterzeile, datumText, angaben, grundwerte, kopf, zeilen, kurs, farben, notenNamen, statistik }) {
+  const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   let body = wTitel(titel, datumText, unterzeile);
-  if (angaben.length) angaben.forEach((t, i) => { body += wP(wR(t, { gr: 9, farbe: W_GRAU }), { vor: i ? 0 : 60, nach: i === angaben.length - 1 ? 220 : 0, einzug: 110 }); });
-  else body += wP("", { nach: 160 });
+  angaben.forEach((t, i) => { body += wP(wR(t, { gr: 9, farbe: W_GRAU }), { vor: i ? 0 : 60, einzug: 110 }); });
+  body += wP("", { nach: 180 });
+  const kachelB = Math.floor(TEXTBREITE / grundwerte.length);
+  body += wTab(grundwerte.map((_, i) => ({ breite: i === grundwerte.length - 1 ? TEXTBREITE - kachelB * (grundwerte.length - 1) : kachelB })), [{
+    oben: { sz: 12, farbe: W_DUNKEL }, unten: { sz: 4, farbe: W_LINIE },
+    zellen: grundwerte.map(([bez, wert]) => ({ absaetze: [
+      wP(wR(bez, { caps: true, sperren: 16, gr: 7, fett: true, farbe: W_GRAU }), { nach: 30 }),
+      wP(wR(wert, { fett: true, gr: 17, serif: true })),
+    ] })),
+  }], { rand: [100, 110] });
+  body += wP("", { nach: 220 });
   const letzte = kopf.length - 1;
   body += wTab(gleichSpalten(namensBreite(zeilen.map((z) => z[0]), 2400), letzte), [
     { ...W_KOPF, zellen: kopf },
@@ -1356,6 +1509,49 @@ function leistungDokument({ titel, unterzeile, datumText, angaben, kopf, zeilen,
       zellen: z.map((c, j) => (j === 1 ? { text: c, farbe: W_GRAU } : j === letzte ? { text: c, fett: true } : c)),
     })),
   ], { hoehe: 290, rand: [40, 110] });
+  if (statistik && statistik.n) {
+    const st = statistik;
+    body += wAbschnitt("Notenverteilung der Endnoten", { umbruch: true, vor: 0 });
+    body += wTab(gleichSpalten(3638, 2), [
+      { ...W_KOPF, zellen: ["Note", "Anzahl", "Anteil"] },
+      ...st.anzahl.map((c, i) => ({
+        fuellung: i % 2 ? W_HELL : null, gr: 9.5,
+        zellen: [{ laeufe: wR(`${i + 1}`, { fett: true, gr: 9.5 }) + wR(`   ${notenNamen[i] || ""}`, { gr: 9.5 }), fuellung: toenung(i) }, { text: String(c), fett: true }, `${de(c / st.n * 100)} %`],
+      })),
+      { gr: 9.5, fett: true, oben: { sz: 8, farbe: W_DUNKEL }, zellen: ["Gesamt", String(st.n), "100,0 %"] },
+    ], { hoehe: 270, rand: [35, 110], zusammen: true });
+    body += wP(wR(notenspiegelZeile(st.anzahl, st.schnitt), { gr: 9, farbe: W_GRAU }), { vor: 80, einzug: 110 });
+    body += wAbschnitt("Bereiche");
+    body += wTab(gleichSpalten(2638, 3), [
+      { ...W_KOPF, zellen: ["Bereich", "Anteil an der Endnote", "Einträge", "Schnitt"] },
+      ...st.bereiche.map((b, i) => ({
+        fuellung: i % 2 ? W_HELL : null, gr: 9.5,
+        zellen: [{ text: b.name, fett: true }, b.anteil ? `${Math.round(b.anteil * 100)} %` : "zählt nicht", b.eintraege, { text: b.schnitt != null ? zweiStellen(b.schnitt) : "", fett: true }],
+      })),
+    ], { hoehe: 270, rand: [35, 110], zusammen: true });
+    if (st.klassen.length) {
+      body += wAbschnitt("Nach Klassen");
+      body += wTab(gleichSpalten(2638, 3), [
+        { ...W_KOPF, zellen: ["Klasse", "Mit Endnote", "Schnitt", "Note 5 oder 6"] },
+        ...st.klassen.map((k, i) => ({
+          fuellung: i % 2 ? W_HELL : null, gr: 9.5,
+          zellen: [{ text: k.klasse, fett: true }, `${k.n} von ${k.gesamt}`,
+            { text: k.schnitt != null ? zweiStellen(k.schnitt) : "", fett: true, fuellung: k.schnitt != null ? toenung(Math.round(k.schnitt) - 1) : null }, String(k.schwach)],
+        })),
+      ], { hoehe: 270, rand: [35, 110], zusammen: true });
+    }
+    body += wAbschnitt("Note 5 oder 6");
+    if (st.schwach.length) {
+      const nb = namensBreite(st.schwach.map((z) => z.name), 2400);
+      body += wTab([{ breite: nb }, { breite: 1000, mitte: true }, { breite: 1100, mitte: true }, { breite: TEXTBREITE - nb - 2100 }], [
+        { ...W_KOPF, zellen: ["Name", "Klasse", "Endnote", "Bereiche"] },
+        ...st.schwach.map((z, i) => ({
+          fuellung: i % 2 ? W_HELL : null, gr: 9.5,
+          zellen: [z.name, { text: z.klasse, farbe: W_GRAU }, { text: z.note, fett: true }, { text: z.bereiche, farbe: W_GRAU }],
+        })),
+      ], { hoehe: 270, rand: [35, 110], zusammen: true });
+    } else body += wP(wR("Niemand.", { gr: 9.5 }), { nach: 0 });
+  }
   return docxPaket(body, { titel, kurs, beschreibung: "Leistung im Zeitraum" });
 }
 
@@ -2586,17 +2782,18 @@ if (typeof document !== "undefined") {
   }
   $("sortierung").addEventListener("change", (e) => { einst.sortierung = e.target.value; einstSpeichern(); listeAnzeigen(); });
 
-  function kopierKnopf(text) {
-    const knopf = el("button", { type: "button", klasse: "zweit", text: "Kopieren" });
+  function kopierKnopf(text, beschriftung = "Kopieren") {
+    const knopf = el("button", { type: "button", klasse: "zweit", text: beschriftung });
     knopf.addEventListener("click", async () => {
       let ok = false;
-      try { await navigator.clipboard.writeText(text); ok = true; } catch (err) {
-        const ta = el("textarea", { stil: "position:fixed;opacity:0" }); ta.value = text; document.body.append(ta); ta.select();
+      const inhalt = typeof text === "function" ? text() : text;
+      try { await navigator.clipboard.writeText(inhalt); ok = true; } catch (err) {
+        const ta = el("textarea", { stil: "position:fixed;opacity:0" }); ta.value = inhalt; document.body.append(ta); ta.select();
         try { ok = document.execCommand("copy"); } catch (err2) { ok = false; }
         ta.remove();
       }
       knopf.textContent = ok ? "Kopiert" : "Bitte markieren und kopieren";
-      setTimeout(() => { knopf.textContent = "Kopieren"; }, 1800);
+      setTimeout(() => { knopf.textContent = beschriftung; }, 1800);
     });
     return knopf;
   }
@@ -2889,7 +3086,15 @@ if (typeof document !== "undefined") {
     const VERSCHIEBUNG = [4, -3, 0, 9, -5, 2, -1, 8, -4, 0, 3, -6, 10, -2, 1];
     const vorher = k.schueler.map((s, i) => Math.max(0, Math.min(52, TESTPUNKTE[i % TESTPUNKTE.length] + VERSCHIEBUNG[i % VERSCHIEBUNG.length])));
     const r0 = berechne(vorher, ns0.noten, 52);
-    // Ein paar Stunden Mitarbeit, damit die Leistung im Zeitraum etwas zeigt
+    // Ein paar Stunden Mitarbeit, zwei Tests und eine Mappenkontrolle, damit die Übersicht etwas zeigt
+    const vorTagen = (tage) => isoDatum(new Date(Date.now() - tage * 864e5));
+    const notenAus = (v) => Object.fromEntries(k.schueler.map((s, i) => {
+      if ((i + v) % 11 === 0) return null;
+      const q = TESTPUNKTE[i % TESTPUNKTE.length] / 52 + (((i * 5 + v) % 7) - 3) * 0.05;
+      return [s.id, alsNote(6 - Math.min(1, Math.max(0, q)) * 5.2, true)];
+    }).filter(Boolean));
+    k.tests = [{ id: neueId(), titel: "1. Test", datum: vorTagen(21), noten: notenAus(1) }, { id: neueId(), titel: "2. Test", datum: vorTagen(7), noten: notenAus(4) }];
+    k.mappe = [{ id: neueId(), titel: "1. Mappenkontrolle", datum: vorTagen(10), noten: notenAus(2) }];
     k.mitarbeit = [2, 5, 9, 12, 16, 19].map((tage, j) => {
       const d = new Date(Date.now() - tage * 864e5);
       const werte = {};
@@ -3010,7 +3215,7 @@ if (typeof document !== "undefined") {
 
   const BACKUP_KEY = "notenauswertung-backup-zuletzt";
   async function backupSichern() {
-    const daten = { programm: "Notenauswertung", version: 2, gesichert: new Date().toISOString(), kurse, einstellungen: einst };
+    const daten = { programm: "Notenauswertung", version: 3, gesichert: new Date().toISOString(), kurse, zeitraeume: zr, einstellungen: einst };
     const ok = await herunterladen(new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" }),
       `Notenauswertung_Backup_${new Date().toISOString().slice(0, 10)}.json`);
     if (!ok) return;
@@ -3037,12 +3242,18 @@ if (typeof document !== "undefined") {
   $("backup-laden").addEventListener("click", () => $("backup-datei").click());
   function backupEinlesen(daten) {
     if (!daten || !Array.isArray(daten.kurse)) throw new Error("keine Kurse in der Datei");
+    const listeLesen = (a) => (Array.isArray(a) ? a : []).filter((t) => t && typeof t === "object").map((t) => ({
+      id: String(t.id || neueId()), titel: String(t.titel || ""), datum: /^\d{4}-\d{2}-\d{2}$/.test(t.datum || "") ? t.datum : "",
+      noten: Object.fromEntries(Object.entries(t.noten && typeof t.noten === "object" ? t.noten : {}).filter(([, v]) => noteLesen(v).note != null).map(([id, v]) => [id, noteLesen(v).text])),
+    }));
     const geladen = daten.kurse.filter((k) => k && Array.isArray(k.schueler)).map((k) => ({
       id: String(k.id || neueId()), name: String(k.name || ""), beispiel: !!k.beispiel,
       schueler: k.schueler.filter((s) => s && s.name).map((s) => ({ id: String(s.id || neueId()), name: String(s.name), klasse: String(s.klasse || "") })),
       mitarbeit: (Array.isArray(k.mitarbeit) ? k.mitarbeit : []).filter((m) => m && /^\d{4}-\d{2}-\d{2}$/.test(m.datum || "")).map((m) => ({
         datum: m.datum, werte: Object.fromEntries(Object.entries(m.werte && typeof m.werte === "object" ? m.werte : {}).filter(([, v]) => MARKEN.includes(v))),
       })),
+      tests: listeLesen(k.tests), mappe: listeLesen(k.mappe),
+      zeitraum: k.zeitraum && typeof k.zeitraum === "object" ? k.zeitraum : {},
       ...(Array.isArray(k.leistungen) ? { leistungen: k.leistungen.filter((L) => L && typeof L === "object"), leistungAktiv: String(k.leistungAktiv || "") }
         : k.leistung && typeof k.leistung === "object" ? { leistung: k.leistung } : {}),
       arbeiten: (Array.isArray(k.arbeiten) ? k.arbeiten : []).filter((a) => a && Array.isArray(a.punkte)).map((a) => ({
@@ -3055,6 +3266,16 @@ if (typeof document !== "undefined") {
     geladen.forEach((k) => { if (vorhanden.has(k.id)) kurse = kurse.map((x) => (x.id === k.id ? k : x)); else kurse.push(k); });
     if (daten.einstellungen) { einst = zusammenfuehren(STANDARD_EINST, daten.einstellungen); if (einst.sortierung === "name") einst.sortierung = "nachname"; einstSpeichern(); $("gesamt-start").value = einst.gesamt; }
     if (geladen[0]) { bearbeitet = geladen[0].id; aktiverKurs = geladen[0].id; }
+    if (daten.zeitraeume && Array.isArray(daten.zeitraeume.liste)) {
+      daten.zeitraeume.liste.filter((Z) => Z && typeof Z === "object" && Z.id).forEach((Z) => {
+        const neu = { id: String(Z.id), titel: String(Z.titel || ""), von: String(Z.von || ""), bis: String(Z.bis || ""), schluessel: schluesselPruefen(Z.schluessel) };
+        const i = zr.liste.findIndex((x) => x.id === neu.id);
+        if (i >= 0) zr.liste[i] = neu; else zr.liste.push(neu);
+      });
+      if (zr.liste.some((x) => x.id === daten.zeitraeume.aktiv)) zr.aktiv = daten.zeitraeume.aktiv;
+    }
+    datenAnpassen();
+    zeitraeumeSpeichern();
     kurseSpeichern();
     return `${geladen.length} ${geladen.length === 1 ? "Kurs" : "Kurse"} aus der Backup-Datei geladen.`;
   }
@@ -3087,6 +3308,7 @@ if (typeof document !== "undefined") {
   function nachAenderung(meldung) {
     kurswahlAufbauen();
     eintragAufbauen();
+    if (aktiverBereich !== "arbeit") bereichZeigen(aktiverBereich);
     if (kursDialog.open) { kursEditorAufbauen(); $("kurs-status").textContent = meldung; }
     else $("datenstatus").textContent = meldung + "\n" + $("datenstatus").textContent;
   }
@@ -3466,7 +3688,7 @@ if (typeof document !== "undefined") {
   });
   einstDialog.addEventListener("close", () => {
     $("gesamt-start").value = einst.gesamt;
-    if (!$("eingabe").hidden) eintragAufbauen(); else alleZeilenAktualisieren();
+    if (!$("eingabe").hidden) bereichZeigen(aktiverBereich); else alleZeilenAktualisieren();
     pruefe();
     if (ergebnis && !$("ergebnis").hidden) {
       if (pruefe()) { ergebnis = auswertungErstellen(); ergebnisAnzeigen(); }
@@ -3474,18 +3696,30 @@ if (typeof document !== "undefined") {
     }
   });
 
-  // ----- Bereiche: Arbeit, Mitarbeit, Leistung im Zeitraum -----
+  // ----- Bereiche: Arbeiten, Tests, Mitarbeit, Mappe, Übersicht -----
   const MARKEN = ["+", "o", "−"];
-  const heuteISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const BEREICH_IDS = ["arbeit", "tests", "mitarbeit", "mappe", "leistung"];
+  const BEREICH_KEY = "notenauswertung-bereich";
+  const isoDatum = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const heuteISO = () => isoDatum(new Date());
   const datumKurz = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? `${m[3]}.${m[2]}.` : ""; };
+  const undListe = (a) => (a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")} und ${a[a.length - 1]}`);
+  const komma2 = zweiStellen;
+  // Beim nächsten Öffnen geht es im zuletzt benutzten Bereich weiter
   function bereichZeigen(b) {
+    if (!BEREICH_IDS.includes(b)) b = "arbeit";
     aktiverBereich = b;
-    ["arbeit", "mitarbeit", "leistung"].forEach((x) => { $("panel-" + x).hidden = x !== b; $("bereich-" + x).setAttribute("aria-selected", String(x === b)); });
-    if (b === "mitarbeit") mitarbeitAufbauen(); else if (b === "leistung") leistungAufbauen(); else eintragAufbauen();
+    schreiben(BEREICH_KEY, b);
+    BEREICH_IDS.forEach((x) => { $("panel-" + x).hidden = x !== b; $("bereich-" + x).setAttribute("aria-selected", String(x === b)); });
+    if (b === "mitarbeit") mitarbeitAufbauen();
+    else if (b === "tests" || b === "mappe") notenlisteAufbauen(b);
+    else if (b === "leistung") leistungAufbauen();
+    else eintragAufbauen();
+    backupStand();
     $("testpunkte").hidden = b !== "arbeit" || !(kurs() && kurs().beispiel && kurs().schueler.length);
   }
-  ["arbeit", "mitarbeit", "leistung"].forEach((x) => $("bereich-" + x).addEventListener("click", () => bereichZeigen(x)));
-  // Kurswahl für Mitarbeit und Leistung, verbunden mit der Kurswahl der Arbeit
+  BEREICH_IDS.forEach((x) => $("bereich-" + x).addEventListener("click", () => bereichZeigen(x)));
+  // Kurswahl für alle Bereiche, verbunden mit der Kurswahl bei den Arbeiten
   function kursFeld() {
     const s = el("select");
     if (!kurse.length) s.append(el("option", { value: "", text: "Noch kein Kurs" }));
@@ -3503,6 +3737,95 @@ if (typeof document !== "undefined") {
     return z.sort(vgl).map((x) => x.s);
   }
   const ohneKurs = (p) => p.append(el("p", { klasse: "hint", stil: "margin-top:14px", text: "Lege zuerst unter „Kurse verwalten“ einen Kurs mit Namen an." }));
+  // Zweistufiges Löschen: erst nachfragen, nach 4 Sekunden ohne Bestätigung zurück
+  function loeschKnopf(text, frage, weg) {
+    let stufe = 0;
+    const b = el("button", { type: "button", klasse: "zweit", text });
+    b.addEventListener("click", () => {
+      if (stufe === 0) { stufe = 1; b.className = "gefahr"; b.textContent = frage; setTimeout(() => { stufe = 0; b.className = "zweit"; b.textContent = text; }, 4000); return; }
+      weg();
+    });
+    return b;
+  }
+
+  // ----- Zeiträume: gelten für alle Kurse, jeder mit eigenem Schlüssel für die Endnote -----
+  const ZEITRAUM_KEY = "notenauswertung-zeitraeume-v1";
+  function halbjahr() {
+    const j = new Date(), y = j.getMonth() >= 7 ? j.getFullYear() : j.getFullYear() - 1;
+    return { von: `${y}-08-01`, bis: `${y + 1}-01-31` };
+  }
+  const zr = (() => { const d = lesen(ZEITRAUM_KEY); return d && Array.isArray(d.liste) ? { liste: d.liste, aktiv: d.aktiv || null } : { liste: [], aktiv: null }; })();
+  const zeitraeumeSpeichern = () => schreiben(ZEITRAUM_KEY, zr);
+  function schluesselPruefen(x) {
+    const r = {};
+    BEREICHE.forEach((b) => { const w = x && typeof x === "object" ? Number(x[b.id]) : NaN; r[b.id] = Number.isFinite(w) && w >= 0 ? w : STANDARD_SCHLUESSEL[b.id]; });
+    return r;
+  }
+  // Ein neuer Zeitraum übernimmt den Schlüssel des gerade gewählten
+  const neuerZeitraum = (vorlage) => ({ id: neueId(), titel: "Neuer Zeitraum", ...halbjahr(), schluessel: { ...(vorlage ? vorlage.schluessel : STANDARD_SCHLUESSEL) } });
+  function zeitraeume() {
+    zr.liste = zr.liste.filter((Z) => Z && typeof Z === "object");
+    if (!zr.liste.length) zr.liste.push({ ...neuerZeitraum(), titel: "Leistung 1. Halbjahr" });
+    zr.liste.forEach((Z) => {
+      if (!Z.id) Z.id = neueId();
+      if (typeof Z.titel !== "string") Z.titel = "";
+      Z.schluessel = schluesselPruefen(Z.schluessel);
+    });
+    if (!zr.liste.some((Z) => Z.id === zr.aktiv)) zr.aktiv = zr.liste[0].id;
+    return zr.liste;
+  }
+  const aktiverZeitraum = () => zeitraeume().find((Z) => Z.id === zr.aktiv);
+  // Eigene Noten eines Kurses in einem Zeitraum: Mitarbeit und Endnote, wo du vom Vorschlag abweichst
+  function eigeneVon(k, Z) {
+    if (!k.zeitraum || typeof k.zeitraum !== "object") k.zeitraum = {};
+    if (!k.zeitraum[Z.id] || typeof k.zeitraum[Z.id] !== "object") k.zeitraum[Z.id] = {};
+    const e = k.zeitraum[Z.id];
+    if (!e.mitarbeit || typeof e.mitarbeit !== "object") e.mitarbeit = {};
+    if (!e.note || typeof e.note !== "object") e.note = {};
+    return e;
+  }
+  function rechenOptionen() {
+    const L = einst.leistung, w = (x, d) => (Number.isFinite(x) && x >= 1 && x <= 6 ? x : d);
+    return { wert: { plus: w(L.plus, 1), o: w(L.o, 3), minus: w(L.minus, 5) }, mitTendenz: !!einst.tendenzen.an, endTendenz: !!L.endTendenz };
+  }
+  const berechnen = (k, Z) => zeitraumBerechnen(k, Z, eigeneVon(k, Z), rechenOptionen());
+  // Auswahl des Zeitraums, in jedem Bereich gleich
+  function zeitraumFeld(nachWechsel) {
+    const s = el("select");
+    zeitraeume().forEach((Z) => s.append(el("option", { value: Z.id, text: Z.titel || "Ohne Titel" })));
+    s.value = zr.aktiv;
+    s.addEventListener("change", () => { zr.aktiv = s.value; zeitraeumeSpeichern(); nachWechsel(); });
+    return el("label", { klasse: "feld", stil: "flex:1 1 200px" }, "Zeitraum", s);
+  }
+  // Ältere Fassungen hatten die Übersicht in jedem Kurs. Daraus werden Zeiträume für alle Kurse, Tests und Mappe werden eigene Listen
+  function datenAnpassen() {
+    let geaendert = false;
+    kurse.forEach((k) => {
+      const alt = Array.isArray(k.leistungen) ? k.leistungen : k.leistung && typeof k.leistung === "object" ? [k.leistung] : null;
+      if (!alt) return;
+      geaendert = true;
+      alt.filter((L) => L && typeof L === "object").forEach((L) => {
+        let Z = zr.liste.find((x) => x.titel === (L.titel || "") && x.von === (L.von || "") && x.bis === (L.bis || ""));
+        if (!Z) { Z = { id: neueId(), titel: L.titel || "", von: L.von || "", bis: L.bis || "", schluessel: { ...STANDARD_SCHLUESSEL } }; zr.liste.push(Z); }
+        if (L.id && L.id === k.leistungAktiv && k.id === aktiverKurs) zr.aktiv = Z.id;
+        const e = eigeneVon(k, Z);
+        Object.assign(e.mitarbeit, L.mitarbeit && typeof L.mitarbeit === "object" ? L.mitarbeit : {});
+        Object.assign(e.note, L.note && typeof L.note === "object" ? L.note : {});
+        if (L.sonstige && typeof L.sonstige === "object" && Object.keys(L.sonstige).length) e.alt = L.sonstige;
+        let tag = heuteISO();
+        if (Z.bis && tag > Z.bis) tag = Z.bis;
+        if (Z.von && tag < Z.von) tag = Z.von;
+        [["tests", "Test"], ["mappe", "Mappe"]].forEach(([art, titel]) => {
+          const noten = L[art] && typeof L[art] === "object" ? Object.fromEntries(Object.entries(L[art]).filter(([, v]) => noteLesen(v).note != null).map(([id, v]) => [id, noteLesen(v).text])) : {};
+          if (!Object.keys(noten).length) return;
+          if (!Array.isArray(k[art])) k[art] = [];
+          k[art].push({ id: neueId(), titel, datum: tag, noten });
+        });
+      });
+      delete k.leistungen; delete k.leistungAktiv; delete k.leistung;
+    });
+    if (geaendert) { kurseSpeichern(); zeitraeumeSpeichern(); }
+  }
 
   // ----- Mitarbeit pro Stunde: +, o oder −, sofort gespeichert -----
   let mitarbeitDatum = heuteISO();
@@ -3513,26 +3836,50 @@ if (typeof document !== "undefined") {
     const datumIn = el("input", { type: "date" });
     datumIn.value = mitarbeitDatum;
     datumIn.addEventListener("change", () => { if (datumIn.value) { mitarbeitDatum = datumIn.value; mitarbeitAufbauen(); } });
-    p.append(el("div", { klasse: "reihe" }, kursFeld(), el("label", { klasse: "feld", stil: "flex:0 1 200px" }, "Datum der Stunde", datumIn)));
+    p.append(el("div", { klasse: "reihe" }, kursFeld(), zeitraumFeld(mitarbeitAufbauen), el("label", { klasse: "feld", stil: "flex:0 1 190px" }, "Datum der Stunde", datumIn)));
     if (!k || !k.schueler.length) { ohneKurs(p); return; }
     k.mitarbeit = Array.isArray(k.mitarbeit) ? k.mitarbeit : [];
+    const Z = aktiverZeitraum(), noten = notenspiegel(einst).noten;
     const stunde = () => k.mitarbeit.find((m) => m.datum === mitarbeitDatum);
+    const loeschen = loeschKnopf("Diese Stunde löschen", "Wirklich löschen?", () => {
+      k.mitarbeit = k.mitarbeit.filter((m) => m.datum !== mitarbeitDatum);
+      kurseSpeichern();
+      mitarbeitAufbauen();
+    });
     const stundenZeile = el("div", { klasse: "stunden" });
+    const info = el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px" });
     const stundenZeigen = () => {
       const daten = k.mitarbeit.map((m) => m.datum).sort();
       stundenZeile.innerHTML = "";
       stundenZeile.append(daten.length ? `Erfasste Stunden (${daten.length}):` : "Noch keine Stunde erfasst.",
         ...daten.map((d) => el("button", { type: "button", klasse: "zweit" + (d === mitarbeitDatum ? " an" : ""), text: datumKurz(d), title: datumDE(d),
           onclick: () => { mitarbeitDatum = d; mitarbeitAufbauen(); } })));
+      if (mitarbeitDatum !== heuteISO()) stundenZeile.append(el("button", { type: "button", klasse: "leise", text: "Zu heute", onclick: () => { mitarbeitDatum = heuteISO(); mitarbeitAufbauen(); } }));
+      const st = stunde(), z = { "+": 0, o: 0, "−": 0 };
+      if (st) Object.values(st.werte).forEach((v) => { if (v in z) z[v]++; });
+      const ohne = Math.max(0, k.schueler.length - z["+"] - z.o - z["−"]);
+      info.textContent = `Stunde am ${datumDE(mitarbeitDatum)}: ${z["+"]} mal +, ${z.o} mal o, ${z["−"]} mal −, ${ohne} ohne Zeichen. ` +
+        "Tippen setzt das Zeichen, nochmal tippen nimmt es zurück. Alles wird sofort gespeichert.";
+      loeschen.hidden = !st;
     };
     stundenZeigen();
-    p.append(stundenZeile);
-    const summe = (sid) => { const z = { "+": 0, o: 0, "−": 0 }; k.mitarbeit.forEach((m) => { const v = m.werte && m.werte[sid]; if (v in z) z[v]++; }); return z; };
-    const summeText = (sid) => { const z = summe(sid); return `${z["+"]} / ${z.o} / ${z["−"]}`; };
+    p.append(stundenZeile, info);
+    const zellen = new Map();
+    const zeitraumZeigen = () => {
+      berechnen(k, Z).zeilen.forEach((z) => {
+        const c = zellen.get(z.s.id);
+        if (!c) return;
+        c.summe.textContent = `${z.zaehl["+"]} / ${z.zaehl.o} / ${z.zaehl["−"]}`;
+        c.note.innerHTML = "";
+        const n = noteLesen(z.mitarbeit);
+        if (n.note != null) c.note.append(noteChip(n.note, n.tendenz, noten), z.mitEigen ? el("span", { klasse: "notenwort", text: "eigene" }) : null);
+      });
+    };
     const tbody = el("tbody");
     personenReihenfolge(k).forEach((s, idx) => {
       const knoepfe = MARKEN.map((m) => el("button", { type: "button", text: m, "aria-label": `${m} für ${anzeige(s.name)}` }));
-      const bisher = el("td", { klasse: "zaehlung", text: summeText(s.id) });
+      const summe = el("td", { klasse: "zaehlung" }), note = el("td", { klasse: "zaehlung" });
+      zellen.set(s.id, { summe, note });
       const zeigen = () => { const st = stunde(), v = st && st.werte[s.id]; knoepfe.forEach((b, i) => b.classList.toggle("an", v === MARKEN[i])); };
       knoepfe.forEach((b, i) => b.addEventListener("click", () => {
         let st = stunde();
@@ -3540,151 +3887,392 @@ if (typeof document !== "undefined") {
         if (st.werte[s.id] === MARKEN[i]) delete st.werte[s.id]; else st.werte[s.id] = MARKEN[i];
         if (!Object.keys(st.werte).length) k.mitarbeit = k.mitarbeit.filter((m) => m !== st);
         kurseSpeichern();
-        zeigen(); bisher.textContent = summeText(s.id); stundenZeigen(); loeschen.hidden = !stunde();
+        zeigen(); stundenZeigen(); zeitraumZeigen();
       }));
       zeigen();
       tbody.append(el("tr", {}, el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name", text: anzeige(s.name) }),
-        el("td", { klasse: "klasse", text: s.klasse || "" }), el("td", {}, el("span", { klasse: "wahl3" }, knoepfe)), bisher));
+        el("td", { klasse: "klasse", text: s.klasse || "" }), el("td", {}, el("span", { klasse: "wahl3" }, knoepfe)), summe, note));
     });
-    p.append(el("p", { klasse: "hint", stil: "margin:12px 0 0;font-size:13px", text: "Tippen setzt +, o oder − für diese Stunde, erneutes Tippen nimmt es zurück. Alles wird sofort gespeichert." }));
+    zeitraumZeigen();
     p.append(el("div", { klasse: "eintrag-rahmen" }, el("table", { klasse: "mitarbeit-tab" },
-      el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Diese Stunde" }), el("th", { text: "Bisher + / o / −" }))), tbody)));
-    let stufe = 0;
-    const loeschen = el("button", { type: "button", klasse: "zweit", text: "Diese Stunde löschen" });
-    loeschen.hidden = !stunde();
-    loeschen.addEventListener("click", () => {
-      if (stufe === 0) { stufe = 1; loeschen.className = "gefahr"; loeschen.textContent = "Wirklich löschen?"; setTimeout(() => { stufe = 0; loeschen.className = "zweit"; loeschen.textContent = "Diese Stunde löschen"; }, 4000); return; }
-      k.mitarbeit = k.mitarbeit.filter((m) => m.datum !== mitarbeitDatum);
-      kurseSpeichern();
-      mitarbeitAufbauen();
-    });
+      el("thead", {}, el("tr", {}, el("th", { klasse: "nr", text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Diese Stunde" }),
+        el("th", { klasse: "zaehlung", text: "Im Zeitraum + / o / −" }), el("th", { klasse: "zaehlung", text: "Note" }))), tbody)));
+    p.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px", text: `Im Zeitraum „${Z.titel || "Ohne Titel"}“ steht die Anzahl der Zeichen und die Mitarbeitsnote daraus. Eine eigene Note aus der Übersicht geht vor.` }));
     p.append(el("div", { klasse: "knoepfe" }, loeschen));
   }
 
-  // ----- Leistung im Zeitraum: beliebig viele Zeiträume pro Kurs, jeder mit eigenen Noten -----
-  function halbjahr() {
-    const j = new Date(), y = j.getMonth() >= 7 ? j.getFullYear() : j.getFullYear() - 1;
-    return { von: `${y}-08-01`, bis: `${y + 1}-01-31` };
+  // ----- Tests und Mappe: Noten zum Antippen, je Test oder Mappenkontrolle mit Datum -----
+  const LISTEN = {
+    tests: { mehrzahl: "Tests", neu: "Neuer Test", keine: "Noch kein Test in diesem Kurs.", titel: (n) => `${n}. Test`, loeschen: "Test löschen" },
+    mappe: { mehrzahl: "Mappenkontrollen", neu: "Neue Mappenkontrolle", keine: "Noch keine Mappenkontrolle in diesem Kurs.", titel: (n) => `${n}. Mappenkontrolle`, loeschen: "Mappenkontrolle löschen" },
+  };
+  const listenAuswahl = { tests: {}, mappe: {} };
+  // Note antippen, dann bei Bedarf + oder −. Die gewählte Note trägt ihre Farbe aus dem Notenspiegel
+  function notenKnoepfe(x, s, noten, nachher) {
+    const t = einst.tendenzen, letzte = noten.length - 1;
+    const ziffern = noten.map((_, i) => el("button", { type: "button", text: String(i + 1), "aria-label": `Note ${i + 1} für ${anzeige(s.name)}` }));
+    const plus = el("button", { type: "button", klasse: "tend", text: "+", "aria-label": `Plus für ${anzeige(s.name)}` });
+    const minus = el("button", { type: "button", klasse: "tend", text: "−", "aria-label": `Minus für ${anzeige(s.name)}` });
+    const zeigen = () => {
+      const n = noteLesen(x.noten[s.id]);
+      ziffern.forEach((b, i) => {
+        const an = n.note === i;
+        b.classList.toggle("an", an);
+        b.style.background = an ? noten[i].farbe : "";
+        b.style.color = an ? (helligkeit(noten[i].farbe) < 0.5 ? "#fff" : "#1c1c1c") : "";
+      });
+      plus.classList.toggle("an", n.tendenz === "+");
+      minus.classList.toggle("an", n.tendenz === "−");
+      plus.disabled = n.note == null || (n.note === 0 && !t.einsPlus && n.tendenz !== "+") || (n.note === letzte && !t.sechs && n.tendenz !== "+");
+      minus.disabled = n.note == null || (n.note === letzte && !t.sechs && n.tendenz !== "−");
+    };
+    const setzen = (text) => { if (text) x.noten[s.id] = text; else delete x.noten[s.id]; kurseSpeichern(); zeigen(); nachher(); };
+    ziffern.forEach((b, i) => b.addEventListener("click", () => setzen(noteLesen(x.noten[s.id]).note === i ? "" : String(i + 1))));
+    const tendenzSetzen = (z) => { const n = noteLesen(x.noten[s.id]); if (n.note != null) setzen(`${n.note + 1}${n.tendenz === z ? "" : z}`); };
+    plus.addEventListener("click", () => tendenzSetzen("+"));
+    minus.addEventListener("click", () => tendenzSetzen("−"));
+    zeigen();
+    return el("span", { klasse: "notenwahl" }, ziffern, t.an ? [el("span", { klasse: "trenner" }), plus, minus] : null);
   }
-  const neuerZeitraum = (titel) => ({ id: neueId(), titel, ...halbjahr(), tests: {}, mappe: {}, mitarbeit: {}, note: {} });
-  function zeitraeumeVon(k) {
-    if (!Array.isArray(k.leistungen)) {
-      k.leistungen = k.leistung && typeof k.leistung === "object" ? [{ ...k.leistung, id: neueId() }] : [];
-      delete k.leistung;
+  function notenlisteAufbauen(art) {
+    const L = LISTEN[art], p = $("panel-" + art);
+    p.innerHTML = "";
+    const k = kurs();
+    p.append(el("div", { klasse: "reihe" }, kursFeld(), zeitraumFeld(() => notenlisteAufbauen(art))));
+    if (!k || !k.schueler.length) { ohneKurs(p); return; }
+    if (!Array.isArray(k[art])) k[art] = [];
+    k[art].sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
+    const liste = k[art];
+    const x = liste.find((t) => t.id === listenAuswahl[art][k.id]) || liste[liste.length - 1];
+    const neu = () => {
+      const t = { id: neueId(), titel: L.titel(liste.length + 1), datum: heuteISO(), noten: {} };
+      liste.push(t); listenAuswahl[art][k.id] = t.id; kurseSpeichern(); notenlisteAufbauen(art);
+    };
+    p.append(el("div", { klasse: "stunden" }, liste.length ? `${L.mehrzahl} (${liste.length}):` : "",
+      ...liste.map((t) => el("button", { type: "button", klasse: "zweit" + (x && t.id === x.id ? " an" : ""), text: `${t.titel || "Ohne Titel"} · ${datumKurz(t.datum)}`,
+        onclick: () => { listenAuswahl[art][k.id] = t.id; notenlisteAufbauen(art); } })),
+      el("button", { type: "button", klasse: "zweit", text: `+ ${L.neu}`, onclick: neu })));
+    if (!x) {
+      p.append(el("div", { klasse: "karte leer", stil: "margin-top:14px" }, el("p", { text: L.keine }),
+        el("div", { klasse: "knoepfe" }, el("button", { type: "button", text: L.neu, onclick: neu }))));
+      return;
     }
-    k.leistungen = k.leistungen.filter((L) => L && typeof L === "object");
-    if (!k.leistungen.length) k.leistungen.push(neuerZeitraum("Leistung 1. Halbjahr"));
-    k.leistungen.forEach((L) => {
-      if (!L.id) L.id = neueId();
-      ["tests", "mappe", "mitarbeit", "note"].forEach((f) => { if (!L[f] || typeof L[f] !== "object") L[f] = {}; });
+    if (!x.noten || typeof x.noten !== "object") x.noten = {};
+    const titelIn = el("input", { type: "text" }); titelIn.value = x.titel || "";
+    const datumIn = el("input", { type: "date" }); datumIn.value = x.datum || "";
+    titelIn.addEventListener("input", () => { x.titel = titelIn.value; kurseSpeichern(); });
+    titelIn.addEventListener("change", () => notenlisteAufbauen(art));
+    datumIn.addEventListener("change", () => { if (datumIn.value) { x.datum = datumIn.value; kurseSpeichern(); notenlisteAufbauen(art); } });
+    const weg = loeschKnopf(L.loeschen, "Wirklich löschen?", () => {
+      k[art] = k[art].filter((t) => t !== x); delete listenAuswahl[art][k.id]; kurseSpeichern(); notenlisteAufbauen(art);
     });
-    if (!k.leistungen.some((L) => L.id === k.leistungAktiv)) k.leistungAktiv = k.leistungen[0].id;
-    return k.leistungen;
+    p.append(el("div", { klasse: "reihe", stil: "margin-top:10px" }, el("label", { klasse: "feld", stil: "flex:1 1 240px" }, "Titel", titelIn),
+      el("label", { klasse: "feld", stil: "flex:0 1 190px" }, "Datum", datumIn), weg));
+    const Z = aktiverZeitraum(), noten = notenspiegel(einst).noten;
+    const draussen = x.datum && ((Z.von && x.datum < Z.von) || (Z.bis && x.datum > Z.bis));
+    const info = el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px" });
+    const infoZeigen = () => {
+      const eingetragen = k.schueler.map((s) => noteLesen(x.noten[s.id])).filter((n) => n.note != null);
+      const anzahl = noten.map(() => 0);
+      eingetragen.forEach((n) => { anzahl[n.note]++; });
+      info.textContent = `${eingetragen.length} von ${k.schueler.length} eingetragen` +
+        (eingetragen.length ? ` · ${notenspiegelZeile(anzahl, mittelwert(eingetragen.map((n) => notenWert(n.text))))}` : "") + ". " +
+        (draussen ? `Das Datum liegt außerhalb von „${Z.titel || "Ohne Titel"}“, dort zählt die Note nicht. ` : "") +
+        "Note antippen, dann bei Bedarf + oder −. Nochmal tippen nimmt sie zurück. Alles wird sofort gespeichert.";
+    };
+    const zellen = new Map(), feld = art === "tests" ? "tst" : "mpp";
+    const zeitraumZeigen = () => {
+      berechnen(k, Z).zeilen.forEach((z) => {
+        const c = zellen.get(z.s.id);
+        if (!c) return;
+        const l = z[feld].filter(Boolean);
+        c.textContent = l.join("  ") + (l.length > 1 ? `   Ø ${komma2(z.werte[art])}` : "");
+      });
+    };
+    const tbody = el("tbody");
+    personenReihenfolge(k).forEach((s, idx) => {
+      const zelle = el("td", { klasse: "zaehlung" });
+      zellen.set(s.id, zelle);
+      tbody.append(el("tr", {}, el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name", text: anzeige(s.name) }),
+        el("td", { klasse: "klasse", text: s.klasse || "" }), el("td", {}, notenKnoepfe(x, s, noten, () => { infoZeigen(); zeitraumZeigen(); })), zelle));
+    });
+    infoZeigen(); zeitraumZeigen();
+    p.append(info, el("div", { klasse: "eintrag-rahmen" }, el("table", { klasse: "mitarbeit-tab" },
+      el("thead", {}, el("tr", {}, el("th", { klasse: "nr", text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Note" }),
+        el("th", { klasse: "zaehlung", text: "Alle im Zeitraum" }))), tbody)));
   }
-  const komma2 = (w) => w.toFixed(2).replace(".", ",");
-  const notenText = (v) => { const t = String(v || "").trim(); return t ? noteLesen(t).text || t : ""; };
+
+  // ----- Übersicht: alle Bereiche eines Zeitraums, Endnote nach Schlüssel, Statistik -----
+  const UEBERSICHT_SORT = [["eingabe", "Reihenfolge im Kurs"], ["nachname", "Nachname"], ["vorname", "Vorname"], ["klasse", "Klasse, dann Nachname"], ["endnote", "Endnote"]];
+  const uebersichtSortierung = () => (einst.uebersichtSortierung === "endnote" ? "endnote"
+    : ["eingabe", "nachname", "vorname", "klasse"].includes(einst.sortierung) ? einst.sortierung : "nachname");
+  function zeilenSortiert(D) {
+    const art = uebersichtSortierung();
+    const name = namensVergleich(art === "vorname" ? "vorname" : "nachname");
+    const w = D.zeilen.map((z) => ({ z, nr: z.nr, roh: z.s.name, name: z.s.name, klasse: z.s.klasse || "", wert: z.endnote ? notenWert(z.endnote) : null }));
+    const vgl = art === "eingabe" ? (a, b) => a.nr - b.nr
+      : art === "klasse" ? (a, b) => a.klasse.localeCompare(b.klasse, "de", { numeric: true }) || name(a, b)
+      : art === "endnote" ? (a, b) => (a.wert == null) - (b.wert == null) || (a.wert || 0) - (b.wert || 0) || name(a, b)
+      : name;
+    return w.sort(vgl).map((x) => x.z);
+  }
+  // Spalten für Word und zum Kopieren: Arbeiten, Tests und Mappe nur, wenn dort im Zeitraum Noten stehen
+  function ausgabeSpalten(D, trenner) {
+    const liste = (l) => l.map((n) => n || "–").join(trenner);
+    return [
+      { titel: "Name", wert: (z) => anzeige(z.s.name) },
+      { titel: "Klasse", wert: (z) => z.s.klasse || "" },
+      ...(D.aktiv.arbeiten ? [{ titel: "Arbeiten", wert: (z) => liste(z.arb) }] : []),
+      ...(D.aktiv.tests ? [{ titel: "Tests", wert: (z) => liste(z.tst) }] : []),
+      ...(D.aktiv.mappe ? [{ titel: "Mappe", wert: (z) => liste(z.mpp) }] : []),
+      ...(D.aktiv.mitarbeit ? [{ titel: "Mitarbeit", wert: (z) => z.mitarbeit }] : []),
+      { titel: "Endnote", wert: (z) => z.endnote },
+    ];
+  }
+  const anteilText = (D) => BEREICHE.filter((b) => D.anteile[b.id] > 0).map((b) => `${b.name} ${Math.round(D.anteile[b.id] * 100)} %`).join(", ");
+  let uebersichtAnsicht = lesen("notenauswertung-uebersicht") === "statistik" ? "statistik" : "noten";
   function leistungAufbauen() {
     const p = $("panel-leistung");
     p.innerHTML = "";
-    const k = kurs();
+    const k = kurs(), Z = aktiverZeitraum();
     const kf = kursFeld(); kf.style.flex = "1 1 220px";
-    if (!k || !k.schueler.length) { p.append(el("div", { klasse: "reihe" }, kf)); ohneKurs(p); return; }
-    const L = zeitraeumeVon(k).find((x) => x.id === k.leistungAktiv);
-    // Zeitraum wählen, anlegen, löschen
-    const wahl = el("select");
-    k.leistungen.forEach((x) => wahl.append(el("option", { value: x.id, text: x.titel || "Ohne Titel" })));
-    wahl.value = L.id;
-    wahl.addEventListener("change", () => { k.leistungAktiv = wahl.value; kurseSpeichern(); leistungAufbauen(); });
+    const zf = zeitraumFeld(leistungAufbauen), zSel = zf.querySelector("select");
     const neuK = el("button", { type: "button", klasse: "zweit", text: "Neuer Zeitraum" });
     neuK.addEventListener("click", () => {
-      const n = neuerZeitraum("Neuer Zeitraum");
-      k.leistungen.push(n); k.leistungAktiv = n.id; kurseSpeichern(); leistungAufbauen();
-      const t = $("panel-leistung").querySelector("input[type=text]");
+      const n = neuerZeitraum(Z);
+      zr.liste.push(n); zr.aktiv = n.id; zeitraeumeSpeichern(); leistungAufbauen();
+      const t = $("zeitraum-titel");
       if (t) { t.focus(); t.select(); }
     });
-    let stufe = 0;
-    const loeschK = el("button", { type: "button", klasse: "zweit", text: "Zeitraum löschen" });
-    loeschK.addEventListener("click", () => {
-      if (stufe === 0) {
-        stufe = 1; loeschK.className = "gefahr"; loeschK.textContent = "Mit allen Noten löschen?";
-        setTimeout(() => { stufe = 0; loeschK.className = "zweit"; loeschK.textContent = "Zeitraum löschen"; }, 4000);
-        return;
-      }
-      k.leistungen = k.leistungen.filter((x) => x !== L); kurseSpeichern(); leistungAufbauen();
+    p.append(el("div", { klasse: "reihe" }, kf, zf, neuK));
+    const titelIn = el("input", { type: "text", id: "zeitraum-titel" }); titelIn.value = Z.titel || "";
+    const vonIn = el("input", { type: "date" }); vonIn.value = Z.von || "";
+    const bisIn = el("input", { type: "date" }); bisIn.value = Z.bis || "";
+    titelIn.addEventListener("input", () => { Z.titel = titelIn.value; zSel.options[zSel.selectedIndex].text = Z.titel || "Ohne Titel"; zeitraeumeSpeichern(); });
+    vonIn.addEventListener("change", () => { Z.von = vonIn.value; zeitraeumeSpeichern(); if (k && k.schueler.length) inhaltZeigen(); });
+    bisIn.addEventListener("change", () => { Z.bis = bisIn.value; zeitraeumeSpeichern(); if (k && k.schueler.length) inhaltZeigen(); });
+    const loeschK = loeschKnopf("Zeitraum löschen", "Wirklich löschen?", () => {
+      zr.liste = zr.liste.filter((x) => x !== Z);
+      kurse.forEach((x) => { if (x.zeitraum) delete x.zeitraum[Z.id]; });
+      zeitraeumeSpeichern(); kurseSpeichern(); leistungAufbauen();
     });
-    p.append(el("div", { klasse: "reihe" }, kf, el("label", { klasse: "feld", stil: "flex:1 1 220px" }, "Zeitraum", wahl), neuK));
-    const titelIn = el("input", { type: "text" }); titelIn.value = L.titel || "";
-    const vonIn = el("input", { type: "date" }); vonIn.value = L.von || "";
-    const bisIn = el("input", { type: "date" }); bisIn.value = L.bis || "";
-    titelIn.addEventListener("input", () => { L.titel = titelIn.value; wahl.options[wahl.selectedIndex].text = L.titel || "Ohne Titel"; kurseSpeichern(); });
-    vonIn.addEventListener("change", () => { L.von = vonIn.value; kurseSpeichern(); inhaltZeigen(); });
-    bisIn.addEventListener("change", () => { L.bis = bisIn.value; kurseSpeichern(); inhaltZeigen(); });
     p.append(el("div", { klasse: "reihe", stil: "margin-top:10px" }, el("label", { klasse: "feld", stil: "flex:1 1 220px" }, "Titel", titelIn),
       el("label", { klasse: "feld", stil: "flex:0 1 170px" }, "Von", vonIn), el("label", { klasse: "feld", stil: "flex:0 1 170px" }, "Bis", bisIn), loeschK));
+    // Schlüssel für die Endnote, gilt im ganzen Zeitraum für alle Kurse
+    const anteilZeile = el("div", { klasse: "summe" });
+    const schl = el("div", { klasse: "schluessel" }, el("div", { klasse: "titel", text: "Schlüssel für die Endnote in diesem Zeitraum, für alle Kurse" }));
+    BEREICHE.forEach((b) => {
+      const f = el("input", { type: "number", min: "0", max: "100", step: "5", inputmode: "numeric", "aria-label": `Anteil ${b.name} in Prozent` });
+      f.value = Z.schluessel[b.id];
+      f.addEventListener("input", () => {
+        const w = parseFloat(String(f.value).replace(",", "."));
+        Z.schluessel[b.id] = Number.isFinite(w) && w >= 0 ? w : 0;
+        zeitraeumeSpeichern();
+        if (k && k.schueler.length) inhaltZeigen();
+      });
+      schl.append(el("label", { klasse: "feld" }, b.name, el("span", { klasse: "prozent" }, f, "%")));
+    });
+    schl.append(anteilZeile);
+    p.append(schl);
+    if (!k || !k.schueler.length) { ohneKurs(p); return; }
+    const eigene = eigeneVon(k, Z);
+    const anteilZeigen = (D) => {
+      const t = anteilText(D);
+      const leer = BEREICHE.filter((b) => Z.schluessel[b.id] > 0 && !D.aktiv[b.id]).map((b) => b.name);
+      anteilZeile.textContent = (t ? `Gerechnet wird mit ${t}.` : "Im Zeitraum stehen noch keine Noten.") +
+        (leer.length ? ` ${undListe(leer)} ${leer.length === 1 ? "hat" : "haben"} hier keine Noten und ${leer.length === 1 ? "zählt" : "zählen"} nicht.` : "");
+    };
+    // Ansicht: Noten oder Statistik
+    const knopfNoten = el("button", { type: "button", role: "tab", text: "Noten" });
+    const knopfStat = el("button", { type: "button", role: "tab", text: "Statistik" });
+    const ansicht = (a) => { uebersichtAnsicht = a; schreiben("notenauswertung-uebersicht", a); inhaltZeigen(); };
+    knopfNoten.addEventListener("click", () => ansicht("noten"));
+    knopfStat.addEventListener("click", () => ansicht("statistik"));
     const info = el("p", { klasse: "hint", stil: "margin:12px 0 0;font-size:13px" });
-    const rahmen = el("div", { klasse: "tabelle-rahmen", stil: "padding:2px 6px;margin-top:12px" });
-    const hinweis = el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px" });
+    const inhalt = el("div");
     const word = el("button", { type: "button", text: "Word-Export" });
     const status = el("span", { klasse: "status", stil: "margin:0" });
-    p.append(info, rahmen, hinweis, el("div", { klasse: "knoepfe" }, word, status));
-    // Notenfeld, sofort gespeichert. Leer heißt: nichts eingetragen
-    const feld = (map, s, name, platz) => {
-      const f = el("input", { type: "text", autocomplete: "off", "aria-label": `${name} ${anzeige(s.name)}` });
-      f.value = map[s.id] || "";
-      if (platz) f.placeholder = platz;
-      const pruefen = () => f.classList.toggle("ungueltig", !!noteLesen(f.value).fehler);
-      f.addEventListener("input", () => { if (f.value.trim()) map[s.id] = f.value; else delete map[s.id]; pruefen(); kurseSpeichern(); });
-      pruefen();
-      return f;
+    const tabelleText = () => {
+      const D = berechnen(k, Z), sp = ausgabeSpalten(D, " ");
+      return [sp.map((x) => x.titel).join("\t"), ...zeilenSortiert(D).map((z) => sp.map((x) => x.wert(z)).join("\t"))].join("\n");
     };
+    p.append(el("div", { klasse: "reiter klein", role: "tablist" }, knopfNoten, knopfStat), info, inhalt,
+      el("div", { klasse: "knoepfe" }, word, kopierKnopf(tabelleText, "Tabelle kopieren"), status));
+
     function inhaltZeigen() {
-      const D = leistungBerechnen(k, L), arb = D.arbeiten.length > 0;
-      info.textContent = `Arbeiten im Zeitraum: ${arb ? D.arbeiten.map((a) => `${a.arbeit || "Ohne Titel"} (${datumKurz(a.datum)})`).join(", ") : "keine"}. ` +
-        `Mitarbeit: ${D.stunden.length} ${D.stunden.length === 1 ? "Stunde" : "Stunden"}.`;
-      hinweis.textContent = D.stunden.length ? "Die graue Note bei Mitarbeit ist der Vorschlag aus den Stunden im Zeitraum. Dabei zählt + als 1, o als 3 und − als 5, der Schnitt wird mit Tendenz gerundet. Er gilt, bis du selbst eine Note einträgst." : "";
-      const nach = new Map(D.zeilen.map((z) => [z.s.id, z]));
-      const tbody = el("tbody");
-      personenReihenfolge(k).forEach((s) => {
-        const z = nach.get(s.id);
-        tbody.append(el("tr", {},
-          el("td", { text: anzeige(s.name) }), el("td", { klasse: "klasse", text: s.klasse || "" }),
-          arb ? el("td", { text: z.arbNoten.map((n) => n || "–").join("  ") }) : null,
-          arb ? el("td", { klasse: "klasse", text: z.schnitt != null ? komma2(z.schnitt) : "" }) : null,
-          el("td", {}, feld(L.tests, s, "Tests")), el("td", {}, feld(L.mappe, s, "Mappe")),
-          el("td", {}, D.stunden.length ? el("span", { klasse: "zaehl", text: `${z.zaehl["+"]} / ${z.zaehl.o} / ${z.zaehl["−"]}` }) : null, feld(L.mitarbeit, s, "Mitarbeit", z.mitVorschlag)),
-          el("td", {}, feld(L.note, s, "Note"))));
-      });
-      rahmen.innerHTML = "";
-      rahmen.append(el("table", { klasse: "leistung-tab" },
-        el("thead", {}, el("tr", {}, ["Name", "Klasse", ...(arb ? ["Arbeiten", "Schnitt"] : []), "Tests", "Mappe", "Mitarbeit", "Note"].map((t) => el("th", { text: t })))),
-        tbody));
+      const D = berechnen(k, Z);
+      knopfNoten.setAttribute("aria-selected", String(uebersichtAnsicht === "noten"));
+      knopfStat.setAttribute("aria-selected", String(uebersichtAnsicht === "statistik"));
+      const titel = (arr) => arr.map((a) => `${a.arbeit || a.titel || "Ohne Titel"} (${datumKurz(a.datum)})`).join(", ");
+      const teile = [D.arbeiten.length ? `Arbeiten: ${titel(D.arbeiten)}` : "Keine Arbeit im Zeitraum"];
+      if (D.tests.length) teile.push(`Tests: ${titel(D.tests)}`);
+      if (D.mappe.length) teile.push(`Mappe: ${titel(D.mappe)}`);
+      teile.push(`Mitarbeit: ${D.stunden.length} ${D.stunden.length === 1 ? "Stunde" : "Stunden"}`);
+      info.textContent = teile.join(". ") + ".";
+      anteilZeigen(D);
+      inhalt.innerHTML = "";
+      if (uebersichtAnsicht === "statistik") statistikZeigen(D); else notenZeigen(D);
     }
-    inhaltZeigen();
-    // Word: Arbeiten, Tests, Mappe und Mitarbeit nur, wenn dort etwas steht
-    word.addEventListener("click", async () => {
-      const D = leistungBerechnen(k, L);
-      const nach = new Map(D.zeilen.map((z) => [z.s.id, z]));
-      const reihen = personenReihenfolge(k).map((s) => {
-        const z = nach.get(s.id);
-        return { name: anzeige(s.name), klasse: s.klasse || "", arbeiten: z.arbNoten.map((x) => x || "–").join("  "),
-          tests: notenText(L.tests[s.id]), mappe: notenText(L.mappe[s.id]), mitarbeit: notenText(L.mitarbeit[s.id]) || z.mitVorschlag, note: notenText(L.note[s.id]) };
+
+    // Noten: Mitarbeit und Endnote mit Vorschlag in Grau, eine eigene Note ersetzt ihn
+    function notenZeigen(D) {
+      const sortWahl = el("select");
+      UEBERSICHT_SORT.forEach(([w, t]) => sortWahl.append(el("option", { value: w, text: t })));
+      sortWahl.value = uebersichtSortierung();
+      sortWahl.addEventListener("change", () => {
+        if (sortWahl.value === "endnote") einst.uebersichtSortierung = "endnote";
+        else { einst.uebersichtSortierung = ""; einst.sortierung = sortWahl.value; }
+        einstSpeichern(); inhaltZeigen();
       });
-      const spalten = [["Name", "name"], ["Klasse", "klasse"], ...(D.arbeiten.length ? [["Arbeiten", "arbeiten"]] : []),
-        ...[["Tests", "tests"], ["Mappe", "mappe"], ["Mitarbeit", "mitarbeit"]].filter(([, f]) => reihen.some((r) => r[f])), ["Note", "note"]];
-      const klassen = [...new Set(k.schueler.map((s) => s.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
-      const schonDrin = klassen.length && klassen.every((x) => (k.name || "").toLowerCase().includes(x.toLowerCase()));
-      const unter = [k.name, !schonDrin && klassen.length ? klassen.join(", ") : "", L.von || L.bis ? `${datumDE(L.von)} bis ${datumDE(L.bis)}` : ""].filter(Boolean).join(" · ");
-      const angaben = D.arbeiten.length ? [`Arbeiten: ${D.arbeiten.map((a) => `${a.arbeit || "Ohne Titel"} (${datumDE(a.datum)})`).join(", ")}.`] : [];
-      const blob = leistungDokument({ titel: L.titel || "Leistung", unterzeile: unter, angaben, kurs: k.name,
-        kopf: spalten.map(([t]) => t), zeilen: reihen.map((r) => spalten.map(([, f]) => r[f])),
-        datumText: new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }) });
-      const ok = await herunterladen(blob, [dateiTeil(L.titel) || "Leistung", dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".docx");
-      status.textContent = ok ? "Word-Datei erstellt." : "";
+      inhalt.append(el("div", { klasse: "reihe", stil: "margin-top:12px" }, el("label", { klasse: "feld", stil: "flex:0 1 240px" }, "Sortierung", sortWahl)));
+      let aktualisieren = () => {};
+      const feld = (map, s, name, spalte, zeile) => {
+        const f = el("input", { type: "text", autocomplete: "off", "aria-label": `${name} ${anzeige(s.name)}`, "data-spalte": spalte, "data-zeile": zeile });
+        f.value = map[s.id] || "";
+        const pruefen = () => f.classList.toggle("ungueltig", !!noteLesen(f.value).fehler);
+        f.addEventListener("input", () => { if (f.value.trim()) map[s.id] = f.value; else delete map[s.id]; pruefen(); kurseSpeichern(); aktualisieren(); });
+        f.addEventListener("keydown", (e) => {
+          const ziel = e.key === "Enter" || e.key === "ArrowDown" ? zeile + 1 : e.key === "ArrowUp" ? zeile - 1 : null;
+          if (ziel == null) return;
+          e.preventDefault();
+          const n = f.closest("table").querySelector(`input[data-spalte="${spalte}"][data-zeile="${ziel}"]`);
+          if (n) { n.focus(); n.select(); } else if (e.key === "Enter") f.blur();
+        });
+        pruefen();
+        return f;
+      };
+      const notenZelle = (liste, wert) => el("td", {}, liste.map((n) => n || "–").join("  "),
+        liste.filter(Boolean).length > 1 && wert != null ? el("span", { klasse: "schnitt", text: komma2(wert) }) : null);
+      const refs = [], tbody = el("tbody");
+      zeilenSortiert(D).forEach((z, zi) => {
+        const mitIn = feld(eigene.mitarbeit, z.s, "Mitarbeit", "m", zi), endIn = feld(eigene.note, z.s, "Endnote", "e", zi);
+        const zaehl = el("span", { klasse: "zaehl" }), dez = el("span", { klasse: "dezimal" });
+        refs.push({ id: z.s.id, mitIn, endIn, zaehl, dez });
+        tbody.append(el("tr", {},
+          el("td", { text: anzeige(z.s.name) }), el("td", { klasse: "klasse", text: z.s.klasse || "" }),
+          D.aktiv.arbeiten ? notenZelle(z.arb, z.werte.arbeiten) : null,
+          D.aktiv.tests ? notenZelle(z.tst, z.werte.tests) : null,
+          D.aktiv.mappe ? notenZelle(z.mpp, z.werte.mappe) : null,
+          el("td", {}, zaehl, mitIn), el("td", { klasse: "endnote" }, dez, endIn)));
+      });
+      aktualisieren = () => {
+        const N = berechnen(k, Z), nach = new Map(N.zeilen.map((x) => [x.s.id, x]));
+        refs.forEach((r) => {
+          const x = nach.get(r.id);
+          if (!x) return;
+          r.mitIn.placeholder = x.mitVorschlag;
+          r.endIn.placeholder = x.endVorschlag;
+          r.zaehl.textContent = N.stunden.length ? `${x.zaehl["+"]} / ${x.zaehl.o} / ${x.zaehl["−"]}` : "";
+          r.dez.textContent = x.endWert != null ? komma2(x.endWert) : "";
+        });
+        anteilZeigen(N);
+      };
+      aktualisieren();
+      const kopf = ["Name", "Klasse", ...(D.aktiv.arbeiten ? ["Arbeiten"] : []), ...(D.aktiv.tests ? ["Tests"] : []), ...(D.aktiv.mappe ? ["Mappe"] : []), "Mitarbeit", "Endnote"];
+      inhalt.append(el("div", { klasse: "tabelle-rahmen fest", stil: "padding:2px 6px;margin-top:12px" },
+        el("table", { klasse: "leistung-tab" }, el("thead", {}, el("tr", {}, kopf.map((t) => el("th", { text: t })))), tbody)));
+      inhalt.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px",
+        text: "Grau steht der Vorschlag: bei Mitarbeit aus den Zeichen im Zeitraum, bei der Endnote nach dem Schlüssel aus den Schnitten der Bereiche. Eine eigene Note ersetzt den Vorschlag. Enter springt eine Zeile weiter. Wie die Zeichen zählen und wie die Endnote gerundet wird, steht in den Einstellungen." }));
+    }
+
+    // Statistik der Endnoten und der Bereiche, direkt hier und auf Wunsch im Word-Export
+    function statistikZeigen(D) {
+      const st = zeitraumStatistik(D), noten = notenspiegel(einst).noten;
+      const tab = (kopf, zeilen) => el("div", { klasse: "tabelle-rahmen", stil: "padding:2px 12px" },
+        el("table", { klasse: "stat" }, el("thead", {}, el("tr", {}, kopf.map((x) => el("th", { text: x })))), el("tbody", {}, zeilen)));
+      const abschnitt = (t, h) => { inhalt.append(el("div", { klasse: "abschnitt-titel", text: t })); if (h) inhalt.append(el("p", { klasse: "stat-hinweis", text: h })); };
+      const niemand = () => inhalt.append(el("p", { text: "Niemand." }));
+      const chip = (t) => { const n = noteLesen(t); return n.note != null ? noteChip(n.note, n.tendenz, noten) : null; };
+      const kacheln = el("div", { klasse: "kacheln", stil: "margin-top:14px" });
+      [["Mit Endnote", `${st.n} von ${st.gesamt}`], ["Schnitt der Endnoten", st.schnitt != null ? komma2(st.schnitt) : "–"], ["Note 5 oder 6", String(st.schwach.length)]]
+        .forEach(([b, w]) => kacheln.append(el("div", { klasse: "kachel" }, el("div", { klasse: "bez", text: b }), el("div", { klasse: "wert", text: w }))));
+      inhalt.append(kacheln);
+      if (!st.n) { inhalt.append(el("p", { klasse: "hint", text: "Noch keine Endnote im Zeitraum. Sobald in einem Bereich Noten stehen, erscheint hier die Auswertung." })); return; }
+
+      abschnitt("Notenverteilung der Endnoten");
+      const max = Math.max(1, ...st.anzahl);
+      const zeilen = st.anzahl.map((c, i) => el("tr", {},
+        el("td", {}, noteChip(i, "", noten), el("span", { klasse: "notenwort", text: noten[i].name })),
+        el("td", { klasse: "stark", text: String(c) }), el("td", { text: `${de(c / st.n * 100)} %` }),
+        el("td", { klasse: "balken-zelle" }, el("div", { klasse: "balken" }, el("span", { stil: `width:${c / max * 100}%;background:${noten[i].farbe}` })))));
+      zeilen.push(el("tr", { klasse: "summe" }, el("td", { text: "Gesamt" }), el("td", { text: String(st.n) }), el("td", { text: "100,0 %" }), el("td")));
+      inhalt.append(tab(["Note", "Anzahl", "Anteil", ""], zeilen));
+      const zeileNs = notenspiegelZeile(st.anzahl, st.schnitt);
+      inhalt.append(el("div", { klasse: "zeile-ns" }, el("code", { text: zeileNs }), kopierKnopf(zeileNs)));
+
+      abschnitt("Bereiche");
+      inhalt.append(tab(["Bereich", "Anteil an der Endnote", "Einträge", "Schnitt"], st.bereiche.map((b) => el("tr", {},
+        el("td", { klasse: "stark", text: b.name }), el("td", { text: b.anteil ? `${Math.round(b.anteil * 100)} %` : "zählt nicht" }),
+        el("td", { text: b.eintraege }), el("td", { klasse: "stark", text: b.schnitt != null ? komma2(b.schnitt) : "" })))));
+
+      if (st.klassen.length) {
+        abschnitt("Nach Klassen");
+        inhalt.append(tab(["Klasse", "Mit Endnote", "Schnitt", "Note 5 oder 6"], st.klassen.map((x) => el("tr", {},
+          el("td", { klasse: "stark", text: x.klasse }), el("td", { text: `${x.n} von ${x.gesamt}` }),
+          el("td", { klasse: "stark", text: x.schnitt != null ? komma2(x.schnitt) : "" }), el("td", { text: String(x.schwach) })))));
+      }
+
+      abschnitt("Note 5 oder 6");
+      if (st.schwach.length) inhalt.append(tab(["Name", "Klasse", "Endnote", "Bereiche"], st.schwach.map((z) => el("tr", {},
+        el("td", { text: anzeige(z.s.name) }), el("td", { text: z.s.klasse || "" }), el("td", {}, chip(z.endnote)), el("td", { text: bereichsText(z, D) })))));
+      else niemand();
+
+      abschnitt("Große Unterschiede zwischen den Bereichen", "Mindestens zwei Noten zwischen dem stärksten und dem schwächsten Bereich");
+      if (st.abstand.length) inhalt.append(tab(["Name", "Klasse", "Stärkster Bereich", "Schwächster Bereich"], st.abstand.map((a) => el("tr", {},
+        el("td", { text: anzeige(a.z.s.name) }), el("td", { text: a.z.s.klasse || "" }),
+        el("td", { text: `${a.stark.b.name} ${a.stark.text}` }), el("td", { text: `${a.schwach.b.name} ${a.schwach.text}` })))));
+      else niemand();
+
+      if (D.stunden.length >= 3) {
+        abschnitt("Mitarbeit selten erfasst", "In weniger als einem Drittel der Stunden ein Zeichen");
+        if (st.selten.length) inhalt.append(tab(["Name", "Klasse", "Stunden mit Zeichen"], st.selten.map((x) => el("tr", {},
+          el("td", { text: anzeige(x.z.s.name) }), el("td", { text: x.z.s.klasse || "" }), el("td", { text: `${x.n} von ${D.stunden.length}` })))));
+        else niemand();
+      }
+
+      abschnitt("Fehlende Noten", "Arbeiten ohne Punkte und Vermerk, Tests und Mappenkontrollen ohne Note");
+      if (st.fehlend.length) inhalt.append(tab(["Name", "Klasse", "Es fehlt"], st.fehlend.map((x) => el("tr", {},
+        el("td", { text: anzeige(x.z.s.name) }), el("td", { text: x.z.s.klasse || "" }), el("td", { text: x.fehlt.join(", ") })))));
+      else niemand();
+    }
+
+    // Word: Seite 1 mit allen Noten, auf Wunsch Seite 2 mit der Statistik
+    word.addEventListener("click", async () => {
+      status.textContent = "";
+      status.classList.remove("fehler");
+      try {
+        const D = berechnen(k, Z), st = zeitraumStatistik(D), sp = ausgabeSpalten(D, "  ");
+        const klassen = [...new Set(k.schueler.map((s) => s.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
+        const schonDrin = klassen.length && klassen.every((x) => (k.name || "").toLowerCase().includes(x.toLowerCase()));
+        const unter = [k.name, !schonDrin && klassen.length ? klassen.join(", ") : "", Z.von || Z.bis ? `${datumDE(Z.von)} bis ${datumDE(Z.bis)}` : ""].filter(Boolean).join(" · ");
+        const titel = (arr) => arr.map((a) => `${a.arbeit || a.titel || "Ohne Titel"} (${datumDE(a.datum)})`).join(", ");
+        const angaben = [];
+        if (D.aktiv.arbeiten) angaben.push(`Arbeiten: ${titel(D.arbeiten)}.`);
+        if (D.aktiv.tests) angaben.push(`Tests: ${titel(D.tests)}.`);
+        if (D.aktiv.mappe) angaben.push(`Mappe: ${titel(D.mappe)}.`);
+        if (D.stunden.length) angaben.push(`Mitarbeit aus ${D.stunden.length} ${D.stunden.length === 1 ? "Stunde" : "Stunden"}.`);
+        const t = anteilText(D);
+        if (t) angaben.push(`Endnote: ${t}.`);
+        const blob = zeitraumDokument({
+          titel: Z.titel || "Leistung", unterzeile: unter, angaben, kurs: k.name,
+          datumText: new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }),
+          grundwerte: [["Mit Endnote", `${st.n} von ${st.gesamt}`], ["Schnitt der Endnoten", st.schnitt != null ? komma2(st.schnitt) : "–"], ["Note 5 oder 6", String(st.schwach.length)]],
+          kopf: sp.map((x) => x.titel), zeilen: zeilenSortiert(D).map((z) => sp.map((x) => x.wert(z))),
+          farben: einst.noten.map((n) => n.farbe), notenNamen: einst.noten.map((n) => n.name),
+          statistik: einst.word.statistik ? { ...st, schwach: st.schwach.map((z) => ({ name: anzeige(z.s.name), klasse: z.s.klasse || "", note: z.endnote, bereiche: bereichsText(z, D) })) } : null,
+        });
+        const ok = await herunterladen(blob, [dateiTeil(Z.titel) || "Leistung", dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".docx");
+        status.textContent = ok ? "Word-Datei erstellt." : "";
+      } catch (err) {
+        status.textContent = "Der Word-Export hat nicht geklappt: " + err.message;
+        status.classList.add("fehler");
+      }
     });
+    inhaltZeigen();
   }
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "23.10.2026 11:24";
+  const STAND = "23.10.2026 12:24";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
@@ -3703,8 +4291,11 @@ if (typeof document !== "undefined") {
 
   // ----- Start -----
   entwurfLaden();
+  datenAnpassen();
+  zeitraeume();
+  zeitraeumeSpeichern();
   kurswahlAufbauen();
-  eintragAufbauen();
+  bereichZeigen(lesen(BEREICH_KEY) || "arbeit");
   // Auf iPad und iPhone: Safari darf Daten eines Tabs nach einiger Zeit ohne Nutzung löschen, die App auf dem Home-Bildschirm nicht
   const eigenstaendig = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   if (istIOS && !eigenstaendig) {
