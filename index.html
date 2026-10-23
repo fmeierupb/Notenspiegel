@@ -362,7 +362,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 23.10.2026 17:08</span>
+      <span>Fassung 23.10.2026 17:09</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -4286,7 +4286,7 @@ if (typeof document !== "undefined") {
         const c = zellen.get(z.s.id);
         if (!c) return;
         const l = z[feld].filter(Boolean);
-        c.textContent = l.join("  ") + (l.length > 1 ? `   Ø ${komma2(z.werte[art])}` : "");
+        c.textContent = l.join(", ") + (l.length > 1 ? `   Ø ${komma2(z.werte[art])}` : "");
       });
     };
     const tbody = el("tbody");
@@ -4451,7 +4451,7 @@ if (typeof document !== "undefined") {
     const word = el("button", { type: "button", text: "Word-Export" });
     const status = el("span", { klasse: "status", stil: "margin:0" });
     const tabelleText = () => {
-      const D = berechnen(k, Z), sp = ausgabeSpalten(D, " ");
+      const D = berechnen(k, Z), sp = ausgabeSpalten(D, ", ");
       return [sp.map((x) => x.titel).join("\t"), ...zeilenSortiert(D).map((z) => sp.map((x) => x.wert(z)).join("\t"))].join("\n");
     };
     p.append(el("div", { klasse: "reiter klein", role: "tablist" }, knopfNoten, knopfStat), info, inhalt,
@@ -4499,8 +4499,8 @@ if (typeof document !== "undefined") {
         pruefen();
         return f;
       };
-      const notenZelle = (liste, wert) => el("td", {}, liste.map((n) => n || "–").join("  "),
-        liste.filter(Boolean).length > 1 && wert != null ? el("span", { klasse: "schnitt", text: komma2(wert) }) : null);
+      const notenZelle = (liste, wert) => el("td", {}, liste.map((n) => n || "–").join(", "),
+        liste.filter(Boolean).length > 1 && wert != null ? el("span", { klasse: "schnitt", text: `Ø ${komma2(wert)}` }) : null);
       const refs = [], tbody = el("tbody"), notenFarben = notenspiegel(einst).noten;
       zeilenSortiert(D).forEach((z, zi) => {
         const mitIn = feld(eigene.mitarbeit, z.s, "Mitarbeit", "m", zi), endIn = feld(eigene.note, z.s, "Endnote", "e", zi);
@@ -4623,7 +4623,7 @@ if (typeof document !== "undefined") {
       status.textContent = "";
       status.classList.remove("fehler");
       try {
-        const D = berechnen(k, Z), st = zeitraumStatistik(D), sp = ausgabeSpalten(D, "  ");
+        const D = berechnen(k, Z), st = zeitraumStatistik(D), sp = ausgabeSpalten(D, ", ");
         const klassen = [...new Set(k.schueler.map((s) => s.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
         const schonDrin = klassen.length && klassen.every((x) => (k.name || "").toLowerCase().includes(x.toLowerCase()));
         const unter = [k.name, !schonDrin && klassen.length ? klassen.join(", ") : "", Z.von || Z.bis ? `${datumDE(Z.von)} bis ${datumDE(Z.bis)}` : ""].filter(Boolean).join(" · ");
@@ -4778,7 +4778,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "23.10.2026 17:08";
+  const STAND = "23.10.2026 17:09";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
