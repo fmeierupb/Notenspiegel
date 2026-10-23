@@ -27,6 +27,7 @@
     const dunkel = t ? t === "dunkel" : matchMedia("(prefers-color-scheme: dark)").matches;
     document.documentElement.dataset.theme = dunkel ? "dark" : "light";
   } catch (e) { document.documentElement.dataset.theme = "light"; }
+  try { if (localStorage.getItem("notenauswertung-sperre")) document.documentElement.classList.add("gesperrt"); } catch (e) { /* ohne Speicher */ }
 </script>
 <style>
   /* "only light": Chrome auf Android dunkelt sonst die helle Ansicht selbst ab, dann sähen hell und dunkel gleich aus */
@@ -206,6 +207,8 @@
     border: 1px solid transparent; border-bottom: 0; margin-bottom: -1px;
   }
   .reiter button[aria-selected="true"] { background: var(--card); color: var(--text); border-color: var(--border); }
+  .diagramm-box { background: #ffffff; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 14px; }
+  .diagramm-box canvas { display: block; }
   #bildbox {
     position: relative; background: #ffffff; border: 1px solid var(--border); border-radius: 10px; padding: 12px;
     display: flex; align-items: center; justify-content: center;
@@ -296,11 +299,31 @@
   .vorschau td.kz { width: 2.2em; }
   .vorschau td.zahl { text-align: right; font-variant-numeric: tabular-nums; }
   .vorschau .marke { font-size: 12px; color: var(--muted); }
+  /* Sperre beim Öffnen */
+  #sperre { display: none; }
+  html.gesperrt main, html.gesperrt #thema { visibility: hidden; }
+  html.gesperrt #sperre { display: flex; position: fixed; inset: 0; z-index: 100; background: var(--bg); align-items: center; justify-content: center; padding: 24px 16px; }
+  .sperre-karte { width: 100%; max-width: 420px; text-align: center; }
+  .sperre-karte p { color: var(--muted); }
+  .sperre-karte .knoepfe { justify-content: center; }
   #teilen-leiste { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2); }
 </style>
 </head>
 <body>
 <button id="thema" type="button"></button>
+<div id="sperre" role="dialog" aria-modal="true" aria-labelledby="sperre-titel">
+  <div class="sperre-karte">
+    <h1 id="sperre-titel">Notenauswertung</h1>
+    <p>Gesperrt. Zum Öffnen Fingerabdruck, Face ID oder Gerätecode bestätigen.</p>
+    <button id="entsperren" class="gross" type="button">Entsperren</button>
+    <div id="sperre-status" class="status"></div>
+    <div class="knoepfe"><button id="sperre-notfall" class="leise" type="button">Entsperren geht nicht mehr?</button></div>
+    <div id="sperre-notfall-box" hidden>
+      <p>Ohne Entsperren öffnet sich das Tool nicht. Du kannst alle Daten auf diesem Gerät löschen und danach aus einer Backup-Datei wiederherstellen.</p>
+      <button id="sperre-loeschen" class="gefahr" type="button">Alle Daten auf diesem Gerät löschen</button>
+    </div>
+  </div>
+</div>
 <main>
   <section id="eingabe">
     <h1>Notenauswertung</h1>
@@ -335,7 +358,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 23.10.2026 12:48</span>
+      <span>Fassung 23.10.2026 13:29</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -435,6 +458,24 @@
   </div>
 </dialog>
 
+<dialog id="passwort-dialog">
+  <div class="dialog-innen">
+    <div class="dialog-kopf"><h2 id="pw-titel" tabindex="-1">Passwort</h2></div>
+    <div class="dialog-inhalt">
+      <p id="pw-text" class="hint"></p>
+      <div class="reihe">
+        <label class="feld" style="flex:1 1 240px">Passwort<input id="pw-1" type="password" autocomplete="new-password"></label>
+        <label class="feld" id="pw-2-feld" style="flex:1 1 240px">Passwort wiederholen<input id="pw-2" type="password" autocomplete="new-password"></label>
+      </div>
+      <div id="pw-status" class="status fehler"></div>
+    </div>
+    <div class="dialog-fuss">
+      <button id="pw-abbrechen" class="zweit rechts" type="button">Abbrechen</button>
+      <button id="pw-ok" type="button">OK</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="einst-dialog">
   <div class="dialog-innen">
     <div class="dialog-kopf"><h2 tabindex="-1" autofocus>Einstellungen</h2></div>
@@ -507,6 +548,16 @@
           <label class="feld">Endnote
             <select data-einst="leistung.endTendenz"><option value="false">ganze Noten</option><option value="true">mit Tendenz</option></select>
           </label>
+          <label class="feld" id="tendenz-breite-feld">Bereich für + und −<input type="number" min="0" max="0.5" step="0.01" data-einst="leistung.tendenzBreite" style="width:6em"></label>
+        </div>
+        <p class="hint" id="endnote-beispiel" style="margin:10px 0 0"></p>
+      </div>
+      <div class="abschnitt">
+        <h3>Sperre</h3>
+        <p class="hint" id="sperre-hinweis"></p>
+        <div class="reihe" style="align-items:center">
+          <button id="sperre-schalter" class="zweit" type="button">Sperre einrichten</button>
+          <span id="sperre-einst-status" class="status" style="margin:0"></span>
         </div>
       </div>
       <div class="abschnitt">
@@ -550,7 +601,7 @@ const STANDARD_EINST = {
   diagramm: { kreuze: true, mittel: true, fit: true, legende: true, anzahl: true, xTitel: "Notenstufen [Punkte; Prozent]", yTitel: "Häufigkeit" },
   word: { ueberschrift: "Notenliste", diagramm: true, statistik: true },
   notenBereich: false,
-  leistung: { plus: 1, o: 3, minus: 5, endTendenz: false },
+  leistung: { plus: 1, o: 3, minus: 5, endTendenz: false, tendenzBreite: 0.33 },
   uebersichtSortierung: "",
 };
 
@@ -832,12 +883,17 @@ const BEREICHE = [
 const STANDARD_SCHLUESSEL = { arbeiten: 50, tests: 20, mitarbeit: 20, mappe: 10 };
 const mittelwert = (w) => (w.length ? w.reduce((a, b) => a + b, 0) / w.length : null);
 const zweiStellen = (w) => w.toFixed(2).replace(".", ",");
-// Zahl als Note: ganz oder auf Drittel gerundet, also mit Tendenz (2,33 wird 2−). Genau ,5 rundet zur schlechteren Note
-function alsNote(w, mitTendenz) {
+// Zahl als Note. Genau ,5 rundet zur schlechteren Note. Mit Tendenz bekommt der untere Teil einer Notenstufe ein +,
+// der obere ein −, jeweils so breit wie „breite“. Mit 1/3 sind es Drittel: 2+ ab 1,50, 2 ab 1,83, 2− ab 2,17
+function alsNote(w, mitTendenz, breite = 1 / 3, sechsMitTendenz = true) {
   if (w == null || !Number.isFinite(w)) return "";
-  const t = Math.min(6, Math.max(1, mitTendenz ? Math.round(w * 3 + 1e-9) / 3 : Math.round(w + 1e-9)));
-  const ganz = Math.round(t), rest = Math.round((t - ganz) * 3);
-  return `${ganz}${rest < 0 ? "+" : rest > 0 ? "−" : ""}`;
+  const v = Math.min(6, Math.max(1, w));
+  const ganz = Math.min(6, Math.max(1, Math.round(v + 1e-9)));
+  if (!mitTendenz || (ganz === 6 && !sechsMitTendenz)) return String(ganz);
+  const b = Math.min(0.5, Math.max(0, Number.isFinite(breite) ? breite : 1 / 3));
+  if (ganz > 1 && v < ganz - 0.5 + b - 1e-9) return `${ganz}+`;
+  if (ganz < 6 && v >= ganz + 0.5 - b - 1e-9) return `${ganz}−`;
+  return String(ganz);
 }
 // Mitarbeit aus den Zeichen: jedes Zeichen zählt als eine Note, davon der Schnitt
 function mitarbeitWert(z, wert) {
@@ -884,7 +940,7 @@ function zeitraumBerechnen(k, Z, eigene, o) {
     let g = 0, w = 0;
     BEREICHE.forEach((b) => { if (z.werte[b.id] != null && gewicht(b.id)) { g += gewicht(b.id); w += gewicht(b.id) * z.werte[b.id]; } });
     z.endWert = g ? w / g : null;
-    z.endVorschlag = alsNote(z.endWert, o.endTendenz);
+    z.endVorschlag = alsNote(z.endWert, o.endTendenz, o.endBreite, o.endSechs);
     z.endEigen = gueltig(eig.note[z.s.id]);
     z.endnote = z.endEigen || z.endVorschlag;
   });
@@ -1079,6 +1135,33 @@ function kreuz(ctx, x, y, farbe) {
   linie(ctx, [[x - r, y + r], [x + r, y - r]], farbe, 1);
 }
 
+// Daten für das Diagramm der Endnoten, gezeichnet wie bei den Arbeiten: Note 1 rechts, jede Note gleich breit.
+// werte sind die Endnoten als Zahl (2+ = 1,67). Daraus Balken, Kreuze, Schnitt und Gaußfit, die Grenzen liegen bei 1,5, 2,5 und so weiter
+function endnotenDiagramm(werte, noten, o) {
+  const n = noten.length, alsX = (w) => n + 1 - w;
+  const links = noten.map((_, i) => n - 0.5 - i), rechts = noten.map((_, i) => n + 0.5 - i), mitte = noten.map((_, i) => n - i);
+  const noteIndex = (x) => Math.min(n - 1, Math.max(0, Math.round(n + 1 - x + 1e-9) - 1));
+  const xs = werte.filter(Number.isFinite).map(alsX);
+  const anzahl = noten.map(() => 0);
+  xs.forEach((x) => { anzahl[noteIndex(x)]++; });
+  const mittel = xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : n / 2;
+  const std = xs.length ? Math.sqrt(xs.reduce((q, x) => q + (x - mittel) ** 2, 0) / xs.length) || 1 : 1;
+  let fit = null;
+  if (xs.length >= 2) {
+    const f = gaussFit(mitte, anzahl, [Math.max(...anzahl), mittel, std]);
+    if ([f.a, f.mu, f.sigma].every(Number.isFinite) && f.a > 0 && f.sigma > 0.15 && f.mu >= links[n - 1] && f.mu <= rechts[0] && f.sigma <= 0.6 * n) fit = f;
+  }
+  const stapel = new Map(), kreuze = [];
+  [...xs].sort((a, b) => a - b).forEach((x) => { const h = stapel.get(x) || 0; kreuze.push({ x, y: h + 0.5 }); stapel.set(x, h + 1); });
+  const name = (x) => noten[noteIndex(x)].name;
+  return {
+    noten, maxPunkte: rechts[0], o, einzug: 0.06,
+    r: { links, rechts, mitte, anzahl, mittel, fit, kreuze, noteIndex },
+    ticks: links.slice(0, -1).map((x) => ({ x, z1: deG(n + 1 - x), z2: "" })),
+    texte: { kreuz: "Endnote einer Person", mittel: (x) => `Schnitt: ${zweiStellen(n + 1 - x)}, ${name(x)}`, fit: (x) => `Zentrum Gaußfit: ${zweiStellen(n + 1 - x)}, ${name(x)}` },
+  };
+}
+
 function zeichne(ctx, pixelBreite, daten) {
   T = daten.grau ? T_GRAU : T_FARBE;
   if (daten.grau) daten = { ...daten, noten: daten.noten.map((n, i) => ({ ...n, farbe: GRAUSTUFEN[Math.min(i, GRAUSTUFEN.length - 1)] })) };
@@ -1089,15 +1172,17 @@ function zeichne(ctx, pixelBreite, daten) {
   ctx.fillRect(0, 0, BREITE, HOEHE);
 
   const { noten, maxPunkte, r, o } = daten;
+  const einzug = daten.einzug != null ? daten.einzug : 0.25, texte = daten.texte;
   const xmin = r.links[r.links.length - 1], xmax = r.rechts[0];
   const fit = o.fit ? r.fit : null;
 
-  const tickBeschriftung = [{ x: 0, z1: "0", z2: "0 %" }];
+  let tickBeschriftung = [{ x: 0, z1: "0", z2: "0 %" }];
   r.links.slice(0, -1).forEach((g, i) => {
     // Beschriftet wird die Grenze „ab“ der Note, wie in der Notentabelle, nicht die Kante zwischen den Balken
     tickBeschriftung.push({ x: g, z1: deG(noten[i].ab), z2: Number.isFinite(noten[i].prozent) ? deG(noten[i].prozent) + " %" : "" });
   });
   tickBeschriftung.push({ x: maxPunkte, z1: deG(maxPunkte), z2: "100 %" });
+  if (daten.ticks) tickBeschriftung = daten.ticks;
   schrift(ctx, 10, false);
   const letzteBreite = Math.max(ctx.measureText(deG(maxPunkte)).width, ctx.measureText("100 %").width);
 
@@ -1106,9 +1191,9 @@ function zeichne(ctx, pixelBreite, daten) {
 
   // Legende vorbereiten
   const legende = [];
-  if (o.kreuze) legende.push({ art: "kreuz", text: "Punktzahl einer Arbeit" });
-  if (o.mittel) legende.push({ art: "strich", farbe: T.mittel, text: `Mittelwert: ${de(r.mittel)} P, ${noten[r.noteIndex(r.mittel)].name}` });
-  if (fit) legende.push({ art: "strich", farbe: T.fit, strich: T.fitStrich, text: `Zentrum Gaußfit: ${de(fit.mu)} P, ${noten[r.noteIndex(fit.mu)].name}` });
+  if (o.kreuze) legende.push({ art: "kreuz", text: texte ? texte.kreuz : "Punktzahl einer Arbeit" });
+  if (o.mittel) legende.push({ art: "strich", farbe: T.mittel, text: texte ? texte.mittel(r.mittel) : `Mittelwert: ${de(r.mittel)} P, ${noten[r.noteIndex(r.mittel)].name}` });
+  if (fit) legende.push({ art: "strich", farbe: T.fit, strich: T.fitStrich, text: texte ? texte.fit(fit.mu) : `Zentrum Gaußfit: ${de(fit.mu)} P, ${noten[r.noteIndex(fit.mu)].name}` });
   const mitLegende = o.legende && legende.length > 0;
   schrift(ctx, 10, false);
   const griff = 35, abstand = 8, rand = 4, zeilenH = 14;
@@ -1155,7 +1240,7 @@ function zeichne(ctx, pixelBreite, daten) {
 
   noten.forEach((nt, i) => {
     if (!r.anzahl[i]) return;
-    const x0 = X(r.links[i] + 0.25), x1 = X(r.rechts[i] - 0.25), y0 = Y(r.anzahl[i]);
+    const x0 = X(r.links[i] + einzug), x1 = X(r.rechts[i] - einzug), y0 = Y(r.anzahl[i]);
     ctx.fillStyle = gemischt(nt.farbe, T.balken);
     ctx.fillRect(x0, y0, x1 - x0, achseUnten - y0);
     ctx.strokeStyle = nt.farbe; ctx.lineWidth = 0.9;
@@ -1201,7 +1286,7 @@ function zeichne(ctx, pixelBreite, daten) {
   }
 
   noten.forEach((nt, i) => {
-    const x0 = X(r.links[i] + 0.25), x1 = X(r.rechts[i] - 0.25);
+    const x0 = X(r.links[i] + einzug), x1 = X(r.rechts[i] - einzug);
     ctx.fillStyle = nt.farbe;
     ctx.fillRect(x0, achseUnten + 4, x1 - x0, 19);
     schrift(ctx, 8.8, true);
@@ -1493,7 +1578,7 @@ function wordDokument(info) {
   return docxPaket(body, { titel, kurs: meta.kurs, beschreibung: "Notenauswertung " + JSON.stringify(meta), bild });
 }
 
-function zeitraumDokument({ titel, unterzeile, datumText, angaben, grundwerte, kopf, zeilen, kurs, farben, notenNamen, statistik }) {
+function zeitraumDokument({ titel, unterzeile, datumText, angaben, grundwerte, kopf, zeilen, kurs, farben, notenNamen, statistik, bild }) {
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   let body = wTitel(titel, datumText, unterzeile);
   angaben.forEach((t, i) => { body += wP(wR(t, { gr: 9, farbe: W_GRAU }), { vor: i ? 0 : 60, einzug: 110 }); });
@@ -1517,7 +1602,18 @@ function zeitraumDokument({ titel, unterzeile, datumText, angaben, grundwerte, k
   ], { hoehe: 290, rand: [40, 110] });
   if (statistik && statistik.n) {
     const st = statistik;
-    body += wAbschnitt("Notenverteilung der Endnoten", { umbruch: true, vor: 0 });
+    if (bild) {
+      const cx = TEXTBREITE * 635, cy = Math.round(cx * HOEHE / BREITE);
+      body += '<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
+        `<wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Endnoten"/>` +
+        '<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
+        '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>' +
+        '<pic:nvPicPr><pic:cNvPr id="0" name="notenspiegel.png"/><pic:cNvPicPr/></pic:nvPicPr>' +
+        '<pic:blipFill><a:blip r:embed="rIdBild"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+        `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
+        "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>";
+    }
+    body += wAbschnitt("Notenverteilung der Endnoten", bild ? {} : { umbruch: true, vor: 0 });
     body += wTab(gleichSpalten(3638, 2), [
       { ...W_KOPF, zellen: ["Note", "Anzahl", "Anteil"] },
       ...st.anzahl.map((c, i) => ({
@@ -1558,7 +1654,7 @@ function zeitraumDokument({ titel, unterzeile, datumText, angaben, grundwerte, k
       ], { hoehe: 270, rand: [35, 110], zusammen: true });
     } else body += wP(wR("Niemand.", { gr: 9.5 }), { nach: 0 });
   }
-  return docxPaket(body, { titel, kurs, beschreibung: "Leistung im Zeitraum" });
+  return docxPaket(body, { titel, kurs, beschreibung: "Leistung im Zeitraum", bild });
 }
 
 // Fertige .docx-Datei aus dem Seiteninhalt
@@ -2241,6 +2337,7 @@ async function listeLesen(datei) {
     let daten = null;
     try { daten = JSON.parse(t); } catch (e) { /* kein JSON */ }
     if (daten && Array.isArray(daten.kurse)) return { backup: daten, tabellen: [], meta: {}, text: [] };
+    if (daten && daten.programm === "Notenauswertung" && daten.verschluesselt) return { backupVerschluesselt: daten, tabellen: [], meta: {}, text: [] };
   }
   if (/urn:schemas-microsoft-com:office:spreadsheet/.test(t.slice(0, 3000))) return xml2003Lesen(t);
   if (/<table[\s>]/i.test(t)) return htmlLesen(t);
@@ -2380,7 +2477,9 @@ if (typeof document !== "undefined") {
   const EINST_KEY = "notenauswertung-einstellungen-v1";
   const KURSE_KEY = "notenauswertung-kurse-v1";
   const lesen = (key) => { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } };
-  const schreiben = (key, wert) => { try { localStorage.setItem(key, JSON.stringify(wert)); return true; } catch (e) { return false; } };
+  let nichtsMehrSchreiben = false;
+  const schreiben = (key, wert) => { if (nichtsMehrSchreiben) return false; try { localStorage.setItem(key, JSON.stringify(wert)); return true; } catch (e) { return false; } };
+  const entfernen = (key) => { try { localStorage.removeItem(key); } catch (e) { /* ohne Speicher */ } };
   const neueId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
   function el(tag, eigenschaften = {}, ...kinder) {
     const e = document.createElement(tag);
@@ -3294,14 +3393,88 @@ if (typeof document !== "undefined") {
   kursDialog.addEventListener("close", kurseSchliessen);
 
   const BACKUP_KEY = "notenauswertung-backup-zuletzt";
+  // ----- Verschlüsselung der Backup-Datei: AES-256-GCM, Schlüssel aus dem Passwort mit PBKDF2 und SHA-256 -----
+  const nachB64 = (buf) => { const u = new Uint8Array(buf); let t = ""; for (let i = 0; i < u.length; i += 0x8000) t += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(t); };
+  const ausB64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
+  const b64url = (buf) => nachB64(buf).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const ausB64url = (t) => ausB64(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4));
+  const zufall = (n) => crypto.getRandomValues(new Uint8Array(n));
+  async function schluesselAus(passwort, salz, runden) {
+    const roh = await crypto.subtle.importKey("raw", new TextEncoder().encode(passwort), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({ name: "PBKDF2", salt: salz, iterations: runden, hash: "SHA-256" }, roh, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  async function verschluesseln(text, passwort) {
+    const salz = zufall(16), iv = zufall(12), runden = 600000;
+    const k = await schluesselAus(passwort, salz, runden);
+    const daten = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, k, new TextEncoder().encode(text));
+    return { programm: "Notenauswertung", verschluesselt: "AES-256-GCM", kdf: "PBKDF2-SHA256", runden, salz: nachB64(salz), iv: nachB64(iv), daten: nachB64(daten) };
+  }
+  async function entschluesseln(obj, passwort) {
+    const k = await schluesselAus(passwort, ausB64(obj.salz), obj.runden);
+    const t = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ausB64(obj.iv) }, k, ausB64(obj.daten));
+    return new TextDecoder().decode(t);
+  }
+  // Passwort abfragen. Beim Erstellen zweimal, damit ein Tippfehler die Datei nicht unlesbar macht
+  function passwortFragen({ titel, text, wiederholen, knopf, fehler }) {
+    return new Promise((fertig) => {
+      const d = $("passwort-dialog");
+      $("pw-titel").textContent = titel;
+      $("pw-text").textContent = text;
+      $("pw-1").value = ""; $("pw-2").value = "";
+      $("pw-status").textContent = fehler || "";
+      $("pw-2-feld").hidden = !wiederholen;
+      $("pw-1").autocomplete = wiederholen ? "new-password" : "current-password";
+      $("pw-ok").textContent = knopf || "OK";
+      let wert = null;
+      const ok = () => {
+        const a = $("pw-1").value, b = $("pw-2").value;
+        if (!a) { $("pw-status").textContent = "Bitte das Passwort eingeben."; return; }
+        if (wiederholen && a.length < 8) { $("pw-status").textContent = "Bitte mindestens 8 Zeichen."; return; }
+        if (wiederholen && a !== b) { $("pw-status").textContent = "Die beiden Eingaben stimmen nicht überein."; return; }
+        wert = a;
+        d.close();
+      };
+      const enter = (e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        if (e.target.id === "pw-1" && wiederholen) $("pw-2").focus(); else ok();
+      };
+      $("pw-ok").onclick = ok;
+      $("pw-abbrechen").onclick = () => d.close();
+      $("pw-1").onkeydown = enter;
+      $("pw-2").onkeydown = enter;
+      d.onclose = () => fertig(wert);
+      d.showModal();
+      $("pw-1").focus();
+    });
+  }
+  // Verschlüsselte Backup-Datei öffnen. Bei falschem Passwort nochmal fragen
+  async function backupOeffnen(obj) {
+    if (!obj || !obj.verschluesselt) return obj;
+    let fehler = "";
+    for (;;) {
+      const pw = await passwortFragen({ titel: "Backup-Datei öffnen", text: "Diese Backup-Datei ist verschlüsselt. Bitte das Passwort eingeben, mit dem sie erstellt wurde.", knopf: "Öffnen", fehler });
+      if (pw == null) return null;
+      try { return JSON.parse(await entschluesseln(obj, pw)); } catch (e) { fehler = "Das Passwort stimmt nicht."; }
+    }
+  }
   async function backupSichern() {
-    const daten = { programm: "Notenauswertung", version: 3, gesichert: new Date().toISOString(), kurse, zeitraeume: zr, einstellungen: einst };
-    const ok = await herunterladen(new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" }),
-      `Notenauswertung_Backup_${new Date().toISOString().slice(0, 10)}.json`);
-    if (!ok) return;
-    schreiben(BACKUP_KEY, new Date().toISOString());
-    $("kurs-status").textContent = "Backup-Datei erstellt.";
-    backupStand();
+    const pw = await passwortFragen({ titel: "Backup-Datei erstellen", wiederholen: true, knopf: "Verschlüsseln und erstellen",
+      text: "Die Backup-Datei wird mit diesem Passwort verschlüsselt. Das Passwort wird nirgends gespeichert. Ohne Passwort lässt sich die Datei nicht mehr öffnen, also gut aufbewahren." });
+    if (pw == null) return;
+    $("kurs-status").textContent = "Verschlüssele …";
+    try {
+      const daten = { programm: "Notenauswertung", version: 3, gesichert: new Date().toISOString(), kurse, zeitraeume: zr, einstellungen: einst };
+      const inhalt = await verschluesseln(JSON.stringify(daten), pw);
+      const ok = await herunterladen(new Blob([JSON.stringify(inhalt)], { type: "application/json" }),
+        `Notenauswertung_Backup_${new Date().toISOString().slice(0, 10)}.json`);
+      if (!ok) { $("kurs-status").textContent = ""; return; }
+      schreiben(BACKUP_KEY, new Date().toISOString());
+      $("kurs-status").textContent = "Verschlüsselte Backup-Datei erstellt.";
+      backupStand();
+    } catch (err) {
+      $("kurs-status").textContent = "Die Backup-Datei ließ sich nicht erstellen: " + err.message;
+    }
   }
   // Stand des letzten Backups. Erinnerung, wenn es echte Kurse gibt und das Backup fehlt oder älter als 30 Tage ist
   function backupStand() {
@@ -3315,7 +3488,7 @@ if (typeof document !== "undefined") {
     if (!box.hidden) box.append(
       el("p", { text: tage != null
         ? `Die letzte Backup-Datei ist ${tage} Tage alt. Was seitdem dazukam, steht in keiner Kopie.`
-        : "Es gibt noch keine Backup-Datei. Sie ist eine Kopie aller Kurse und Noten, die du selbst ablegst. Liegt sie außerhalb dieses Geräts, kannst du damit alles wiederherstellen, falls das Gerät zurückgesetzt oder die App gelöscht wird." }),
+        : "Es gibt noch keine Backup-Datei. Sie ist eine verschlüsselte Kopie aller Kurse und Noten, die du selbst ablegst. Liegt sie außerhalb dieses Geräts, kannst du damit alles wiederherstellen, falls das Gerät zurückgesetzt oder die App gelöscht wird." }),
       el("button", { type: "button", klasse: "zweit", text: "Backup-Datei erstellen", onclick: backupSichern }));
   }
   $("backup-sichern").addEventListener("click", backupSichern);
@@ -3373,7 +3546,9 @@ if (typeof document !== "undefined") {
     e.target.value = "";
     if (!datei) return;
     try {
-      $("kurs-status").textContent = backupEinlesen(JSON.parse(await datei.text()));
+      const daten = await backupOeffnen(JSON.parse(await datei.text()));
+      if (!daten) return;
+      $("kurs-status").textContent = backupEinlesen(daten);
       kursEditorAufbauen();
     } catch (err) {
       $("kurs-status").textContent = "Die Datei ließ sich nicht laden: " + err.message;
@@ -3412,6 +3587,10 @@ if (typeof document !== "undefined") {
     $("import-uebernehmen").disabled = true;
     try {
       const r = await holen();
+      if (r.backupVerschluesselt) {
+        r.backup = await backupOeffnen(r.backupVerschluesselt);
+        if (!r.backup) { $("import-status").textContent = ""; return; }
+      }
       if (r.backup) {
         const meldung = backupEinlesen(r.backup);
         importDialog.close();
@@ -3763,9 +3942,19 @@ if (typeof document !== "undefined") {
       einstSpeichern();
       tendenzHinweis();
       bereicheZeigen();
+      endnoteBeispiel();
     });
   });
-  const einstOeffnen = () => { $("ns-titel").textContent = schluesselArt === "test" ? "Notenspiegel für Tests" : "Notenspiegel für Arbeiten"; nsAufbauen(); optionenAufbauen(); tendenzHinweis(); einstDialog.showModal(); };
+  // So wird die Endnote mit Tendenz gerundet, am Beispiel der 2
+  function endnoteBeispiel() {
+    const L = einst.leistung, an = !!L.endTendenz;
+    $("tendenz-breite-feld").hidden = !an;
+    const b = Number.isFinite(L.tendenzBreite) && L.tendenzBreite >= 0 && L.tendenzBreite <= 0.5 ? L.tendenzBreite : null;
+    $("endnote-beispiel").textContent = !an ? "Die Endnote wird auf eine ganze Note gerundet, ab x,50 zur schlechteren."
+      : b == null ? "Bitte einen Wert zwischen 0 und 0,5 eintragen. 0,33 sind Drittel einer Notenstufe."
+      : `So wird gerundet, am Beispiel der 2: 2+ ab 1,50, 2 ab ${zweiStellen(1.5 + b)}, 2− ab ${zweiStellen(2.5 - b)}, 3+ ab 2,50. Ein größerer Wert vergibt öfter + und −, 0,33 sind Drittel.`;
+  }
+  const einstOeffnen = () => { sperreEinstAufbauen(); $("ns-titel").textContent = schluesselArt === "test" ? "Notenspiegel für Tests" : "Notenspiegel für Arbeiten"; nsAufbauen(); optionenAufbauen(); tendenzHinweis(); endnoteBeispiel(); einstDialog.showModal(); };
   $("einstellungen-oeffnen").addEventListener("click", einstOeffnen);
   $("einstellungen-ergebnis").addEventListener("click", einstOeffnen);
   let standardStufe = 0;
@@ -3882,7 +4071,9 @@ if (typeof document !== "undefined") {
   }
   function rechenOptionen() {
     const L = einst.leistung, w = (x, d) => (Number.isFinite(x) && x >= 1 && x <= 6 ? x : d);
-    return { wert: { plus: w(L.plus, 1), o: w(L.o, 3), minus: w(L.minus, 5) }, mitTendenz: !!kernVon("arbeit").tendenzen.an, endTendenz: !!L.endTendenz };
+    const t = kernVon("arbeit").tendenzen;
+    return { wert: { plus: w(L.plus, 1), o: w(L.o, 3), minus: w(L.minus, 5) }, mitTendenz: !!t.an,
+      endTendenz: !!L.endTendenz, endBreite: Number.isFinite(L.tendenzBreite) && L.tendenzBreite >= 0 && L.tendenzBreite <= 0.5 ? L.tendenzBreite : 1 / 3, endSechs: !!t.sechs };
   }
   const berechnen = (k, Z) => zeitraumBerechnen(k, Z, eigeneVon(k, Z), rechenOptionen());
   // Auswahl des Zeitraums, in jedem Bereich gleich
@@ -4133,6 +4324,15 @@ if (typeof document !== "undefined") {
       { titel: "Endnote", wert: (z) => z.endnote },
     ];
   }
+  // Diagramm der Endnoten mit den Einstellungen der Arbeiten, nur mit passender Achsenbeschriftung
+  const endnotenDaten = (D) => endnotenDiagramm(D.zeilen.filter((z) => z.endnote).map((z) => notenWert(z.endnote)), notenspiegel(einst).noten,
+    { ...einst.diagramm, xTitel: einst.diagramm.xTitel ? "Endnoten [Grenzen im Schnitt]" : "" });
+  function diagrammPng(daten, breite) {
+    const c = document.createElement("canvas");
+    c.width = breite; c.height = Math.round(breite * HOEHE / BREITE);
+    zeichne(c.getContext("2d"), c.width, daten);
+    return new Promise((ok) => c.toBlob(ok, "image/png"));
+  }
   const anteilText = (D) => BEREICHE.filter((b) => D.anteile[b.id] > 0).map((b) => `${b.name} ${Math.round(D.anteile[b.id] * 100)} %`).join(", ");
   let uebersichtAnsicht = lesen("notenauswertung-uebersicht") === "statistik" ? "statistik" : "noten";
   function leistungAufbauen() {
@@ -4299,6 +4499,24 @@ if (typeof document !== "undefined") {
       inhalt.append(kacheln);
       if (!st.n) { inhalt.append(el("p", { klasse: "hint", text: "Noch keine Endnote im Zeitraum. Sobald in einem Bereich Noten stehen, erscheint hier die Auswertung." })); return; }
 
+      const diagramm = endnotenDaten(D);
+      const box = el("div", { klasse: "diagramm-box" }), cv = el("canvas", { role: "img", "aria-label": "Diagramm der Endnoten" });
+      box.append(cv);
+      let breiteVorher = 0;
+      const malen = () => {
+        const w = box.clientWidth - 24;
+        if (w <= 0 || w === breiteVorher) return;
+        breiteVorher = w;
+        const dpr = window.devicePixelRatio || 1, h = w * HOEHE / BREITE;
+        cv.style.width = w + "px"; cv.style.height = h + "px";
+        cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+        zeichne(cv.getContext("2d"), cv.width, diagramm);
+      };
+      new ResizeObserver(() => requestAnimationFrame(malen)).observe(box);
+      inhalt.append(box, el("div", { klasse: "knoepfe" }, el("button", { type: "button", klasse: "zweit rechts", text: "Bild speichern",
+        onclick: async () => herunterladen(await diagrammPng(diagramm, 2000), [dateiTeil(Z.titel) || "Endnoten", dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".png") })));
+      requestAnimationFrame(malen);
+
       abschnitt("Notenverteilung der Endnoten");
       const max = Math.max(1, ...st.anzahl);
       const zeilen = st.anzahl.map((c, i) => el("tr", {},
@@ -4370,6 +4588,7 @@ if (typeof document !== "undefined") {
           kopf: sp.map((x) => x.titel), zeilen: zeilenSortiert(D).map((z) => sp.map((x) => x.wert(z))),
           farben: einst.noten.map((n) => n.farbe), notenNamen: einst.noten.map((n) => n.name),
           statistik: einst.word.statistik ? { ...st, schwach: st.schwach.map((z) => ({ name: anzeige(z.s.name), klasse: z.s.klasse || "", note: z.endnote, bereiche: bereichsText(z, D) })) } : null,
+          bild: einst.word.statistik && einst.word.diagramm && st.n ? new Uint8Array(await (await diagrammPng(endnotenDaten(D), 2400)).arrayBuffer()) : null,
         });
         const ok = await herunterladen(blob, [dateiTeil(Z.titel) || "Leistung", dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".docx");
         status.textContent = ok ? "Word-Datei erstellt." : "";
@@ -4381,8 +4600,124 @@ if (typeof document !== "undefined") {
     inhaltZeigen();
   }
 
+  // ----- Sperre beim Öffnen: Fingerabdruck, Face ID oder Gerätecode über einen Passkey für diese Seite -----
+  const SPERRE_KEY = "notenauswertung-sperre";
+  const SPERRE_NACH = 5 * 60 * 1000;
+  const sperreDaten = () => { const d = lesen(SPERRE_KEY); return d && typeof d.id === "string" ? d : null; };
+  async function sperreMoeglich() {
+    try { return !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); }
+    catch (e) { return false; }
+  }
+  async function sperreEinrichten() {
+    const c = await navigator.credentials.create({ publicKey: {
+      rp: { name: "Notenauswertung" },
+      user: { id: zufall(16), name: "Notenauswertung", displayName: "Notenauswertung" },
+      challenge: zufall(32),
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "preferred" },
+      timeout: 120000, attestation: "none",
+    } });
+    if (!c) throw new Error("Es wurde kein Passkey angelegt.");
+    schreiben(SPERRE_KEY, { id: b64url(c.rawId), seit: new Date().toISOString() });
+  }
+  async function sperrePruefen() {
+    const d = sperreDaten();
+    if (!d) return;
+    const a = await navigator.credentials.get({ publicKey: {
+      challenge: zufall(32), allowCredentials: [{ type: "public-key", id: ausB64url(d.id) }], userVerification: "required", timeout: 120000,
+    } });
+    // Bit 2 der Flags: Die Person hat sich mit Fingerabdruck, Gesicht oder Gerätecode ausgewiesen
+    const flags = a && a.response && a.response.authenticatorData ? new Uint8Array(a.response.authenticatorData)[32] : 0;
+    if (!(flags & 4) || b64url(a.rawId) !== d.id) throw new Error("Nicht bestätigt.");
+  }
+  let entsperrenLaeuft = false;
+  async function entsperren(vonHand) {
+    if (entsperrenLaeuft) return;
+    entsperrenLaeuft = true;
+    $("sperre-status").textContent = "";
+    try {
+      await sperrePruefen();
+      document.documentElement.classList.remove("gesperrt");
+      if (ergebnis && !$("ergebnis").hidden) neuZeichnen();
+    } catch (e) {
+      // Ohne Antippen darf der Browser die Abfrage ablehnen, dann reicht ein Tipp auf „Entsperren“
+      if (vonHand || e.name !== "NotAllowedError") $("sperre-status").textContent = e.name === "NotAllowedError" ? "Nicht bestätigt. Nochmal auf „Entsperren“ tippen." : "Entsperren ging nicht: " + (e.message || e.name);
+    } finally { entsperrenLaeuft = false; }
+  }
+  function sperren() {
+    if (!sperreDaten()) return;
+    document.querySelectorAll("dialog[open]").forEach((d) => d.close());
+    document.documentElement.classList.add("gesperrt");
+  }
+  $("entsperren").addEventListener("click", () => entsperren(true));
+  // Nach mehr als 5 Minuten im Hintergrund wieder sperren
+  let verstecktSeit = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") { verstecktSeit = Date.now(); return; }
+    if (verstecktSeit && Date.now() - verstecktSeit > SPERRE_NACH && sperreDaten()) { sperren(); entsperren(false); }
+  });
+  // Notfall: ohne Entsperren bleibt nur, alles auf diesem Gerät zu löschen und aus einer Backup-Datei wiederherzustellen
+  $("sperre-notfall").addEventListener("click", () => { $("sperre-notfall-box").hidden = !$("sperre-notfall-box").hidden; });
+  let wischStufe = 0;
+  $("sperre-loeschen").addEventListener("click", () => {
+    const b = $("sperre-loeschen");
+    if (wischStufe === 0) { wischStufe = 1; b.textContent = "Wirklich alles löschen?"; setTimeout(() => { wischStufe = 0; b.textContent = "Alle Daten auf diesem Gerät löschen"; }, 4000); return; }
+    nichtsMehrSchreiben = true;
+    try {
+      Object.keys(localStorage).filter((x) => x.startsWith("notenauswertung-") && x !== "notenauswertung-thema").forEach((x) => localStorage.removeItem(x));
+      sessionStorage.clear();
+    } catch (e) { /* ohne Speicher */ }
+    location.reload();
+  });
+  // Einstellungen: Sperre einrichten oder ausschalten
+  async function sperreEinstAufbauen() {
+    const an = !!sperreDaten(), geht = await sperreMoeglich(), k = $("sperre-schalter");
+    if (an) {
+      $("sperre-hinweis").textContent = "Die Sperre ist an. Beim Öffnen und nach mehr als 5 Minuten im Hintergrund fragt das Tool nach Fingerabdruck, Face ID oder Gerätecode.";
+      k.textContent = "Sperre ausschalten"; k.disabled = false;
+    } else if (geht) {
+      $("sperre-hinweis").textContent = "Mit der Sperre öffnet sich das Tool nur nach Fingerabdruck, Face ID oder Gerätecode. Dafür legt das iPad einen Passkey für diese Seite an, er steht danach bei den gespeicherten Passwörtern. Die Daten auf dem Gerät schützt wie bisher die Verschlüsselung des iPads.";
+      k.textContent = "Sperre einrichten"; k.disabled = false;
+    } else {
+      $("sperre-hinweis").textContent = "Dieser Browser bietet hier keinen Fingerabdruck, kein Face ID und keinen Gerätecode an. Auf iPad und iPhone braucht ein Passkey den iCloud-Schlüsselbund oder einen anderen Passwort-Manager mit Passkeys.";
+      k.textContent = "Sperre einrichten"; k.disabled = true;
+    }
+  }
+  $("sperre-schalter").addEventListener("click", async () => {
+    const st = $("sperre-einst-status");
+    st.classList.remove("fehler");
+    st.textContent = "";
+    if (sperreDaten()) {
+      try {
+        await sperrePruefen();
+        entfernen(SPERRE_KEY);
+        document.documentElement.classList.remove("gesperrt");
+        st.textContent = "Sperre ausgeschaltet. Den Passkey kannst du bei den gespeicherten Passwörtern löschen.";
+      } catch (e) { st.classList.add("fehler"); st.textContent = "Nicht bestätigt, die Sperre bleibt an."; }
+    } else {
+      try {
+        await sperreEinrichten();
+      } catch (e) {
+        st.classList.add("fehler");
+        st.textContent = e.name === "NotAllowedError" ? "Abgebrochen oder nicht erlaubt. Auf Dienstgeräten kann die Schule Passkeys abgeschaltet haben." : "Das ging nicht: " + (e.message || e.name);
+        sperreEinstAufbauen();
+        return;
+      }
+      // Gleich einmal entsperren, damit sicher ist, dass es klappt. Sonst bleibt die Sperre aus
+      try {
+        await sperrePruefen();
+        st.textContent = "Sperre eingerichtet. Ab jetzt fragt das Tool beim Öffnen nach Fingerabdruck, Face ID oder Gerätecode.";
+      } catch (e) {
+        entfernen(SPERRE_KEY);
+        st.classList.add("fehler");
+        st.textContent = "Die Probe hat nicht geklappt, die Sperre ist deshalb aus.";
+      }
+    }
+    sperreEinstAufbauen();
+  });
+
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "23.10.2026 12:48";
+  const STAND = "23.10.2026 13:29";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
@@ -4407,6 +4742,8 @@ if (typeof document !== "undefined") {
   kurswahlAufbauen();
   modusSetzen(modus);
   bereichZeigen(lesen(BEREICH_KEY) || "arbeit");
+  if (sperreDaten()) { document.documentElement.classList.add("gesperrt"); entsperren(false); }
+  else document.documentElement.classList.remove("gesperrt");
   // Auf iPad und iPhone: Safari darf Daten eines Tabs nach einiger Zeit ohne Nutzung löschen, die App auf dem Home-Bildschirm nicht
   const eigenstaendig = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   if (istIOS && !eigenstaendig) {
