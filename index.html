@@ -362,7 +362,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 23.10.2026 17:15</span>
+      <span>Fassung 23.10.2026 17:22</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -896,11 +896,12 @@ function rundungPruefen(R, ersatz = RUNDUNG_GANZ) {
 }
 function alsNote(w, R = RUNDUNG_DRITTEL, sechsMitTendenz = true) {
   if (w == null || !Number.isFinite(w)) return "";
-  const v = Math.min(6, Math.max(1, w));
+  // Der beste mögliche Schnitt ist 0,67, wenn alle Noten 1+ sind. Darunter bis zur Grenze der glatten 1 gibt es 1+
+  const v = Math.min(6, Math.max(2 / 3, w));
   const ganz = Math.min(6, Math.max(1, Math.floor(v - R.neu + 2 + 1e-9)));
   if (!R.tendenz || (ganz === 6 && !sechsMitTendenz)) return String(ganz);
   const verschiebung = ganz - 2;
-  if (ganz > 1 && v < R.glatt + verschiebung - 1e-9) return `${ganz}+`;
+  if (v < R.glatt + verschiebung - 1e-9) return `${ganz}+`;
   if (ganz < 6 && v >= R.minus + verschiebung - 1e-9) return `${ganz}−`;
   return String(ganz);
 }
@@ -4793,7 +4794,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "23.10.2026 17:15";
+  const STAND = "23.10.2026 17:22";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
