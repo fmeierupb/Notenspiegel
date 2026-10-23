@@ -1,6 +1,6 @@
 # Notenauswertung
 
-Notenspiegel, Notenliste und Word-Export für Klassenarbeiten, dazu Mitarbeit pro Stunde und eine Übersicht der Leistung in einem frei wählbaren Zeitraum. Läuft komplett im Browser.
+Notenspiegel, Notenliste und Word-Export für Klassenarbeiten, dazu Mitarbeit pro Stunde und Übersichten der Leistung in frei wählbaren Zeiträumen. Läuft komplett im Browser.
 
 Seite: https://fmeierupb.github.io/Notenspiegel/
 
