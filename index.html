@@ -362,7 +362,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 23.10.2026 17:22</span>
+      <span>Fassung 24.10.2026 13:25</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -4174,7 +4174,7 @@ if (typeof document !== "undefined") {
         c.summe.textContent = `${z.zaehl["+"]} / ${z.zaehl.o} / ${z.zaehl["−"]}`;
         c.note.innerHTML = "";
         const n = noteLesen(z.mitarbeit);
-        if (n.note != null) c.note.append(noteChip(n.note, n.tendenz, noten), z.mitEigen ? el("span", { klasse: "notenwort", text: "eigene" }) : null);
+        if (n.note != null) c.note.append(...[noteChip(n.note, n.tendenz, noten), z.mitEigen ? el("span", { klasse: "notenwort", text: "eigene" }) : null].filter(Boolean));
       });
     };
     const tbody = el("tbody");
@@ -4794,7 +4794,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "23.10.2026 17:22";
+  const STAND = "24.10.2026 13:25";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";

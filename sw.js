@@ -1,5 +1,5 @@
 // Hält die Seite für den Offline-Betrieb vor. Lädt nur die Programmdateien, nie Daten.
-const CACHE = "notenauswertung-e5d46e5f15";
+const CACHE = "notenauswertung-d10e4bcc23";
 const DATEIEN = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(DATEIEN)).then(() => self.skipWaiting()));
