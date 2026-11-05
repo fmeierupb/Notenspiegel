@@ -379,7 +379,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 05.11.2026 10:54</span>
+      <span>Fassung 05.11.2026 10:57</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -504,10 +504,11 @@
     <div class="dialog-inhalt">
       <p class="hint">Ein Lesezeichen sammelt in deinem eingeloggten WebUntis die Fotos der offenen Seite mit den Namen daneben und speichert sie als Datei. Die Datei lädst du hier, das Tool ordnet die Fotos über die Namen allen Kursen zu. Zu sehen ist ein Foto nur, solange du einen Namen gedrückt hältst.</p>
       <ol class="schritte">
-        <li>Lesezeichen kopieren: <button id="lesezeichen-kopieren" class="zweit" type="button">Lesezeichen kopieren</button></li>
-        <li>In Safari irgendeine Seite als Lesezeichen sichern. Dann das Lesezeichen bearbeiten, als Namen „Fotos holen“ eintragen und die Adresse durch das Kopierte ersetzen.</li>
-        <li>WebUntis in Safari öffnen, die Seite mit allen Schülerinnen und Schülern samt Fotos aufrufen und das Lesezeichen „Fotos holen“ antippen. Stimmen die Namen unter den Fotos, „Datei speichern“ tippen.</li>
-        <li>Hier die Datei laden: <button id="fotodatei-laden" class="zweit" type="button">Fotodatei laden</button> Danach die Datei aus den Downloads löschen, sie ist nicht verschlüsselt.</li>
+        <li>Hier auf <button id="lesezeichen-kopieren" class="zweit" type="button">Lesezeichen kopieren</button> tippen.</li>
+        <li>Safari öffnen, irgendeine Seite aufrufen. Oben auf das Teilen-Symbol tippen, das Quadrat mit dem Pfeil nach oben. Dann „Lesezeichen hinzufügen“ und „Sichern“.</li>
+        <li>Oben links die Seitenleiste öffnen und „Lesezeichen“ wählen. Unten „Bearbeiten“ tippen, dann das eben angelegte Lesezeichen. Den Namen in „Fotos holen“ ändern. Im Feld darunter steht die Adresse: alles löschen, lange tippen, „Einfügen“. Dann „Fertig“.</li>
+        <li>In Safari WebUntis öffnen und die Seite mit allen Fotos aufrufen. Seitenleiste öffnen, „Lesezeichen“, „Fotos holen“ antippen. Es öffnet sich ein Fenster mit den Fotos und den Namen darunter. Stimmen sie, „Datei speichern“ tippen.</li>
+        <li>Zurück hier: <button id="fotodatei-laden" class="zweit" type="button">Fotodatei laden</button> und die Datei aus den Downloads wählen. Danach die Datei in den Downloads löschen, sie ist nicht verschlüsselt.</li>
       </ol>
       <input id="fotodatei" type="file" accept=".json,application/json" hidden>
       <div id="foto-ergebnis" class="status"></div>
@@ -5183,7 +5184,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "05.11.2026 10:54";
+  const STAND = "05.11.2026 10:57";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
