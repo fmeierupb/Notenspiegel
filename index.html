@@ -318,10 +318,10 @@
   .sperre-karte p { color: var(--muted); }
   .sperre-karte .knoepfe { justify-content: center; }
   /* Fotos neben den Namen, antippen zeigt sie größer */
-  img.foto { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin: -4px 8px -4px 0; cursor: zoom-in; background: var(--linie); }
-  span.foto.leer { display: inline-block; width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; margin: -4px 8px -4px 0; background: var(--linie); }
-  #foto-gross { position: fixed; inset: 0; z-index: 90; background: rgba(20, 24, 30, 0.6); display: flex; align-items: center; justify-content: center; }
-  #foto-gross img { width: min(240px, 70vw); height: auto; border-radius: 12px; background: #fff; }
+  /* Foto nur, solange ein Name gedrückt gehalten wird */
+  [data-sid] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #foto-tipp { position: fixed; z-index: 95; pointer-events: none; padding: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
+  #foto-tipp img { display: block; width: 140px; height: 187px; object-fit: cover; border-radius: 8px; }
   ol.schritte { padding-left: 22px; margin: 0 0 12px; }
   ol.schritte li { margin: 0 0 10px; line-height: 1.5; }
   ol.schritte button { padding: 4px 12px; font-size: 14px; margin-left: 4px; }
@@ -379,7 +379,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 05.11.2026 10:51</span>
+      <span>Fassung 05.11.2026 10:54</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -502,7 +502,7 @@
   <div class="dialog-innen">
     <div class="dialog-kopf"><h2 tabindex="-1" autofocus>Fotos aus WebUntis</h2></div>
     <div class="dialog-inhalt">
-      <p class="hint">Ein Lesezeichen sammelt in deinem eingeloggten WebUntis die Fotos der offenen Seite mit den Namen daneben und speichert sie als Datei. Die Datei lädst du hier, das Tool ordnet die Fotos über die Namen allen Kursen zu.</p>
+      <p class="hint">Ein Lesezeichen sammelt in deinem eingeloggten WebUntis die Fotos der offenen Seite mit den Namen daneben und speichert sie als Datei. Die Datei lädst du hier, das Tool ordnet die Fotos über die Namen allen Kursen zu. Zu sehen ist ein Foto nur, solange du einen Namen gedrückt hältst.</p>
       <ol class="schritte">
         <li>Lesezeichen kopieren: <button id="lesezeichen-kopieren" class="zweit" type="button">Lesezeichen kopieren</button></li>
         <li>In Safari irgendeine Seite als Lesezeichen sichern. Dann das Lesezeichen bearbeiten, als Namen „Fotos holen“ eintragen und die Adresse durch das Kopierte ersetzen.</li>
@@ -570,7 +570,7 @@
         </div>
         <div class="optionen">
           <label><input type="checkbox" data-einst="spalten.fehlend"> Fehlende in der Notenliste aufführen</label>
-          <label><input type="checkbox" data-einst="fotos"> Fotos neben den Namen zeigen</label>
+          <label><input type="checkbox" data-einst="fotos"> Foto zeigen, solange ein Name gedrückt gehalten wird</label>
         </div>
       </div>
       <div class="abschnitt">
@@ -2929,7 +2929,7 @@ if (typeof document !== "undefined") {
       zeileAktualisieren();
       tbody.append(el("tr", {},
         el("td", { klasse: "nr", text: String(idx + 1) }),
-        el("td", { klasse: "name" }, fotoEl(s), anzeige(s.name)),
+        el("td", { klasse: "name", "data-sid": fotoId(s), text: anzeige(s.name) }),
         el("td", { klasse: "klasse", text: s.klasse || "" }),
         el("td", { klasse: "punkte" }, eingabe),
         noteZelle));
@@ -3575,7 +3575,7 @@ if (typeof document !== "undefined") {
         if (fotos.has(s.id)) fotosSchreiben([[s.id, null]]).catch(() => {});
         kurseSpeichern(); kursEditorAufbauen();
       });
-      return el("tr", {}, nrZelle, el("td", { stil: "display:flex;align-items:center" }, s ? fotoEl(s) : null, nameIn), el("td", { klasse: "kl" }, klasseIn), el("td", { klasse: "weg" }, weg));
+      return el("tr", {}, nrZelle, el("td", {}, nameIn), el("td", { klasse: "kl" }, klasseIn), el("td", { klasse: "weg" }, weg));
     };
     k.schueler.forEach((s, i) => tbody.append(zeileBauen(s, i)));
     tbody.append(zeileBauen(null, k.schueler.length));
@@ -3617,18 +3617,32 @@ if (typeof document !== "undefined") {
     db.close();
     eintraege.forEach(([id, b]) => (b ? fotos.set(id, b) : fotos.delete(id)));
   }
-  // Ohne eigenes Foto ein leerer Kreis, damit die Namen untereinander bündig bleiben
-  const fotoEl = (s) => {
-    if (!einst.fotos || !fotos.size || !s) return null;
-    const b = fotos.get(s.id);
-    return b ? el("img", { klasse: "foto", src: b, alt: "" }) : el("span", { klasse: "foto leer" });
-  };
-  document.addEventListener("click", (e) => {
-    const gross = $("foto-gross");
-    if (gross) { gross.remove(); return; }
-    if (!(e.target instanceof HTMLImageElement) || !e.target.classList.contains("foto")) return;
-    document.body.append(el("div", { id: "foto-gross" }, el("img", { src: e.target.src, alt: "" })));
+  // Fotos stehen nie in der Liste. Hält man einen Namen gedrückt, erscheint das Foto darüber und verschwindet beim Loslassen
+  const fotoId = (s) => (einst.fotos && s && fotos.has(s.id) ? s.id : null);
+  let tippTimer = 0, tippStart = null;
+  const tippWeg = () => { clearTimeout(tippTimer); tippStart = null; const t = $("foto-tipp"); if (t) t.remove(); };
+  document.addEventListener("pointerdown", (e) => {
+    tippWeg();
+    const z = e.target.closest && e.target.closest("[data-sid]");
+    const bild = z && einst.fotos && fotos.get(z.dataset.sid);
+    if (!bild) return;
+    tippStart = { x: e.clientX, y: e.clientY };
+    tippTimer = setTimeout(() => {
+      if (!tippStart) return;
+      const r = z.getBoundingClientRect(), box = el("div", { id: "foto-tipp" }, el("img", { src: bild, alt: "" }));
+      document.body.append(box);
+      const w = box.offsetWidth, h = box.offsetHeight;
+      let y = r.top - h - 10;
+      if (y < 8) y = r.bottom + 10;
+      box.style.left = Math.min(window.innerWidth - w - 8, Math.max(8, tippStart.x - w / 2)) + "px";
+      box.style.top = Math.min(window.innerHeight - h - 8, y) + "px";
+    }, 300);
   });
+  // Wer den Finger bewegt, will scrollen, nicht das Foto sehen
+  document.addEventListener("pointermove", (e) => { if (tippStart && !$("foto-tipp") && Math.hypot(e.clientX - tippStart.x, e.clientY - tippStart.y) > 10) tippWeg(); });
+  ["pointerup", "pointercancel"].forEach((t) => document.addEventListener(t, tippWeg));
+  window.addEventListener("scroll", tippWeg, { passive: true });
+  document.addEventListener("contextmenu", (e) => { if (e.target.closest && e.target.closest("[data-sid]")) e.preventDefault(); });
   // Zuordnung über die Namen: Alle Wörter eines Namens müssen im Text neben dem Foto stehen,
   // und Foto und Person dürfen im Kurs nur einmal zueinander passen
   function fotosZuordnen(daten) {
@@ -4533,7 +4547,7 @@ if (typeof document !== "undefined") {
         zeigen(); stundenZeigen(); zeitraumZeigen();
       }));
       zeigen();
-      zeile.append(el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name" }, fotoEl(s), anzeige(s.name)),
+      zeile.append(el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name", "data-sid": fotoId(s), text: anzeige(s.name) }),
         el("td", { klasse: "klasse", text: s.klasse || "" }), el("td", {}, el("span", { klasse: "wahl3" }, knoepfe)), summe, note);
       tbody.append(zeile);
     });
@@ -4636,7 +4650,7 @@ if (typeof document !== "undefined") {
     personenReihenfolge(k).forEach((s, idx) => {
       const zelle = el("td", { klasse: "zaehlung" });
       zellen.set(s.id, zelle);
-      tbody.append(el("tr", {}, el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name" }, fotoEl(s), anzeige(s.name)),
+      tbody.append(el("tr", {}, el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name", "data-sid": fotoId(s), text: anzeige(s.name) }),
         el("td", { klasse: "klasse", text: s.klasse || "" }), el("td", {}, notenKnoepfe(x, s, noten, () => { infoZeigen(); zeitraumZeigen(); })), zelle));
     });
     infoZeigen(); zeitraumZeigen();
@@ -4895,7 +4909,7 @@ if (typeof document !== "undefined") {
         const zaehl = el("span", { klasse: "zaehl" }), dez = el("span", { klasse: "dezimal" });
         refs.push({ id: z.s.id, mitIn, endIn, zaehl, dez });
         tbody.append(el("tr", {},
-          el("td", { text: anzeige(z.s.name) }), el("td", { klasse: "klasse", text: z.s.klasse || "" }),
+          el("td", { "data-sid": fotoId(z.s), text: anzeige(z.s.name) }), el("td", { klasse: "klasse", text: z.s.klasse || "" }),
           D.aktiv.arbeiten ? notenZelle(z.arb, z.werte.arbeiten) : null,
           D.aktiv.tests ? notenZelle(z.tst, z.werte.tests) : null,
           D.aktiv.mappe ? notenZelle(z.mpp, z.werte.mappe) : null,
@@ -5169,7 +5183,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "05.11.2026 10:51";
+  const STAND = "05.11.2026 10:54";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
