@@ -317,6 +317,14 @@
   .sperre-karte { width: 100%; max-width: 420px; text-align: center; }
   .sperre-karte p { color: var(--muted); }
   .sperre-karte .knoepfe { justify-content: center; }
+  /* Fotos neben den Namen, antippen zeigt sie größer */
+  img.foto { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin: -4px 8px -4px 0; cursor: zoom-in; background: var(--linie); }
+  span.foto.leer { display: inline-block; width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; margin: -4px 8px -4px 0; background: var(--linie); }
+  #foto-gross { position: fixed; inset: 0; z-index: 90; background: rgba(20, 24, 30, 0.6); display: flex; align-items: center; justify-content: center; }
+  #foto-gross img { width: min(240px, 70vw); height: auto; border-radius: 12px; background: #fff; }
+  ol.schritte { padding-left: 22px; margin: 0 0 12px; }
+  ol.schritte li { margin: 0 0 10px; line-height: 1.5; }
+  ol.schritte button { padding: 4px 12px; font-size: 14px; margin-left: 4px; }
   #teilen-leiste { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2); }
 </style>
 </head>
@@ -371,7 +379,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 05.11.2026 10:38</span>
+      <span>Fassung 05.11.2026 10:51</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -435,6 +443,7 @@
         <button id="kurs-neu" class="zweit" type="button">Neuer Kurs</button>
         <button id="import-oeffnen" class="zweit" type="button">Liste importieren</button>
         <button id="beispielkurs" class="zweit" type="button">Beispielkurs anlegen</button>
+        <button id="fotos-oeffnen" class="zweit" type="button">Fotos aus WebUntis</button>
       </div>
       <div id="kurs-editor"></div>
     </div>
@@ -489,6 +498,28 @@
   </div>
 </dialog>
 
+<dialog id="foto-dialog">
+  <div class="dialog-innen">
+    <div class="dialog-kopf"><h2 tabindex="-1" autofocus>Fotos aus WebUntis</h2></div>
+    <div class="dialog-inhalt">
+      <p class="hint">Ein Lesezeichen sammelt in deinem eingeloggten WebUntis die Fotos der offenen Seite mit den Namen daneben und speichert sie als Datei. Die Datei lädst du hier, das Tool ordnet die Fotos über die Namen allen Kursen zu.</p>
+      <ol class="schritte">
+        <li>Lesezeichen kopieren: <button id="lesezeichen-kopieren" class="zweit" type="button">Lesezeichen kopieren</button></li>
+        <li>In Safari irgendeine Seite als Lesezeichen sichern. Dann das Lesezeichen bearbeiten, als Namen „Fotos holen“ eintragen und die Adresse durch das Kopierte ersetzen.</li>
+        <li>WebUntis in Safari öffnen, die Seite mit allen Schülerinnen und Schülern samt Fotos aufrufen und das Lesezeichen „Fotos holen“ antippen. Stimmen die Namen unter den Fotos, „Datei speichern“ tippen.</li>
+        <li>Hier die Datei laden: <button id="fotodatei-laden" class="zweit" type="button">Fotodatei laden</button> Danach die Datei aus den Downloads löschen, sie ist nicht verschlüsselt.</li>
+      </ol>
+      <input id="fotodatei" type="file" accept=".json,application/json" hidden>
+      <div id="foto-ergebnis" class="status"></div>
+    </div>
+    <div class="dialog-fuss">
+      <button id="fotos-loeschen" class="leise" type="button">Alle Fotos löschen</button>
+      <span id="foto-stand" class="hint" style="margin:0;font-size:13px"></span>
+      <button id="foto-fertig" class="rechts" type="button">Fertig</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="einst-dialog">
   <div class="dialog-innen">
     <div class="dialog-kopf"><h2 tabindex="-1" autofocus>Einstellungen</h2></div>
@@ -539,6 +570,7 @@
         </div>
         <div class="optionen">
           <label><input type="checkbox" data-einst="spalten.fehlend"> Fehlende in der Notenliste aufführen</label>
+          <label><input type="checkbox" data-einst="fotos"> Fotos neben den Namen zeigen</label>
         </div>
       </div>
       <div class="abschnitt">
@@ -614,6 +646,7 @@ const STANDARD_EINST = {
   diagramm: { kreuze: true, mittel: true, fit: true, legende: true, anzahl: true, xTitel: "Notenstufen [Punkte; Prozent]", yTitel: "Häufigkeit" },
   word: { ueberschrift: "Notenliste", diagramm: true, statistik: true },
   notenBereich: false,
+  fotos: true,
   leistung: { plus: 1, o: 3, minus: 5, endTendenz: false, tendenzBreite: 0.33 },
   uebersichtSortierung: "",
 };
@@ -2241,6 +2274,92 @@ function freieZeilen(zeilen) {
   return reihen;
 }
 
+// ----- Lesezeichen für WebUntis -----
+// Läuft nicht hier, sondern als Lesezeichen in der eingeloggten WebUntis-Seite. Sammelt die sichtbaren Fotos mit dem Text daneben
+// und speichert sie als Datei, die hier geladen wird. Darf deshalb nichts von außerhalb dieser Funktion benutzen.
+async function fotoSammler() {
+  const GROESSE = 240;
+  const alt = document.getElementById("na-fotos");
+  if (alt) alt.remove();
+  const quellen = [];
+  document.querySelectorAll("img").forEach((i) => {
+    const src = i.currentSrc || i.src;
+    if (src && i.offsetWidth >= 24 && i.offsetHeight >= 24) quellen.push({ e: i, src });
+  });
+  document.querySelectorAll("body *").forEach((e) => {
+    if (e.tagName === "IMG" || e.offsetWidth < 24 || e.offsetHeight < 24) return;
+    const m = /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(e).backgroundImage || "");
+    if (m) quellen.push({ e, src: m[1] });
+  });
+  // Ein Bild, das mehrmals vorkommt, ist ein Platzhalter oder ein Symbol, kein Foto
+  const anzahl = new Map();
+  quellen.forEach((q) => anzahl.set(q.src, (anzahl.get(q.src) || 0) + 1));
+  const texte = (e) => {
+    for (let x = e.parentElement, n = 0; x && n < 8; x = x.parentElement, n++) {
+      const t = (x.innerText || "").trim();
+      if (t) return t.length > 300 ? [] : t.split("\n").map((z) => z.trim()).filter(Boolean);
+    }
+    return [];
+  };
+  const verkleinern = async (src) => {
+    const antwort = await fetch(src, { credentials: "include" });
+    const bild = await createImageBitmap(await antwort.blob());
+    const f = Math.min(1, GROESSE / Math.max(bild.width, bild.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(bild.width * f));
+    c.height = Math.max(1, Math.round(bild.height * f));
+    c.getContext("2d").drawImage(bild, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.85);
+  };
+  const box = document.createElement("div");
+  box.id = "na-fotos";
+  box.style.cssText = "position:fixed;inset:16px;z-index:2147483647;background:#fff;color:#111;border:1px solid #888;border-radius:10px;padding:14px;overflow:auto;font:15px system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.3)";
+  const kopf = document.createElement("div");
+  kopf.textContent = "Fotos werden gesammelt …";
+  box.append(kopf);
+  document.body.append(box);
+  const fotos = [], raster = document.createElement("div");
+  raster.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:12px 0";
+  for (const q of quellen) {
+    if (anzahl.get(q.src) > 1) continue;
+    try {
+      const bild = await verkleinern(q.src), t = texte(q.e);
+      fotos.push({ texte: t, bild });
+      const zelle = document.createElement("div"), vorschau = document.createElement("img"), name = document.createElement("div");
+      vorschau.src = bild;
+      vorschau.style.cssText = "width:72px;height:72px;object-fit:cover;border-radius:50%;display:block;margin:0 auto 4px";
+      name.textContent = t[0] || "ohne Namen";
+      name.style.cssText = "font-size:12px;text-align:center;word-break:break-word";
+      zelle.append(vorschau, name);
+      raster.append(zelle);
+    } catch (e) { /* kein lesbares Bild */ }
+  }
+  kopf.textContent = fotos.length
+    ? fotos.length + " Fotos gefunden. Stehen die richtigen Namen darunter, die Datei speichern und in der Notenauswertung laden."
+    : "Auf dieser Seite wurden keine Fotos gefunden.";
+  const knopf = (text, aktion, hell) => {
+    const b = document.createElement("button");
+    b.textContent = text;
+    b.style.cssText = "font:inherit;padding:8px 14px;margin:8px 8px 0 0;border-radius:8px;border:1px solid #888;" + (hell ? "background:#fff;color:#111" : "background:#1f4e8c;color:#fff");
+    b.onclick = aktion;
+    return b;
+  };
+  const leiste = document.createElement("div");
+  if (fotos.length) leiste.append(knopf("Datei speichern", () => {
+    const datei = new Blob([JSON.stringify({ programm: "Notenauswertung", art: "fotos", gesammelt: new Date().toISOString(), fotos })], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(datei);
+    a.download = "Fotos_fuer_Notenauswertung.json";
+    document.body.append(a);
+    a.click();
+    a.remove();
+  }));
+  leiste.append(knopf("Schließen", () => box.remove(), true));
+  box.append(leiste, raster);
+}
+// Als Lesezeichen: die Funktion als Adresse, am Ende void 0, damit der Browser die Seite nicht ersetzt
+const fotoLesezeichen = () => "javascript:" + encodeURIComponent("(" + fotoSammler.toString() + ")();void 0");
+
 // ----- PDF (über pdf.js von Mozilla, eingebettet) -----
 // In der Fassung im Netz liegt pdf.js als eigene Datei daneben und wird erst beim ersten PDF geladen, der Start bleibt schnell
 async function pdfLaden() {
@@ -2810,7 +2929,7 @@ if (typeof document !== "undefined") {
       zeileAktualisieren();
       tbody.append(el("tr", {},
         el("td", { klasse: "nr", text: String(idx + 1) }),
-        el("td", { klasse: "name", text: anzeige(s.name) }),
+        el("td", { klasse: "name" }, fotoEl(s), anzeige(s.name)),
         el("td", { klasse: "klasse", text: s.klasse || "" }),
         el("td", { klasse: "punkte" }, eingabe),
         noteZelle));
@@ -3404,6 +3523,7 @@ if (typeof document !== "undefined") {
       if (loeschStufe === 0) { loeschStufe = 1; loeschen.className = "gefahr"; loeschen.textContent = "Wirklich löschen?"; setTimeout(() => { loeschStufe = 0; loeschen.className = "zweit"; loeschen.textContent = "Kurs löschen"; }, 4000); return; }
       kurse = kurse.filter((x) => x.id !== k.id);
       ["", "t:"].forEach((v) => { punkte.delete(v + k.id); manuell.delete(v + k.id); });
+      fotosSchreiben(k.schueler.filter((x) => fotos.has(x.id)).map((x) => [x.id, null])).catch(() => {});
       entwurfMerken();
       if (aktiverKurs === k.id) aktiverKurs = kurse[0] ? kurse[0].id : null;
       bearbeitet = kurse[0] ? kurse[0].id : null;
@@ -3452,9 +3572,10 @@ if (typeof document !== "undefined") {
         if (!s) return;
         k.schueler = k.schueler.filter((x) => x !== s);
         punkte.has(k.id) && punkte.get(k.id).delete(s.id);
+        if (fotos.has(s.id)) fotosSchreiben([[s.id, null]]).catch(() => {});
         kurseSpeichern(); kursEditorAufbauen();
       });
-      return el("tr", {}, nrZelle, el("td", {}, nameIn), el("td", { klasse: "kl" }, klasseIn), el("td", { klasse: "weg" }, weg));
+      return el("tr", {}, nrZelle, el("td", { stil: "display:flex;align-items:center" }, s ? fotoEl(s) : null, nameIn), el("td", { klasse: "kl" }, klasseIn), el("td", { klasse: "weg" }, weg));
     };
     k.schueler.forEach((s, i) => tbody.append(zeileBauen(s, i)));
     tbody.append(zeileBauen(null, k.schueler.length));
@@ -3462,6 +3583,118 @@ if (typeof document !== "undefined") {
       el("thead", {}, el("tr", {}, el("th", { text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th"))), tbody));
   }
   $("kurse-oeffnen").addEventListener("click", kurseOeffnen);
+
+  // ----- Fotos: liegen in der Datenbank des Browsers, weil sie für den normalen Speicher zu groß sind -----
+  const FOTO_DB = "notenauswertung-fotos";
+  const fotos = new Map(); // Schüler-ID -> Bild als data-URL
+  function fotoDb() {
+    return new Promise((ok, nein) => {
+      const r = indexedDB.open(FOTO_DB, 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("fotos");
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => nein(r.error);
+    });
+  }
+  async function fotosLaden() {
+    const db = await fotoDb();
+    await new Promise((ok, nein) => {
+      const rq = db.transaction("fotos").objectStore("fotos").openCursor();
+      rq.onsuccess = () => { const c = rq.result; if (c) { fotos.set(c.key, c.value); c.continue(); } else ok(); };
+      rq.onerror = () => nein(rq.error);
+    });
+    db.close();
+  }
+  // eintraege: [[Schüler-ID, Bild oder null zum Löschen]]
+  async function fotosSchreiben(eintraege) {
+    if (nichtsMehrSchreiben || !eintraege.length) return;
+    const db = await fotoDb();
+    await new Promise((ok, nein) => {
+      const tx = db.transaction("fotos", "readwrite"), st = tx.objectStore("fotos");
+      eintraege.forEach(([id, b]) => (b ? st.put(b, id) : st.delete(id)));
+      tx.oncomplete = ok;
+      tx.onerror = () => nein(tx.error);
+    });
+    db.close();
+    eintraege.forEach(([id, b]) => (b ? fotos.set(id, b) : fotos.delete(id)));
+  }
+  // Ohne eigenes Foto ein leerer Kreis, damit die Namen untereinander bündig bleiben
+  const fotoEl = (s) => {
+    if (!einst.fotos || !fotos.size || !s) return null;
+    const b = fotos.get(s.id);
+    return b ? el("img", { klasse: "foto", src: b, alt: "" }) : el("span", { klasse: "foto leer" });
+  };
+  document.addEventListener("click", (e) => {
+    const gross = $("foto-gross");
+    if (gross) { gross.remove(); return; }
+    if (!(e.target instanceof HTMLImageElement) || !e.target.classList.contains("foto")) return;
+    document.body.append(el("div", { id: "foto-gross" }, el("img", { src: e.target.src, alt: "" })));
+  });
+  // Zuordnung über die Namen: Alle Wörter eines Namens müssen im Text neben dem Foto stehen,
+  // und Foto und Person dürfen im Kurs nur einmal zueinander passen
+  function fotosZuordnen(daten) {
+    const woerter = (t) => String(t || "").toLowerCase().split(/[\s,;()]+/).filter(Boolean);
+    const liste = (Array.isArray(daten.fotos) ? daten.fotos : [])
+      .filter((f) => f && typeof f.bild === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(f.bild))
+      .map((f) => ({ bild: f.bild, w: new Set(woerter((Array.isArray(f.texte) ? f.texte : []).join(" "))) }));
+    const neu = [], ohneFoto = [], benutzt = new Set();
+    kurse.filter((k) => !k.beispiel).forEach((k) => {
+      const treffer = k.schueler.map((x) => { const nw = woerter(x.name); return liste.map((f, i) => (nw.length && nw.every((w) => f.w.has(w)) ? i : -1)).filter((i) => i >= 0); });
+      const proFoto = new Map();
+      treffer.forEach((t, si) => t.forEach((fi) => proFoto.set(fi, (proFoto.get(fi) || 0) + 1)));
+      const vorher = neu.length, fehlt = [];
+      k.schueler.forEach((x, si) => {
+        const t = treffer[si].filter((fi) => proFoto.get(fi) === 1);
+        if (t.length === 1) { neu.push([x.id, liste[t[0]].bild]); benutzt.add(t[0]); }
+        else if (!fotos.has(x.id)) fehlt.push(anzeige(x.name));
+      });
+      if (neu.length > vorher && fehlt.length) ohneFoto.push(`${k.name || "Ohne Namen"}: ${fehlt.join(" · ")}`);
+    });
+    return { neu, gesamt: liste.length, unbenutzt: liste.length - benutzt.size, ohneFoto };
+  }
+  const fotoStand = () => { $("foto-stand").textContent = fotos.size ? `${fotos.size} ${fotos.size === 1 ? "Foto" : "Fotos"} gespeichert` : "Noch keine Fotos"; };
+  $("fotos-oeffnen").addEventListener("click", () => { $("foto-ergebnis").textContent = ""; fotoStand(); $("foto-dialog").showModal(); });
+  $("foto-fertig").addEventListener("click", () => $("foto-dialog").close());
+  $("foto-dialog").addEventListener("close", () => { if (kursDialog.open) kursEditorAufbauen(); bereichZeigen(aktiverBereich); });
+  $("lesezeichen-kopieren").addEventListener("click", async () => {
+    const knopf = $("lesezeichen-kopieren"), text = fotoLesezeichen();
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (err) {
+      const ta = el("textarea", { stil: "position:fixed;opacity:0" }); ta.value = text; $("foto-dialog").append(ta); ta.select();
+      try { ok = document.execCommand("copy"); } catch (err2) { ok = false; }
+      ta.remove();
+    }
+    knopf.textContent = ok ? "Kopiert" : "Kopieren ging nicht";
+    setTimeout(() => { knopf.textContent = "Lesezeichen kopieren"; }, 2000);
+  });
+  $("fotodatei-laden").addEventListener("click", () => $("fotodatei").click());
+  $("fotodatei").addEventListener("change", async (e) => {
+    const datei = e.target.files[0];
+    e.target.value = "";
+    if (!datei) return;
+    const aus = $("foto-ergebnis");
+    aus.classList.remove("fehler");
+    try {
+      const daten = JSON.parse(await datei.text());
+      if (!daten || daten.art !== "fotos") throw new Error("Das ist keine Fotodatei aus dem Lesezeichen.");
+      const z = fotosZuordnen(daten);
+      await fotosSchreiben(z.neu);
+      aus.textContent = `${z.neu.length} ${z.neu.length === 1 ? "Foto" : "Fotos"} zugeordnet. ` +
+        (z.unbenutzt ? `${z.unbenutzt} von ${z.gesamt} passten zu keinem Namen in deinen Kursen. ` : "") +
+        (z.ohneFoto.length ? `\nOhne Foto in ${z.ohneFoto.join("\n")}` : "");
+      fotoStand();
+    } catch (err) {
+      aus.classList.add("fehler");
+      aus.textContent = "Die Datei ließ sich nicht laden: " + err.message;
+    }
+  });
+  let fotoLoeschStufe = 0;
+  $("fotos-loeschen").addEventListener("click", async () => {
+    const b = $("fotos-loeschen");
+    if (fotoLoeschStufe === 0) { fotoLoeschStufe = 1; b.textContent = "Wirklich alle Fotos löschen?"; setTimeout(() => { fotoLoeschStufe = 0; b.textContent = "Alle Fotos löschen"; }, 4000); return; }
+    fotoLoeschStufe = 0; b.textContent = "Alle Fotos löschen";
+    try { await fotosSchreiben([...fotos.keys()].map((id) => [id, null])); $("foto-ergebnis").textContent = "Alle Fotos gelöscht."; } catch (err) { $("foto-ergebnis").textContent = "Löschen ging nicht: " + err.message; }
+    fotoStand();
+  });
   $("kurs-bearbeiten").addEventListener("change", (e) => { bearbeitet = e.target.value; kursEditorAufbauen(); });
   $("kurs-neu").addEventListener("click", () => { kursNeu(); kursEditorAufbauen(); const f = $("kursname"); if (f) { f.focus(); f.select(); } });
   $("beispielkurs").addEventListener("click", () => beispielkurs(false));
@@ -3548,7 +3781,9 @@ if (typeof document !== "undefined") {
     if (pw == null) return;
     $("kurs-status").textContent = "Verschlüssele …";
     try {
-      const daten = { programm: "Notenauswertung", version: 3, gesichert: new Date().toISOString(), kurse, zeitraeume: zr, einstellungen: einst };
+      const ids = new Set(kurse.flatMap((k) => k.schueler.map((x) => x.id)));
+      const daten = { programm: "Notenauswertung", version: 3, gesichert: new Date().toISOString(), kurse, zeitraeume: zr, einstellungen: einst,
+        fotos: Object.fromEntries([...fotos].filter(([id]) => ids.has(id))) };
       const inhalt = await verschluesseln(JSON.stringify(daten), pw);
       const ok = await herunterladen(new Blob([JSON.stringify(inhalt)], { type: "application/json" }),
         `Notenauswertung_Backup_${new Date().toISOString().slice(0, 10)}.json`);
@@ -3612,6 +3847,10 @@ if (typeof document !== "undefined") {
       $("gesamt-start").value = einst.gesamt;
     }
     if (geladen[0]) { bearbeitet = geladen[0].id; aktiverKurs = geladen[0].id; }
+    if (daten.fotos && typeof daten.fotos === "object") {
+      const neu = Object.entries(daten.fotos).filter(([, b]) => typeof b === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(b));
+      if (neu.length) fotosSchreiben(neu).then(() => bereichZeigen(aktiverBereich)).catch(() => {});
+    }
     if (daten.zeitraeume && Array.isArray(daten.zeitraeume.liste)) {
       daten.zeitraeume.liste.filter((Z) => Z && typeof Z === "object" && Z.id).forEach((Z) => {
         const neu = { id: String(Z.id), titel: String(Z.titel || ""), von: String(Z.von || ""), bis: String(Z.bis || ""), schluessel: schluesselPruefen(Z.schluessel), rundung: rundungPruefen(Z.rundung) };
@@ -4294,7 +4533,7 @@ if (typeof document !== "undefined") {
         zeigen(); stundenZeigen(); zeitraumZeigen();
       }));
       zeigen();
-      zeile.append(el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name", text: anzeige(s.name) }),
+      zeile.append(el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name" }, fotoEl(s), anzeige(s.name)),
         el("td", { klasse: "klasse", text: s.klasse || "" }), el("td", {}, el("span", { klasse: "wahl3" }, knoepfe)), summe, note);
       tbody.append(zeile);
     });
@@ -4397,7 +4636,7 @@ if (typeof document !== "undefined") {
     personenReihenfolge(k).forEach((s, idx) => {
       const zelle = el("td", { klasse: "zaehlung" });
       zellen.set(s.id, zelle);
-      tbody.append(el("tr", {}, el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name", text: anzeige(s.name) }),
+      tbody.append(el("tr", {}, el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name" }, fotoEl(s), anzeige(s.name)),
         el("td", { klasse: "klasse", text: s.klasse || "" }), el("td", {}, notenKnoepfe(x, s, noten, () => { infoZeigen(); zeitraumZeigen(); })), zelle));
     });
     infoZeigen(); zeitraumZeigen();
@@ -4873,7 +5112,10 @@ if (typeof document !== "undefined") {
       Object.keys(localStorage).filter((x) => x.startsWith("notenauswertung-") && x !== "notenauswertung-thema").forEach((x) => localStorage.removeItem(x));
       sessionStorage.clear();
     } catch (e) { /* ohne Speicher */ }
-    location.reload();
+    try {
+      const weg = indexedDB.deleteDatabase(FOTO_DB);
+      weg.onsuccess = weg.onerror = weg.onblocked = () => location.reload();
+    } catch (e) { location.reload(); }
   });
   // Einstellungen: Sperre einrichten oder ausschalten
   async function sperreEinstAufbauen() {
@@ -4927,7 +5169,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "05.11.2026 10:38";
+  const STAND = "05.11.2026 10:51";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
@@ -4954,6 +5196,7 @@ if (typeof document !== "undefined") {
   bereichZeigen(lesen(BEREICH_KEY) || "arbeit");
   if (sperreDaten()) { document.documentElement.classList.add("gesperrt"); entsperren(false); }
   else document.documentElement.classList.remove("gesperrt");
+  fotosLaden().then(() => { if (fotos.size) bereichZeigen(aktiverBereich); }).catch(() => {});
   // Auf iPad und iPhone: Safari darf Daten eines Tabs nach einiger Zeit ohne Nutzung löschen, die App auf dem Home-Bildschirm nicht
   const eigenstaendig = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   if (istIOS && !eigenstaendig) {
