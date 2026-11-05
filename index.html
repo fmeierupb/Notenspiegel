@@ -379,7 +379,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 05.11.2026 10:57</span>
+      <span>Fassung 05.11.2026 11:19</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -2279,38 +2279,69 @@ function freieZeilen(zeilen) {
 // Läuft nicht hier, sondern als Lesezeichen in der eingeloggten WebUntis-Seite. Sammelt die sichtbaren Fotos mit dem Text daneben
 // und speichert sie als Datei, die hier geladen wird. Darf deshalb nichts von außerhalb dieser Funktion benutzen.
 async function fotoSammler() {
-  const GROESSE = 240;
+  const GROESSE = 240, MIN = 16;
   const alt = document.getElementById("na-fotos");
   if (alt) alt.remove();
+  // Alle Teile der Seite: die Seite selbst, Rahmen von derselben Adresse und eingebettete Bereiche (Shadow DOM)
+  const wurzeln = [], info = { bilder: 0, gross: 0, rahmen: 0, rahmenZu: 0, fehler: 0, doppelt: 0, grund: "" };
+  const sammeln = (w) => {
+    wurzeln.push(w);
+    w.querySelectorAll("*").forEach((e) => {
+      if (e.shadowRoot) sammeln(e.shadowRoot);
+      if (e.tagName === "IFRAME" || e.tagName === "FRAME") {
+        info.rahmen++;
+        try { const d = e.contentDocument; if (d && d.documentElement) sammeln(d); else info.rahmenZu++; } catch (x) { info.rahmenZu++; }
+      }
+    });
+  };
+  sammeln(document);
   const quellen = [];
-  document.querySelectorAll("img").forEach((i) => {
-    const src = i.currentSrc || i.src;
-    if (src && i.offsetWidth >= 24 && i.offsetHeight >= 24) quellen.push({ e: i, src });
+  const gross = (e) => { const r = e.getBoundingClientRect(); return r.width >= MIN && r.height >= MIN; };
+  const adresse = (src, e) => { try { return new URL(src, (e.ownerDocument || document).baseURI).href; } catch (x) { return src; } };
+  wurzeln.forEach((w) => {
+    w.querySelectorAll("img, image, canvas").forEach((i) => {
+      info.bilder++;
+      if (!gross(i)) return;
+      info.gross++;
+      if (i.tagName === "CANVAS") { quellen.push({ e: i, src: "", leinwand: true }); return; }
+      const src = i.tagName === "IMG" ? i.currentSrc || i.src : i.getAttribute("href") || i.getAttribute("xlink:href");
+      if (src) quellen.push({ e: i, src: adresse(src, i) });
+    });
+    w.querySelectorAll("*").forEach((e) => {
+      if (/^(IMG|IMAGE|CANVAS)$/i.test(e.tagName) || !gross(e)) return;
+      const fenster = (e.ownerDocument && e.ownerDocument.defaultView) || window;
+      const m = /url\(["']?([^"')]+)["']?\)/.exec(fenster.getComputedStyle(e).backgroundImage || "");
+      if (m) { info.bilder++; info.gross++; quellen.push({ e, src: adresse(m[1], e) }); }
+    });
   });
-  document.querySelectorAll("body *").forEach((e) => {
-    if (e.tagName === "IMG" || e.offsetWidth < 24 || e.offsetHeight < 24) return;
-    const m = /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(e).backgroundImage || "");
-    if (m) quellen.push({ e, src: m[1] });
-  });
-  // Ein Bild, das mehrmals vorkommt, ist ein Platzhalter oder ein Symbol, kein Foto
+  // Ein Bild, das oft vorkommt, ist ein Platzhalter oder ein Symbol, kein Foto
   const anzahl = new Map();
-  quellen.forEach((q) => anzahl.set(q.src, (anzahl.get(q.src) || 0) + 1));
+  quellen.forEach((q) => { if (q.src) anzahl.set(q.src, (anzahl.get(q.src) || 0) + 1); });
   const texte = (e) => {
-    for (let x = e.parentElement, n = 0; x && n < 8; x = x.parentElement, n++) {
+    for (let x = e.parentElement || (e.parentNode && e.parentNode.host), n = 0; x && n < 8; x = x.parentElement || (x.parentNode && x.parentNode.host), n++) {
       const t = (x.innerText || "").trim();
       if (t) return t.length > 300 ? [] : t.split("\n").map((z) => z.trim()).filter(Boolean);
     }
     return [];
   };
-  const verkleinern = async (src) => {
-    const antwort = await fetch(src, { credentials: "include" });
-    const bild = await createImageBitmap(await antwort.blob());
-    const f = Math.min(1, GROESSE / Math.max(bild.width, bild.height));
+  const malen = (quelle, w, h) => {
+    const f = Math.min(1, GROESSE / Math.max(w, h));
     const c = document.createElement("canvas");
-    c.width = Math.max(1, Math.round(bild.width * f));
-    c.height = Math.max(1, Math.round(bild.height * f));
-    c.getContext("2d").drawImage(bild, 0, 0, c.width, c.height);
+    c.width = Math.max(1, Math.round(w * f));
+    c.height = Math.max(1, Math.round(h * f));
+    c.getContext("2d").drawImage(quelle, 0, 0, c.width, c.height);
     return c.toDataURL("image/jpeg", 0.85);
+  };
+  const lesen = async (q) => {
+    if (q.leinwand) return malen(q.e, q.e.width, q.e.height);
+    // Erst das schon geladene Bild nehmen, sonst neu laden
+    if (q.e.tagName === "IMG" && q.e.complete && q.e.naturalWidth) {
+      try { return malen(q.e, q.e.naturalWidth, q.e.naturalHeight); } catch (x) { /* Bild von fremder Adresse */ }
+    }
+    const antwort = await fetch(q.src, { credentials: "include" });
+    if (!antwort.ok) throw new Error("Antwort " + antwort.status);
+    const bild = await createImageBitmap(await antwort.blob());
+    return malen(bild, bild.width, bild.height);
   };
   const box = document.createElement("div");
   box.id = "na-fotos";
@@ -2319,12 +2350,13 @@ async function fotoSammler() {
   kopf.textContent = "Fotos werden gesammelt …";
   box.append(kopf);
   document.body.append(box);
-  const fotos = [], raster = document.createElement("div");
+  const fotos = [], gesehen = new Set(), raster = document.createElement("div");
   raster.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:12px 0";
   for (const q of quellen) {
-    if (anzahl.get(q.src) > 1) continue;
+    if (q.src && (anzahl.get(q.src) > 2 || gesehen.has(q.src))) { info.doppelt++; continue; }
+    gesehen.add(q.src);
     try {
-      const bild = await verkleinern(q.src), t = texte(q.e);
+      const bild = await lesen(q), t = texte(q.e);
       fotos.push({ texte: t, bild });
       const zelle = document.createElement("div"), vorschau = document.createElement("img"), name = document.createElement("div");
       vorschau.src = bild;
@@ -2333,11 +2365,15 @@ async function fotoSammler() {
       name.style.cssText = "font-size:12px;text-align:center;word-break:break-word";
       zelle.append(vorschau, name);
       raster.append(zelle);
-    } catch (e) { /* kein lesbares Bild */ }
+    } catch (x) { info.fehler++; if (!info.grund) info.grund = String(x && (x.message || x.name) || x); }
   }
   kopf.textContent = fotos.length
     ? fotos.length + " Fotos gefunden. Stehen die richtigen Namen darunter, die Datei speichern und in der Notenauswertung laden."
     : "Auf dieser Seite wurden keine Fotos gefunden.";
+  const diagnose = document.createElement("div");
+  diagnose.style.cssText = "font-size:13px;color:#555;margin-top:6px";
+  diagnose.textContent = `Gesehen: ${info.bilder} Bilder, davon ${info.gross} groß genug, ${info.doppelt} davon mehrfach gleich und übersprungen. ${info.rahmen} Rahmen, davon ${info.rahmenZu} nicht lesbar. ` +
+    `${info.fehler} Bilder ließen sich nicht lesen${info.grund ? " (" + info.grund + ")" : ""}. Lesezeichen Stand 2.`;
   const knopf = (text, aktion, hell) => {
     const b = document.createElement("button");
     b.textContent = text;
@@ -2356,7 +2392,7 @@ async function fotoSammler() {
     a.remove();
   }));
   leiste.append(knopf("Schließen", () => box.remove(), true));
-  box.append(leiste, raster);
+  box.append(diagnose, leiste, raster);
 }
 // Als Lesezeichen: die Funktion als Adresse, am Ende void 0, damit der Browser die Seite nicht ersetzt
 const fotoLesezeichen = () => "javascript:" + encodeURIComponent("(" + fotoSammler.toString() + ")();void 0");
@@ -5184,7 +5220,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "05.11.2026 10:57";
+  const STAND = "05.11.2026 11:19";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
