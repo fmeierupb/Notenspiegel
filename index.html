@@ -91,6 +91,9 @@
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   button:disabled { background: var(--knopf-aus); color: var(--muted); cursor: default; filter: none; }
   button.gross { width: 100%; padding: 14px; font-size: 18px; }
+  .eingabe-knoepfe { flex-wrap: nowrap; }
+  .eingabe-knoepfe #auswerten { flex: 1 1 auto; width: auto; }
+  #eingabe-speichern { flex: 0 0 auto; padding: 14px 18px; font-size: 18px; }
   button.leise { background: transparent; color: var(--link); padding: 8px 6px; }
   button.leise:hover { text-decoration: underline; filter: none; }
   button.zweit { background: var(--card); color: var(--text); border: 1px solid var(--border); }
@@ -352,9 +355,11 @@
     </div>
     <div id="eintragbereich"></div>
     <div id="datenstatus" class="status"></div>
-    <div class="knoepfe">
+    <div class="knoepfe eingabe-knoepfe">
       <button id="auswerten" class="gross" type="button" disabled>Auswerten</button>
+      <button id="eingabe-speichern" class="zweit" type="button" disabled>Im Kurs speichern</button>
     </div>
+    <div id="speicher-status" class="status"></div>
     </div>
     <div id="panel-mitarbeit" hidden></div>
     <div id="panel-mappe" hidden></div>
@@ -366,7 +371,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 25.10.2026 23:34</span>
+      <span>Fassung 05.11.2026 10:38</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -2865,6 +2870,8 @@ if (typeof document !== "undefined") {
     if (ns.fehler.length) zeilen.push("Im Notenspiegel stimmt etwas nicht. Bitte unter „Einstellungen“ prüfen.");
     status.textContent = zeilen.join("\n");
     $("auswerten").disabled = !bereit;
+    $("eingabe-speichern").disabled = !(k && k.schueler.length);
+    if (ungesichert) $("speicher-status").textContent = "";
     return bereit;
   }
 
@@ -3159,7 +3166,10 @@ if (typeof document !== "undefined") {
       punkte: e.zeilen.map((z) => ({ id: z.id, name: z.name, klasse: z.klasse || "", punkte: bewertet(z) ? deG(z.punkte) : z.vermerk || "",
         note: bewertet(z) ? `${z.note + 1}${z.tendenz}` : z.noteManuell ? z.noteManuell.text : "" })),
     };
-    const liste = listeVon(k, e.art);
+    return inListeSpeichern(k, e.art, eintrag);
+  }
+  function inListeSpeichern(k, art, eintrag) {
+    const liste = listeVon(k, art);
     const alt = liste.findIndex((a) => a.arbeit === eintrag.arbeit && a.datum === eintrag.datum);
     if (alt >= 0) { eintrag.id = liste[alt].id; liste[alt] = eintrag; } else liste.push(eintrag);
     liste.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
@@ -3167,6 +3177,34 @@ if (typeof document !== "undefined") {
     ungesichert = false;
     entwurfMerken();
     return alt >= 0 ? "aktualisiert" : "gespeichert";
+  }
+  // Speichern direkt aus der Eingabe, auch unfertig: was fehlt, bleibt leer, ungültige Eingaben bleiben so stehen, wie sie getippt sind
+  function eingabeSichern() {
+    const k = kurs();
+    if (!k || !k.schueler.length) return null;
+    const ns = notenspiegel(einst), r = ns.fehler.length ? null : berechne([0], ns.noten, ns.maxPunkte), letzte = ns.noten.length - 1;
+    const werte = punkteVon(k), man = manuellVon(k);
+    let ungueltig = 0;
+    const liste = k.schueler.map((s) => {
+      const roh = String(werte.get(s.id) || "").trim(), l = leseEingabe(roh, ns.maxPunkte);
+      let punkte = "", note = "";
+      if (l.wert != null) {
+        punkte = deG(l.wert);
+        if (r) { const i = r.noteIndex(l.wert); note = `${i + 1}${tendenz(l.wert, i, r, einst.tendenzen, letzte)}`; }
+      } else if (l.vermerk) {
+        punkte = l.vermerk;
+        const rohNote = String(man.get(s.id) || "").trim(), n = noteLesen(rohNote);
+        note = n.text || rohNote;
+        if (n.fehler) ungueltig++;
+      } else if (l.fehler) { punkte = roh; ungueltig++; }
+      return { id: s.id, name: s.name, klasse: s.klasse || "", punkte, note };
+    });
+    const eintrag = {
+      id: neueId(), arbeit: $("arbeit").value.trim(), datum: $("datum").value, gesichert: new Date().toISOString(),
+      einst: { noten: kopie(einst.noten), gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: kopie(einst.tendenzen) },
+      punkte: liste,
+    };
+    return { stand: inListeSpeichern(k, modus, eintrag), ungueltig, ohneNoten: !r };
   }
   const arbeitTitel = (a) => [a.arbeit || "Ohne Titel", datumDE(a.datum)].filter(Boolean).join(" · ");
   function arbeitLaden(k, a) {
@@ -3221,6 +3259,17 @@ if (typeof document !== "undefined") {
     return [el("label", { klasse: "feld", stil: "flex:1 1 260px" }, `${worte().gespeichert} (${liste.length})`, wahl), laden, loeschen];
   }
 
+  $("eingabe-speichern").addEventListener("click", () => {
+    const x = eingabeSichern();
+    if (!x) return;
+    const w = worte();
+    const teile = [x.stand === "aktualisiert" ? w.imErsetzt : w.im];
+    if (x.ohneNoten) teile.push("Im Notenspiegel stimmt etwas nicht, deshalb sind nur die Punkte gespeichert.");
+    if (x.ungueltig) teile.push(`${x.ungueltig} ${x.ungueltig === 1 ? "ungültige Eingabe ist" : "ungültige Eingaben sind"} so gespeichert, wie ${x.ungueltig === 1 ? "sie dasteht" : "sie dastehen"}.`);
+    teile.push("Weitermachen geht später mit „Laden“.");
+    eintragAufbauen();
+    $("speicher-status").textContent = teile.join(" ");
+  });
   $("speichern").addEventListener("click", () => {
     const r = arbeitSichern();
     $("hinweis").classList.remove("fehler");
@@ -4878,7 +4927,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "25.10.2026 23:34";
+  const STAND = "05.11.2026 10:38";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
