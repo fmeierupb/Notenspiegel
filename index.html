@@ -329,10 +329,10 @@
   /* Foto nur, solange ein Name gedrückt gehalten wird */
   [data-sid] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   /* Schülerkarte */
-  .karte-kopf { display: flex; align-items: center; gap: 10px; }
-  .karte-kopf h2 { flex: 1; min-width: 0; }
-  .karte-kopf h2 .unter { display: block; font-size: 13px; color: var(--muted); font-weight: 500; margin-top: 3px; }
-  .karte-kopf button { padding: 6px 14px; font-size: 22px; line-height: 1; }
+  .karte-blaettern { display: flex; gap: 8px; }
+  .karte-blaettern button { padding: 7px 16px; font-size: 20px; line-height: 1.1; }
+  .karte-name { font-size: 22px; font-weight: 700; margin: 20px 0 2px; }
+  .karte-unter { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
   .karte-svg { width: 100%; height: auto; display: block; margin-top: 4px; }
   .karte-svg text { fill: var(--muted); font: 11px system-ui, -apple-system, sans-serif; }
   .karte-legende { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); margin: 8px 0 4px; }
@@ -340,7 +340,6 @@
   .karte-legende svg { width: 16px; height: 16px; flex: none; }
   .liste tr.rechenweg td { white-space: normal; color: var(--muted); font-size: 13px; padding-top: 0; }
   .liste .klein { color: var(--muted); font-size: 12px; margin-left: 6px; }
-  .zur-karte { cursor: pointer; text-decoration: underline dotted var(--muted); text-underline-offset: 3px; }
   #foto-tipp { position: fixed; z-index: 95; pointer-events: none; padding: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
   #foto-tipp img { display: block; width: 140px; height: 187px; object-fit: cover; border-radius: 8px; }
   ol.schritte { padding-left: 22px; margin: 0 0 12px; }
@@ -374,6 +373,7 @@
       <button id="bereich-mitarbeit" role="tab" aria-selected="false" type="button">Mitarbeit</button>
       <button id="bereich-mappe" role="tab" aria-selected="false" type="button">Mappe</button>
       <button id="bereich-leistung" role="tab" aria-selected="false" type="button">Übersicht</button>
+      <button id="bereich-karte" role="tab" aria-selected="false" type="button">Schülerkarte</button>
     </div>
     <div id="panel-arbeit">
     <div class="kopfzeilen">
@@ -393,6 +393,7 @@
     <div id="panel-mitarbeit" hidden></div>
     <div id="panel-mappe" hidden></div>
     <div id="panel-leistung" hidden></div>
+    <div id="panel-karte" hidden></div>
     <div class="knoepfe">
       <button id="kurse-oeffnen" class="leise" type="button">Kurse verwalten</button>
       <button id="einstellungen-oeffnen" class="leise" type="button">Einstellungen</button>
@@ -400,7 +401,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 05.11.2026 11:59</span>
+      <span>Fassung 05.11.2026 12:02</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -538,21 +539,6 @@
       <button id="fotos-loeschen" class="leise" type="button">Alle Fotos löschen</button>
       <span id="foto-stand" class="hint" style="margin:0;font-size:13px"></span>
       <button id="foto-fertig" class="rechts" type="button">Fertig</button>
-    </div>
-  </div>
-</dialog>
-
-<dialog id="karte-dialog">
-  <div class="dialog-innen">
-    <div class="dialog-kopf karte-kopf">
-      <button id="karte-zurueck" class="zweit" type="button" aria-label="Vorherige Person">‹</button>
-      <h2 id="karte-titel" tabindex="-1" autofocus></h2>
-      <button id="karte-weiter" class="zweit" type="button" aria-label="Nächste Person">›</button>
-    </div>
-    <div class="dialog-inhalt" id="karte-inhalt"></div>
-    <div class="dialog-fuss">
-      <span id="karte-pos" class="hint" style="margin:0;font-size:13px"></span>
-      <button id="karte-fertig" class="rechts" type="button">Fertig</button>
     </div>
   </div>
 </dialog>
@@ -3781,9 +3767,8 @@ if (typeof document !== "undefined") {
   window.addEventListener("resize", breitePlanen);
   // Fotos stehen nie in der Liste. Hält man einen Namen gedrückt, erscheint das Foto darüber und verschwindet beim Loslassen
   const fotoId = (s) => (einst.fotos && s && fotos.has(s.id) ? s.id : null);
-  let tippTimer = 0, tippStart = null, tippEnde = 0;
-  const tippWeg = () => { clearTimeout(tippTimer); tippStart = null; const t = $("foto-tipp"); if (t) { t.remove(); tippEnde = Date.now(); } };
-  const fotoGeradeGezeigt = () => Date.now() - tippEnde < 700;
+  let tippTimer = 0, tippStart = null;
+  const tippWeg = () => { clearTimeout(tippTimer); tippStart = null; const t = $("foto-tipp"); if (t) t.remove(); };
   document.addEventListener("pointerdown", (e) => {
     tippWeg();
     const z = e.target.closest && e.target.closest("[data-sid]");
@@ -4491,7 +4476,7 @@ if (typeof document !== "undefined") {
   // ----- Bereiche: Arbeiten, Tests, Mitarbeit, Mappe, Übersicht -----
   const MARKEN = ["+", "o", "−"];
   const FEHLT = "f";
-  const BEREICH_IDS = ["arbeit", "tests", "mitarbeit", "mappe", "leistung"];
+  const BEREICH_IDS = ["arbeit", "tests", "mitarbeit", "mappe", "leistung", "karte"];
   const BEREICH_KEY = "notenauswertung-bereich";
   const isoDatum = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const heuteISO = () => isoDatum(new Date());
@@ -4504,12 +4489,13 @@ if (typeof document !== "undefined") {
     aktiverBereich = b;
     schreiben(BEREICH_KEY, b);
     const panel = b === "tests" ? "arbeit" : b;
-    ["arbeit", "mitarbeit", "mappe", "leistung"].forEach((x) => { $("panel-" + x).hidden = x !== panel; });
+    ["arbeit", "mitarbeit", "mappe", "leistung", "karte"].forEach((x) => { $("panel-" + x).hidden = x !== panel; });
     BEREICH_IDS.forEach((x) => $("bereich-" + x).setAttribute("aria-selected", String(x === b)));
     if (panel === "arbeit") modusSetzen(b === "tests" ? "test" : "arbeit");
     if (b === "mitarbeit") mitarbeitAufbauen();
     else if (b === "mappe") notenlisteAufbauen(b);
     else if (b === "leistung") leistungAufbauen();
+    else if (b === "karte") karteAufbauen();
     else eintragAufbauen();
     backupStand();
     $("testpunkte").hidden = panel !== "arbeit" || !(kurs() && kurs().beispiel && kurs().schueler.length);
@@ -4861,26 +4847,35 @@ if (typeof document !== "undefined") {
   const anteilText = (D) => BEREICHE.filter((b) => D.anteile[b.id] > 0).map((b) => `${b.name} ${Math.round(D.anteile[b.id] * 100)} %`).join(", ");
   let uebersichtAnsicht = lesen("notenauswertung-uebersicht") === "statistik" ? "statistik" : "noten";
   // ----- Schülerkarte: wie sich eine Person über die Zeit entwickelt, über alle Zeiträume -----
-  let karte = null;
-  function karteOeffnen(k, reihe, i) {
-    karte = { k, reihe, i };
-    karteZeigen();
-    if (!$("karte-dialog").open) $("karte-dialog").showModal();
+  let karteId = null;
+  function karteAufbauen() {
+    const p = $("panel-karte");
+    p.innerHTML = "";
+    const k = kurs();
+    const wahl = el("select");
+    const zurueck = el("button", { type: "button", klasse: "zweit", text: "‹", "aria-label": "Vorherige Person" });
+    const weiter = el("button", { type: "button", klasse: "zweit", text: "›", "aria-label": "Nächste Person" });
+    p.append(el("div", { klasse: "reihe" }, kursFeld(), el("label", { klasse: "feld", stil: "flex:1 1 240px" }, "Person", wahl), el("div", { klasse: "karte-blaettern" }, zurueck, weiter)));
+    if (!k || !k.schueler.length) { ohneKurs(p); return; }
+    // Reihenfolge wie in der Übersicht sortiert
+    const reihe = zeilenSortiert(berechnen(k, aktiverZeitraum())).map((z) => z.s);
+    reihe.forEach((s) => wahl.append(el("option", { value: s.id, text: anzeige(s.name) + (s.klasse ? ` · ${s.klasse}` : "") })));
+    if (!reihe.some((s) => s.id === karteId)) karteId = reihe[0].id;
+    wahl.value = karteId;
+    const inhalt = el("div");
+    p.append(inhalt);
+    const zeigen = () => karteZeigen(inhalt, k, reihe.find((s) => s.id === karteId));
+    const gehe = (d) => {
+      const i = reihe.findIndex((s) => s.id === karteId);
+      karteId = reihe[(i + d + reihe.length) % reihe.length].id;
+      wahl.value = karteId;
+      zeigen();
+    };
+    wahl.addEventListener("change", () => { karteId = wahl.value; zeigen(); });
+    zurueck.addEventListener("click", () => gehe(-1));
+    weiter.addEventListener("click", () => gehe(1));
+    zeigen();
   }
-  function karteBlaettern(d) {
-    if (!karte || !karte.reihe.length) return;
-    karte.i = (karte.i + d + karte.reihe.length) % karte.reihe.length;
-    karteZeigen();
-    $("karte-inhalt").scrollTop = 0;
-  }
-  $("karte-zurueck").addEventListener("click", () => karteBlaettern(-1));
-  $("karte-weiter").addEventListener("click", () => karteBlaettern(1));
-  $("karte-fertig").addEventListener("click", () => $("karte-dialog").close());
-  $("karte-dialog").addEventListener("keydown", (e) => {
-    if (e.target.closest && e.target.closest("input, textarea, select")) return;
-    if (e.key === "ArrowLeft") { e.preventDefault(); karteBlaettern(-1); }
-    if (e.key === "ArrowRight") { e.preventDefault(); karteBlaettern(1); }
-  });
 
   // Alle Noten einer Person mit Kursschnitt, ihre Mitarbeit Stunde für Stunde und je Zeitraum die Endnote samt Zwischenständen
   function karteVerlauf(k, s) {
@@ -5091,17 +5086,12 @@ if (typeof document !== "undefined") {
       el("table", { klasse: "liste" }, el("thead", {}, el("tr", {}, ["Datum", "Art", "Titel", "Note", "Punkte", "Kursschnitt"].map((t) => el("th", { text: t })))), tb));
   }
 
-  function karteZeigen() {
-    const { k, reihe } = karte;
-    const s = k.schueler.find((x) => x.id === reihe[karte.i]);
-    if (!s) { $("karte-dialog").close(); return; }
-    const noten = notenspiegel(einst).noten;
-    const titel = $("karte-titel");
-    titel.innerHTML = "";
-    titel.append(el("span", { "data-sid": fotoId(s), text: anzeige(s.name) }), el("span", { klasse: "unter", text: [s.klasse, k.name].filter(Boolean).join(" · ") }));
-    $("karte-pos").textContent = `${karte.i + 1} von ${reihe.length}`;
-    const inhalt = $("karte-inhalt");
+  function karteZeigen(inhalt, k, s) {
     inhalt.innerHTML = "";
+    if (!s) return;
+    const noten = notenspiegel(einst).noten;
+    inhalt.append(el("div", { klasse: "karte-name" }, el("span", { "data-sid": fotoId(s), text: anzeige(s.name) })),
+      el("div", { klasse: "karte-unter", text: [s.klasse, k.name].filter(Boolean).join(" · ") }));
     const v = karteVerlauf(k, s);
     if (!v.ereignisse.length && !v.stunden.length) {
       inhalt.append(el("p", { klasse: "leer", text: "Für diese Person gibt es noch keine Noten und keine Mitarbeit." }));
@@ -5319,14 +5309,12 @@ if (typeof document !== "undefined") {
       const notenZelle = (liste, wert) => el("td", { klasse: "noten" }, liste.map((n) => n || "–").join(", "),
         liste.filter(Boolean).length > 1 && wert != null ? el("span", { klasse: "schnitt", text: `Ø ${komma2(wert)}` }) : null);
       const refs = [], tbody = el("tbody"), notenFarben = notenspiegel(einst).noten;
-      const reihe = zeilenSortiert(D).map((z) => z.s.id);
       zeilenSortiert(D).forEach((z, zi) => {
         const mitIn = feld(eigene.mitarbeit, z.s, "Mitarbeit", "m", zi), endIn = feld(eigene.note, z.s, "Endnote", "e", zi);
         const zaehl = el("span", { klasse: "zaehl" }), dez = el("span", { klasse: "dezimal" });
         refs.push({ id: z.s.id, mitIn, endIn, zaehl, dez });
         tbody.append(el("tr", {},
-          el("td", { klasse: "name" }, el("span", { klasse: "zur-karte", "data-sid": fotoId(z.s), text: anzeige(z.s.name),
-            onclick: () => { if (!fotoGeradeGezeigt()) karteOeffnen(k, reihe, zi); } })), el("td", { klasse: "klasse", text: z.s.klasse || "" }),
+          el("td", { klasse: "name", "data-sid": fotoId(z.s), text: anzeige(z.s.name) }), el("td", { klasse: "klasse", text: z.s.klasse || "" }),
           D.aktiv.arbeiten ? notenZelle(z.arb, z.werte.arbeiten) : null,
           D.aktiv.tests ? notenZelle(z.tst, z.werte.tests) : null,
           D.aktiv.mappe ? notenZelle(z.mpp, z.werte.mappe) : null,
@@ -5355,7 +5343,7 @@ if (typeof document !== "undefined") {
       inhalt.append(el("div", { klasse: "tabelle-rahmen fest", stil: "padding:2px 6px;margin-top:12px" },
         el("table", { klasse: "leistung-tab" }, el("thead", {}, el("tr", {}, kopf.map((t) => el("th", { text: t })))), tbody)));
       inhalt.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px",
-        text: "Grau steht der Vorschlag: bei Mitarbeit aus den Zeichen im Zeitraum, bei der Endnote nach dem Schlüssel aus den Schnitten der Bereiche. Eine eigene Note ersetzt den Vorschlag. Enter springt eine Zeile weiter. Ein Name öffnet die Schülerkarte mit dem Verlauf über alle Zeiträume. Wie die Zeichen zählen und wie die Endnote gerundet wird, steht in den Einstellungen." }));
+        text: "Grau steht der Vorschlag: bei Mitarbeit aus den Zeichen im Zeitraum, bei der Endnote nach dem Schlüssel aus den Schnitten der Bereiche. Eine eigene Note ersetzt den Vorschlag. Enter springt eine Zeile weiter. Wie die Zeichen zählen und wie die Endnote gerundet wird, steht in den Einstellungen." }));
     }
 
     // Statistik der Endnoten und der Bereiche, direkt hier und auf Wunsch im Word-Export
@@ -5600,7 +5588,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "05.11.2026 11:59";
+  const STAND = "05.11.2026 12:02";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
