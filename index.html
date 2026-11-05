@@ -140,7 +140,7 @@
   .mitarbeit-tab th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
   .mitarbeit-tab td { padding: 4px 8px; border-bottom: 1px solid var(--linie); vertical-align: middle; }
   .mitarbeit-tab .nr, .mitarbeit-tab td.klasse { color: var(--muted); }
-  .mitarbeit-tab td.name { white-space: nowrap; }
+  .mitarbeit-tab td.name { min-width: 8em; }
   .wahl3 { display: inline-flex; gap: 6px; }
   .wahl3 button { min-width: 46px; padding: 6px 0; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 17px; }
   .wahl3 button.an { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -156,6 +156,10 @@
   .leistung-tab td { padding: 5px 4px; border-bottom: 1px solid var(--linie); text-align: center; white-space: nowrap; }
   .leistung-tab th:nth-child(-n+2), .leistung-tab td:nth-child(-n+2) { text-align: left; }
   .leistung-tab td.klasse { color: var(--muted); }
+  .leistung-tab td.name, .leistung-tab td.mit { white-space: normal; }
+  .leistung-tab td.name { min-width: 8em; }
+  .leistung-tab td.noten { white-space: normal; min-width: 4.5em; }
+  .leistung-tab .zaehl, .leistung-tab .schnitt { white-space: nowrap; display: inline-block; }
   .leistung-tab input { width: 3.6em; text-align: center; padding: 5px 6px; }
   .leistung-tab .zaehl { color: var(--muted); font-size: 12px; margin-right: 8px; }
   .leistung-tab input::placeholder { color: var(--muted); opacity: 0.75; font-style: italic; }
@@ -200,6 +204,7 @@
     .eintrag-rahmen { overflow: visible; }
     .mitarbeit-tab th { position: sticky; top: 0; z-index: 2; background: var(--bg); }
     .tabelle-rahmen.fest { overflow: visible; }
+    .eintrag-rahmen.zu-breit, .tabelle-rahmen.fest.zu-breit { overflow-x: auto; }
     .tabelle-rahmen.fest th { position: sticky; top: 0; z-index: 2; background: var(--card); }
   }
   .hinweisbox { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; font-size: 14px; }
@@ -379,7 +384,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 05.11.2026 11:26</span>
+      <span>Fassung 05.11.2026 11:42</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -3732,6 +3737,17 @@ if (typeof document !== "undefined") {
     db.close();
     eintraege.forEach(([id, b]) => (b ? fotos.set(id, b) : fotos.delete(id)));
   }
+  let breiteGeplant = false;
+  const breitePruefen = () => {
+    breiteGeplant = false;
+    document.querySelectorAll(".eintrag-rahmen, .tabelle-rahmen.fest").forEach((r) => {
+      const t = r.firstElementChild;
+      if (t) r.classList.toggle("zu-breit", t.offsetWidth > r.clientWidth + 1);
+    });
+  };
+  const breitePlanen = () => { if (!breiteGeplant) { breiteGeplant = true; requestAnimationFrame(breitePruefen); } };
+  new MutationObserver(breitePlanen).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener("resize", breitePlanen);
   // Fotos stehen nie in der Liste. Hält man einen Namen gedrückt, erscheint das Foto darüber und verschwindet beim Loslassen
   const fotoId = (s) => (einst.fotos && s && fotos.has(s.id) ? s.id : null);
   let tippTimer = 0, tippStart = null;
@@ -5016,7 +5032,7 @@ if (typeof document !== "undefined") {
         pruefen();
         return f;
       };
-      const notenZelle = (liste, wert) => el("td", {}, liste.map((n) => n || "–").join(", "),
+      const notenZelle = (liste, wert) => el("td", { klasse: "noten" }, liste.map((n) => n || "–").join(", "),
         liste.filter(Boolean).length > 1 && wert != null ? el("span", { klasse: "schnitt", text: `Ø ${komma2(wert)}` }) : null);
       const refs = [], tbody = el("tbody"), notenFarben = notenspiegel(einst).noten;
       zeilenSortiert(D).forEach((z, zi) => {
@@ -5024,11 +5040,11 @@ if (typeof document !== "undefined") {
         const zaehl = el("span", { klasse: "zaehl" }), dez = el("span", { klasse: "dezimal" });
         refs.push({ id: z.s.id, mitIn, endIn, zaehl, dez });
         tbody.append(el("tr", {},
-          el("td", { "data-sid": fotoId(z.s), text: anzeige(z.s.name) }), el("td", { klasse: "klasse", text: z.s.klasse || "" }),
+          el("td", { klasse: "name", "data-sid": fotoId(z.s), text: anzeige(z.s.name) }), el("td", { klasse: "klasse", text: z.s.klasse || "" }),
           D.aktiv.arbeiten ? notenZelle(z.arb, z.werte.arbeiten) : null,
           D.aktiv.tests ? notenZelle(z.tst, z.werte.tests) : null,
           D.aktiv.mappe ? notenZelle(z.mpp, z.werte.mappe) : null,
-          el("td", {}, zaehl, mitIn), el("td", { klasse: "endnote" }, dez, endIn)));
+          el("td", { klasse: "mit" }, zaehl, " ", mitIn), el("td", { klasse: "endnote" }, dez, endIn)));
       });
       aktualisieren = () => {
         const N = berechnen(k, Z), nach = new Map(N.zeilen.map((x) => [x.s.id, x]));
@@ -5298,7 +5314,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "05.11.2026 11:26";
+  const STAND = "05.11.2026 11:42";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
