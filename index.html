@@ -379,7 +379,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 05.11.2026 11:19</span>
+      <span>Fassung 05.11.2026 11:26</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -507,7 +507,7 @@
         <li>Hier auf <button id="lesezeichen-kopieren" class="zweit" type="button">Lesezeichen kopieren</button> tippen.</li>
         <li>Safari öffnen, irgendeine Seite aufrufen. Oben auf das Teilen-Symbol tippen, das Quadrat mit dem Pfeil nach oben. Dann „Lesezeichen hinzufügen“ und „Sichern“.</li>
         <li>Oben links die Seitenleiste öffnen und „Lesezeichen“ wählen. Unten „Bearbeiten“ tippen, dann das eben angelegte Lesezeichen. Den Namen in „Fotos holen“ ändern. Im Feld darunter steht die Adresse: alles löschen, lange tippen, „Einfügen“. Dann „Fertig“.</li>
-        <li>In Safari WebUntis öffnen und die Seite mit allen Fotos aufrufen. Seitenleiste öffnen, „Lesezeichen“, „Fotos holen“ antippen. Es öffnet sich ein Fenster mit den Fotos und den Namen darunter. Stimmen sie, „Datei speichern“ tippen.</li>
+        <li>In Safari WebUntis öffnen und die Seite mit allen Fotos aufrufen. Seitenleiste öffnen, „Lesezeichen“, „Fotos holen“ antippen. Es öffnet sich ein Fenster mit den Fotos und den Namen darunter. Logos und falsche Bilder antippen, dann sind sie blass und kommen nicht in die Datei. Dann „Datei speichern“ tippen.</li>
         <li>Zurück hier: <button id="fotodatei-laden" class="zweit" type="button">Fotodatei laden</button> und die Datei aus den Downloads wählen. Danach die Datei in den Downloads löschen, sie ist nicht verschlüsselt.</li>
       </ol>
       <input id="fotodatei" type="file" accept=".json,application/json" hidden>
@@ -2279,7 +2279,7 @@ function freieZeilen(zeilen) {
 // Läuft nicht hier, sondern als Lesezeichen in der eingeloggten WebUntis-Seite. Sammelt die sichtbaren Fotos mit dem Text daneben
 // und speichert sie als Datei, die hier geladen wird. Darf deshalb nichts von außerhalb dieser Funktion benutzen.
 async function fotoSammler() {
-  const GROESSE = 240, MIN = 16;
+  const GROESSE = 400, MIN = 16, ZIEL = 300;
   const alt = document.getElementById("na-fotos");
   if (alt) alt.remove();
   // Alle Teile der Seite: die Seite selbst, Rahmen von derselben Adresse und eingebettete Bereiche (Shadow DOM)
@@ -2332,16 +2332,77 @@ async function fotoSammler() {
     c.getContext("2d").drawImage(quelle, 0, 0, c.width, c.height);
     return c.toDataURL("image/jpeg", 0.85);
   };
+  // Hinter einer kleinen Vorschau steckt oft ein großes Bild: im Link drumherum, in srcset,
+  // in data-Attributen oder unter derselben Adresse ohne Größenangabe
+  const kandidaten = (q) => {
+    const e = q.e, liste = [];
+    const dazu = (art, u) => {
+      if (!u || /^(javascript|mailto|tel):/i.test(u)) return;
+      const ganz = adresse(u, e);
+      if (ganz !== q.src && !liste.some((k) => k.u === ganz)) liste.push({ art, u: ganz });
+    };
+    if (e.srcset) e.srcset.split(",").map((t) => t.trim().split(/\s+/)).sort((x, y) => (parseFloat(y[1]) || 1) - (parseFloat(x[1]) || 1)).forEach((t) => dazu("srcset", t[0]));
+    const link = e.closest && e.closest("a[href]");
+    if (link) dazu("link", link.getAttribute("href"));
+    for (let x = e, n = 0; x && x.attributes && n < 3; x = x.parentElement, n++)
+      for (const at of x.attributes) if (/^data-/.test(at.name) && /^(https?:|\/|\.\.?\/)|\.(jpe?g|png|webp|gif)(\?|$)/i.test(at.value)) dazu("data", at.value);
+    try {
+      const u = new URL(q.src), weg = new URL(u), hoch = new URL(u);
+      let anders = false;
+      [...u.searchParams.keys()].forEach((k) => {
+        const v = u.searchParams.get(k);
+        if (/^(w|h|width|height|size|s|sz|dim|max|maxwidth|maxheight|maxsize|scale|res|resolution)$/i.test(k)) {
+          weg.searchParams.delete(k);
+          hoch.searchParams.set(k, /^\d+$/.test(v) ? "1200" : "large");
+          anders = true;
+        } else if (/^(thumb|thumbnail|preview|small|mini|icon)$/i.test(k)) {
+          weg.searchParams.delete(k);
+          hoch.searchParams.set(k, "false");
+          anders = true;
+        }
+      });
+      if (anders) { dazu("parameter", hoch.href); dazu("ohne-parameter", weg.href); }
+      const klein = /([-_/.]?)(thumbnails?|thumbs?|preview|small|klein|mini)(?=[-_/.]|$)/gi;
+      if (klein.test(u.pathname)) {
+        const ohne = new URL(u), gross2 = new URL(u);
+        ohne.pathname = u.pathname.replace(klein, "");
+        gross2.pathname = u.pathname.replace(klein, "$1large");
+        dazu("pfad", ohne.href);
+        dazu("pfad-gross", gross2.href);
+      }
+    } catch (x) { /* keine normale Adresse */ }
+    return liste;
+  };
+  const holen = async (u) => {
+    const a = await fetch(u, { credentials: "include" });
+    if (!a.ok) throw new Error("Antwort " + a.status);
+    const b = await a.blob();
+    if (b.type && !/^image\//.test(b.type)) throw new Error("kein Bild");
+    return createImageBitmap(b);
+  };
+  // Merkt sich, welcher Weg zum großen Bild geführt hat, und lässt Wege weg, die nie etwas bringen
+  let besteArt = null;
+  const nichts = {};
   const lesen = async (q) => {
-    if (q.leinwand) return malen(q.e, q.e.width, q.e.height);
-    // Erst das schon geladene Bild nehmen, sonst neu laden
+    if (q.leinwand) return { bild: malen(q.e, q.e.width, q.e.height), w: q.e.width, h: q.e.height, groesser: false };
+    let best = null, fehler = null;
+    const nehmen = (quelle, w, h) => { if (w && h && (!best || w * h > best.w * best.h)) { best = { quelle, w, h }; return true; } return false; };
     if (q.e.tagName === "IMG" && q.e.complete && q.e.naturalWidth) {
-      try { return malen(q.e, q.e.naturalWidth, q.e.naturalHeight); } catch (x) { /* Bild von fremder Adresse */ }
+      try { malen(q.e, 1, 1); nehmen(q.e, q.e.naturalWidth, q.e.naturalHeight); } catch (x) { /* Bild von fremder Adresse */ }
     }
-    const antwort = await fetch(q.src, { credentials: "include" });
-    if (!antwort.ok) throw new Error("Antwort " + antwort.status);
-    const bild = await createImageBitmap(await antwort.blob());
-    return malen(bild, bild.width, bild.height);
+    const start = best;
+    const liste = kandidaten(q).filter((k) => k.art === besteArt || (nichts[k.art] || 0) < 3).sort((x, y) => (y.art === besteArt) - (x.art === besteArt));
+    if (!best) liste.push({ art: "vorschau", u: q.src });
+    for (const k of liste) {
+      if (best && Math.max(best.w, best.h) >= ZIEL) break;
+      try {
+        const bild = await holen(k.u);
+        if (nehmen(bild, bild.width, bild.height) && start && k.art !== "vorschau") besteArt = k.art;
+        else if (k.art !== besteArt) nichts[k.art] = (nichts[k.art] || 0) + 1;
+      } catch (x) { fehler = fehler || x; nichts[k.art] = (nichts[k.art] || 0) + 1; }
+    }
+    if (!best) throw fehler || new Error("kein Bild");
+    return { bild: malen(best.quelle, best.w, best.h), w: best.w, h: best.h, groesser: !!start && best !== start };
   };
   const box = document.createElement("div");
   box.id = "na-fotos";
@@ -2352,28 +2413,45 @@ async function fotoSammler() {
   document.body.append(box);
   const fotos = [], gesehen = new Set(), raster = document.createElement("div");
   raster.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:12px 0";
+  let kleinste = 0, groesste = 0, vergroessert = 0, nr = 0;
+  const speichern = () => fotos.filter((f) => f.an);
+  const zaehlen = () => {
+    kopf.textContent = fotos.length
+      ? `${fotos.length} Bilder gefunden, ${speichern().length} davon kommen in die Datei. Ein Bild antippen nimmt es heraus oder wieder hinein.`
+      : "Auf dieser Seite wurden keine Fotos gefunden.";
+  };
   for (const q of quellen) {
+    nr++;
     if (q.src && (anzahl.get(q.src) > 2 || gesehen.has(q.src))) { info.doppelt++; continue; }
     gesehen.add(q.src);
+    kopf.textContent = `Fotos werden gesammelt … ${nr} von ${quellen.length}`;
     try {
-      const bild = await lesen(q), t = texte(q.e);
-      fotos.push({ texte: t, bild });
+      const r = await lesen(q), t = texte(q.e), lang = Math.max(r.w, r.h);
+      kleinste = kleinste ? Math.min(kleinste, lang) : lang;
+      groesste = Math.max(groesste, lang);
+      if (r.groesser) vergroessert++;
+      // Ohne Namen daneben oder im Querformat ist es eher ein Logo als ein Foto
+      const f = { texte: t, bild: r.bild, an: t.length > 0 && r.w <= r.h * 1.2 };
+      fotos.push(f);
       const zelle = document.createElement("div"), vorschau = document.createElement("img"), name = document.createElement("div");
-      vorschau.src = bild;
-      vorschau.style.cssText = "width:72px;height:72px;object-fit:cover;border-radius:50%;display:block;margin:0 auto 4px";
+      vorschau.src = r.bild;
+      vorschau.style.cssText = "width:72px;height:96px;object-fit:cover;border-radius:8px;display:block;margin:0 auto 4px";
       name.textContent = t[0] || "ohne Namen";
       name.style.cssText = "font-size:12px;text-align:center;word-break:break-word";
+      const zeigen = () => { zelle.style.opacity = f.an ? "1" : ".25"; name.style.textDecoration = f.an ? "none" : "line-through"; };
+      zelle.style.cursor = "pointer";
+      zelle.onclick = () => { f.an = !f.an; zeigen(); zaehlen(); };
+      zeigen();
       zelle.append(vorschau, name);
       raster.append(zelle);
     } catch (x) { info.fehler++; if (!info.grund) info.grund = String(x && (x.message || x.name) || x); }
   }
-  kopf.textContent = fotos.length
-    ? fotos.length + " Fotos gefunden. Stehen die richtigen Namen darunter, die Datei speichern und in der Notenauswertung laden."
-    : "Auf dieser Seite wurden keine Fotos gefunden.";
+  zaehlen();
   const diagnose = document.createElement("div");
   diagnose.style.cssText = "font-size:13px;color:#555;margin-top:6px";
   diagnose.textContent = `Gesehen: ${info.bilder} Bilder, davon ${info.gross} groß genug, ${info.doppelt} davon mehrfach gleich und übersprungen. ${info.rahmen} Rahmen, davon ${info.rahmenZu} nicht lesbar. ` +
-    `${info.fehler} Bilder ließen sich nicht lesen${info.grund ? " (" + info.grund + ")" : ""}. Lesezeichen Stand 2.`;
+    `${info.fehler} Bilder ließen sich nicht lesen${info.grund ? " (" + info.grund + ")" : ""}. ` +
+    (fotos.length ? `Bildgröße ${kleinste} bis ${groesste} Pixel, bei ${vergroessert} ein größeres Bild hinter der Vorschau gefunden. ` : "") + "Lesezeichen Stand 3.";
   const knopf = (text, aktion, hell) => {
     const b = document.createElement("button");
     b.textContent = text;
@@ -2383,7 +2461,7 @@ async function fotoSammler() {
   };
   const leiste = document.createElement("div");
   if (fotos.length) leiste.append(knopf("Datei speichern", () => {
-    const datei = new Blob([JSON.stringify({ programm: "Notenauswertung", art: "fotos", gesammelt: new Date().toISOString(), fotos })], { type: "application/json" });
+    const datei = new Blob([JSON.stringify({ programm: "Notenauswertung", art: "fotos", gesammelt: new Date().toISOString(), fotos: speichern().map((f) => ({ texte: f.texte, bild: f.bild })) })], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(datei);
     a.download = "Fotos_fuer_Notenauswertung.json";
@@ -5220,7 +5298,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "05.11.2026 11:19";
+  const STAND = "05.11.2026 11:26";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
