@@ -46,6 +46,7 @@
     --feld-aus: #f0f1f3;
     --knopf-aus: #a9b3bf;
     --zebra: #f8f9fb;
+    --k-arbeit: #1f4e8c; --k-test: #c26a00; --k-mappe: #7b3fa0; --k-band: rgba(31, 78, 140, 0.06); --k-plus: #2e7d32; --k-minus: #c62828;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -53,6 +54,7 @@
       --bg: #121417; --card: #1c1f24; --border: #353b43; --linie: #2a2f36; --text: #e8eaed;
       --muted: #9aa3ad; --accent: #2f6db5; --link: #8ab4f8; --error: #f28b82;
       --feld: #24282e; --feld-aus: #2b3037; --knopf-aus: #3a4048; --zebra: #20242a;
+      --k-arbeit: #6ea8ff; --k-test: #f0a040; --k-mappe: #c58af0; --k-band: rgba(140, 180, 255, 0.07); --k-plus: #66bb6a; --k-minus: #ef7070;
     }
   }
   :root[data-theme="dark"] {
@@ -60,6 +62,7 @@
     --bg: #121417; --card: #1c1f24; --border: #353b43; --linie: #2a2f36; --text: #e8eaed;
     --muted: #9aa3ad; --accent: #2f6db5; --link: #8ab4f8; --error: #f28b82;
     --feld: #24282e; --feld-aus: #2b3037; --knopf-aus: #3a4048; --zebra: #20242a;
+      --k-arbeit: #6ea8ff; --k-test: #f0a040; --k-mappe: #c58af0; --k-band: rgba(140, 180, 255, 0.07); --k-plus: #66bb6a; --k-minus: #ef7070;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -325,6 +328,19 @@
   /* Fotos neben den Namen, antippen zeigt sie größer */
   /* Foto nur, solange ein Name gedrückt gehalten wird */
   [data-sid] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* Schülerkarte */
+  .karte-kopf { display: flex; align-items: center; gap: 10px; }
+  .karte-kopf h2 { flex: 1; min-width: 0; }
+  .karte-kopf h2 .unter { display: block; font-size: 13px; color: var(--muted); font-weight: 500; margin-top: 3px; }
+  .karte-kopf button { padding: 6px 14px; font-size: 22px; line-height: 1; }
+  .karte-svg { width: 100%; height: auto; display: block; margin-top: 4px; }
+  .karte-svg text { fill: var(--muted); font: 11px system-ui, -apple-system, sans-serif; }
+  .karte-legende { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); margin: 8px 0 4px; }
+  .karte-legende span { display: inline-flex; align-items: center; gap: 6px; }
+  .karte-legende svg { width: 16px; height: 16px; flex: none; }
+  .liste tr.rechenweg td { white-space: normal; color: var(--muted); font-size: 13px; padding-top: 0; }
+  .liste .klein { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .zur-karte { cursor: pointer; text-decoration: underline dotted var(--muted); text-underline-offset: 3px; }
   #foto-tipp { position: fixed; z-index: 95; pointer-events: none; padding: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
   #foto-tipp img { display: block; width: 140px; height: 187px; object-fit: cover; border-radius: 8px; }
   ol.schritte { padding-left: 22px; margin: 0 0 12px; }
@@ -384,7 +400,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 05.11.2026 11:42</span>
+      <span>Fassung 05.11.2026 11:59</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -522,6 +538,21 @@
       <button id="fotos-loeschen" class="leise" type="button">Alle Fotos löschen</button>
       <span id="foto-stand" class="hint" style="margin:0;font-size:13px"></span>
       <button id="foto-fertig" class="rechts" type="button">Fertig</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="karte-dialog">
+  <div class="dialog-innen">
+    <div class="dialog-kopf karte-kopf">
+      <button id="karte-zurueck" class="zweit" type="button" aria-label="Vorherige Person">‹</button>
+      <h2 id="karte-titel" tabindex="-1" autofocus></h2>
+      <button id="karte-weiter" class="zweit" type="button" aria-label="Nächste Person">›</button>
+    </div>
+    <div class="dialog-inhalt" id="karte-inhalt"></div>
+    <div class="dialog-fuss">
+      <span id="karte-pos" class="hint" style="margin:0;font-size:13px"></span>
+      <button id="karte-fertig" class="rechts" type="button">Fertig</button>
     </div>
   </div>
 </dialog>
@@ -3750,8 +3781,9 @@ if (typeof document !== "undefined") {
   window.addEventListener("resize", breitePlanen);
   // Fotos stehen nie in der Liste. Hält man einen Namen gedrückt, erscheint das Foto darüber und verschwindet beim Loslassen
   const fotoId = (s) => (einst.fotos && s && fotos.has(s.id) ? s.id : null);
-  let tippTimer = 0, tippStart = null;
-  const tippWeg = () => { clearTimeout(tippTimer); tippStart = null; const t = $("foto-tipp"); if (t) t.remove(); };
+  let tippTimer = 0, tippStart = null, tippEnde = 0;
+  const tippWeg = () => { clearTimeout(tippTimer); tippStart = null; const t = $("foto-tipp"); if (t) { t.remove(); tippEnde = Date.now(); } };
+  const fotoGeradeGezeigt = () => Date.now() - tippEnde < 700;
   document.addEventListener("pointerdown", (e) => {
     tippWeg();
     const z = e.target.closest && e.target.closest("[data-sid]");
@@ -4828,6 +4860,258 @@ if (typeof document !== "undefined") {
   }
   const anteilText = (D) => BEREICHE.filter((b) => D.anteile[b.id] > 0).map((b) => `${b.name} ${Math.round(D.anteile[b.id] * 100)} %`).join(", ");
   let uebersichtAnsicht = lesen("notenauswertung-uebersicht") === "statistik" ? "statistik" : "noten";
+  // ----- Schülerkarte: wie sich eine Person über die Zeit entwickelt, über alle Zeiträume -----
+  let karte = null;
+  function karteOeffnen(k, reihe, i) {
+    karte = { k, reihe, i };
+    karteZeigen();
+    if (!$("karte-dialog").open) $("karte-dialog").showModal();
+  }
+  function karteBlaettern(d) {
+    if (!karte || !karte.reihe.length) return;
+    karte.i = (karte.i + d + karte.reihe.length) % karte.reihe.length;
+    karteZeigen();
+    $("karte-inhalt").scrollTop = 0;
+  }
+  $("karte-zurueck").addEventListener("click", () => karteBlaettern(-1));
+  $("karte-weiter").addEventListener("click", () => karteBlaettern(1));
+  $("karte-fertig").addEventListener("click", () => $("karte-dialog").close());
+  $("karte-dialog").addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input, textarea, select")) return;
+    if (e.key === "ArrowLeft") { e.preventDefault(); karteBlaettern(-1); }
+    if (e.key === "ArrowRight") { e.preventDefault(); karteBlaettern(1); }
+  });
+
+  // Alle Noten einer Person mit Kursschnitt, ihre Mitarbeit Stunde für Stunde und je Zeitraum die Endnote samt Zwischenständen
+  function karteVerlauf(k, s) {
+    const istZahl = (t) => /^\d+([.,]\d+)?$/.test(t);
+    const eintrag = (a) => a.punkte.find((x) => x && x.id && x.id === s.id) ||
+      a.punkte.find((x) => x && namensSchluessel(x.name) === namensSchluessel(s.name) && (x.klasse || "") === (s.klasse || ""));
+    const schnitt = (liste) => mittelwert(liste.map(notenWert).filter((w) => w != null));
+    const ereignisse = [];
+    [["arbeit", k.arbeiten], ["test", k.tests]].forEach(([art, liste]) => (liste || []).forEach((a) => {
+      if (!a || !Array.isArray(a.punkte) || !a.datum) return;
+      const x = eintrag(a), p = x ? String(x.punkte == null ? "" : x.punkte).trim() : "", n = x ? noteLesen(x.note) : {};
+      ereignisse.push({
+        art, datum: a.datum, titel: a.arbeit || "Ohne Titel", note: n.note != null ? n.text : "", wert: n.note != null ? notenWert(n.text) : null,
+        punkte: istZahl(p) ? p.replace(".", ",") : "", max: a.einst && Number.isFinite(a.einst.gesamt) ? a.einst.gesamt : null,
+        vermerk: p && !istZahl(p) ? p : "", schnitt: schnitt(a.punkte.map((y) => y && y.note)),
+      });
+    }));
+    (k.mappe || []).forEach((t) => {
+      if (!t || !t.datum) return;
+      const n = noteLesen((t.noten || {})[s.id]);
+      if (n.note == null) return;
+      ereignisse.push({ art: "mappe", datum: t.datum, titel: t.titel || "Mappe", note: n.text, wert: notenWert(n.text), punkte: "", max: null, vermerk: "", schnitt: schnitt(Object.values(t.noten || {})) });
+    });
+    ereignisse.sort((a, b) => a.datum.localeCompare(b.datum));
+    const stunden = (k.mitarbeit || []).filter((m) => m && m.datum && m.werte && ["+", "o", "−", "f"].includes(m.werte[s.id]))
+      .map((m) => ({ datum: m.datum, z: m.werte[s.id] })).sort((a, b) => a.datum.localeCompare(b.datum));
+    const kursTage = [...(k.arbeiten || []), ...(k.tests || []), ...(k.mappe || []), ...(k.mitarbeit || [])]
+      .map((a) => a && a.datum).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || ""));
+    // Zwischenstand: die Endnote, wie sie an jedem Tag mit neuer Note oder Mitarbeit stand, aus den Vorschlägen gerechnet
+    const o = rechenOptionen();
+    const perioden = [...zeitraeume()].sort((a, b) => (a.von || "").localeCompare(b.von || "")).map((Z) => {
+      const D = berechnen(k, Z), z = D.zeilen.find((x) => x.s.id === s.id);
+      if (!z || !(D.arbeiten.length || D.tests.length || D.mappe.length || D.stunden.length)) return null;
+      const tage = [...new Set([...D.arbeiten, ...D.tests, ...D.mappe, ...D.stunden].map((a) => a.datum).filter(Boolean))].sort();
+      const stand = tage.map((d) => {
+        const zz = zeitraumBerechnen(k, { ...Z, bis: d }, {}, o).zeilen.find((x) => x.s.id === s.id);
+        return { datum: d, wert: zz ? zz.endWert : null };
+      }).filter((x) => x.wert != null);
+      return { Z, D, z, stand };
+    }).filter(Boolean);
+    return { ereignisse, stunden, kursTage, perioden };
+  }
+
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, a = {}, ...kinder) {
+    const e = document.createElementNS(SVG_NS, tag);
+    Object.entries(a).forEach(([x, y]) => { if (y != null) e.setAttribute(x, y); });
+    kinder.forEach((c) => { if (c != null) e.append(c); });
+    return e;
+  }
+  // Zeichen für Arbeit, Test und Mappe, auch in der Legende
+  function karteMarke(art, x, y, r = 6.5) {
+    const stil = `fill:var(--k-${art});stroke:var(--card);stroke-width:1.5`;
+    if (art === "test") return svgEl("polygon", { points: `${x},${y - r - 1} ${x + r + 1},${y} ${x},${y + r + 1} ${x - r - 1},${y}`, style: stil });
+    if (art === "mappe") return svgEl("polygon", { points: `${x},${y - r - 1} ${x + r + 1},${y + r} ${x - r - 1},${y + r}`, style: stil });
+    return svgEl("circle", { cx: x, cy: y, r, style: stil });
+  }
+
+  function karteDiagramm(v, noten) {
+    const tag = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 864e5;
+    const alle = (v.kursTage.length ? v.kursTage : [...v.ereignisse, ...v.stunden].map((e) => e.datum)).map(tag);
+    let t0 = Math.min(...alle), t1 = Math.max(...alle);
+    if (t1 - t0 < 21) { const m = (t0 + t1) / 2; t0 = m - 10.5; t1 = m + 10.5; }
+    const luft = (t1 - t0) * 0.03;
+    t0 -= luft; t1 += luft;
+    const B = 760, L = 28, R = 48, O = 20, H = 200, SO = O + H + 12, SH = 34, XO = SO + SH + 16;
+    const xT = (t) => L + (t - t0) / (t1 - t0) * (B - L - R);
+    const x = (iso) => xT(tag(iso));
+    const y = (w) => O + (Math.min(6, Math.max(2 / 3, w)) - 0.6) / 5.6 * H;
+    const g = svgEl("svg", { viewBox: `0 0 ${B} ${XO + 6}`, class: "karte-svg", role: "img", "aria-label": "Verlauf der Noten und der Mitarbeit" });
+    // Zeiträume als Bänder im Hintergrund
+    [...zeitraeume()].sort((a, b) => (a.von || "").localeCompare(b.von || "")).forEach((Z, i) => {
+      const a = Math.max(t0, Z.von ? tag(Z.von) : t0), b = Math.min(t1, Z.bis ? tag(Z.bis) + 1 : t1);
+      if (b <= a) return;
+      g.append(svgEl("rect", { x: xT(a), y: O - 16, width: xT(b) - xT(a), height: SO + SH - O + 16, style: i % 2 ? "fill:transparent" : "fill:var(--k-band)" }));
+      if (xT(b) - xT(a) > 60) g.append(svgEl("text", { x: xT(a) + 5, y: O - 5 }, Z.titel || "Ohne Titel"));
+    });
+    // Notenlinien
+    for (let n = 1; n <= 6; n++) {
+      g.append(svgEl("line", { x1: L, x2: B - R, y1: y(n), y2: y(n), style: "stroke:var(--linie);stroke-width:1" }));
+      g.append(svgEl("text", { x: L - 9, y: y(n) + 4, "text-anchor": "end" }, String(n)));
+    }
+    // Zeitachse: Monate, bei kurzer Spanne Wochen
+    const monate = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+    const marken = [];
+    if (t1 - t0 > 56) {
+      const d = new Date(t0 * 864e5);
+      for (let m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)); m.getTime() / 864e5 <= t1; m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 1)))
+        marken.push({ t: m.getTime() / 864e5, text: monate[m.getUTCMonth()] + (m.getUTCMonth() === 0 ? " " + m.getUTCFullYear() : "") });
+    } else {
+      for (let t = Math.ceil(t0); t <= t1; t++) {
+        const d = new Date(t * 864e5);
+        if (d.getUTCDay() === 1) marken.push({ t, text: `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.` });
+      }
+    }
+    marken.forEach((m) => {
+      g.append(svgEl("line", { x1: xT(m.t), x2: xT(m.t), y1: O, y2: SO + SH, style: "stroke:var(--linie);stroke-width:1;stroke-dasharray:3 3" }));
+      g.append(svgEl("text", { x: xT(m.t) + 3, y: XO }, m.text));
+    });
+    // Kursschnitt als grauer Strich je Arbeit, Test und Mappe
+    v.ereignisse.forEach((e) => {
+      if (e.schnitt != null) g.append(svgEl("line", { x1: x(e.datum) - 9, x2: x(e.datum) + 9, y1: y(e.schnitt), y2: y(e.schnitt), style: "stroke:var(--muted);stroke-width:2.5;stroke-linecap:round;opacity:.55" }));
+    });
+    // Zwischenstand der Endnote je Zeitraum, am Ende die Endnote
+    v.perioden.forEach((P) => {
+      if (!P.stand.length) return;
+      const pkt = P.stand.map((p) => `${x(p.datum).toFixed(1)},${y(p.wert).toFixed(1)}`);
+      if (pkt.length > 1) g.append(svgEl("polyline", { points: pkt.join(" "), style: "fill:none;stroke:var(--text);stroke-width:2;opacity:.45;stroke-linejoin:round" }));
+      P.stand.forEach((p) => g.append(svgEl("circle", { cx: x(p.datum), cy: y(p.wert), r: 2.2, style: "fill:var(--text);opacity:.45" })));
+      const n = noteLesen(P.z.endnote);
+      if (n.note == null) return;
+      const letzte = P.stand[P.stand.length - 1], farbe = noten[n.note] ? noten[n.note].farbe : "#888";
+      const cx = Math.min(B - 20, x(letzte.datum) + 26), cy = y(letzte.wert);
+      g.append(svgEl("rect", { x: cx - 16, y: cy - 10, width: 32, height: 20, rx: 6, style: `fill:${farbe}` }));
+      g.append(svgEl("text", { x: cx, y: cy + 4.5, "text-anchor": "middle", style: `fill:${helligkeit(farbe) < 0.5 ? "#fff" : "#1c1c1c"};font-weight:700;font-size:13px` }, n.text));
+    });
+    // Noten der Person, bei gleichem Tag und gleicher Note leicht versetzt
+    const belegt = new Map();
+    v.ereignisse.forEach((e) => {
+      if (e.wert == null) return;
+      const schl = e.datum + "|" + Math.round(e.wert * 3), nr = belegt.get(schl) || 0;
+      belegt.set(schl, nr + 1);
+      g.append(karteMarke(e.art, x(e.datum) + nr * 9, y(e.wert)));
+    });
+    // Mitarbeit: + als Strich nach oben, − nach unten, o als Punkt, fehlt als Kreis
+    const mitte = SO + SH / 2;
+    g.append(svgEl("line", { x1: L, x2: B - R, y1: mitte, y2: mitte, style: "stroke:var(--linie);stroke-width:1" }));
+    v.stunden.forEach((m) => {
+      const mx = x(m.datum);
+      if (m.z === "+") g.append(svgEl("line", { x1: mx, x2: mx, y1: mitte, y2: mitte - 13, style: "stroke:var(--k-plus);stroke-width:3;stroke-linecap:round" }));
+      else if (m.z === "−") g.append(svgEl("line", { x1: mx, x2: mx, y1: mitte, y2: mitte + 13, style: "stroke:var(--k-minus);stroke-width:3;stroke-linecap:round" }));
+      else if (m.z === "o") g.append(svgEl("circle", { cx: mx, cy: mitte, r: 2.6, style: "fill:var(--muted)" }));
+      else g.append(svgEl("circle", { cx: mx, cy: mitte, r: 3.2, style: "fill:var(--card);stroke:var(--muted);stroke-width:1.3" }));
+    });
+    g.append(svgEl("text", { x: L - 9, y: mitte + 4, "text-anchor": "end" }, "M"));
+    return g;
+  }
+
+  function karteLegende(v) {
+    const eintrag = (zeichen, text) => el("span", {}, zeichen, text);
+    const mini = (...kinder) => svgEl("svg", { viewBox: "0 0 16 16" }, ...kinder);
+    const da = (art) => v.ereignisse.some((e) => e.art === art && e.wert != null);
+    const teile = [];
+    if (da("arbeit")) teile.push(eintrag(mini(karteMarke("arbeit", 8, 8, 5.5)), "Arbeit"));
+    if (da("test")) teile.push(eintrag(mini(karteMarke("test", 8, 8, 5)), "Test"));
+    if (da("mappe")) teile.push(eintrag(mini(karteMarke("mappe", 8, 7, 5)), "Mappe"));
+    if (v.ereignisse.some((e) => e.schnitt != null)) teile.push(eintrag(mini(svgEl("line", { x1: 1, x2: 15, y1: 8, y2: 8, style: "stroke:var(--muted);stroke-width:2.5;stroke-linecap:round;opacity:.55" })), "Kursschnitt"));
+    if (v.perioden.some((P) => P.stand.length)) teile.push(eintrag(mini(svgEl("line", { x1: 1, x2: 15, y1: 8, y2: 8, style: "stroke:var(--text);stroke-width:2;opacity:.45" })), "Zwischenstand der Endnote, am Ende die Endnote"));
+    if (v.stunden.length) teile.push(eintrag(mini(
+      svgEl("line", { x1: 3, x2: 3, y1: 8, y2: 2, style: "stroke:var(--k-plus);stroke-width:2.5;stroke-linecap:round" }),
+      svgEl("circle", { cx: 8, cy: 8, r: 1.8, style: "fill:var(--muted)" }),
+      svgEl("line", { x1: 13, x2: 13, y1: 8, y2: 14, style: "stroke:var(--k-minus);stroke-width:2.5;stroke-linecap:round" })),
+      "M: Mitarbeit je Stunde, + nach oben, o als Punkt, − nach unten, fehlt als Kreis"));
+    return el("div", { klasse: "karte-legende" }, teile);
+  }
+
+  // Je Zeitraum: Schnitte der Bereiche, Mitarbeit, Endnote mit Rechenweg und der Unterschied zum Zeitraum davor
+  function karteZeitraeume(v, noten) {
+    const chip = (t) => { const n = noteLesen(t); return n.note != null ? noteChip(n.note, n.tendenz, noten) : null; };
+    const zahl = (w) => (w != null ? komma2(w) : "");
+    const tb = el("tbody");
+    let vorher = null;
+    v.perioden.forEach((P) => {
+      const { z, D } = P;
+      let aenderung = "";
+      if (vorher != null && z.endWert != null) {
+        const d = vorher - z.endWert;
+        aenderung = Math.abs(d) < 0.005 ? "gleich" : `${komma2(Math.abs(d))} ${d > 0 ? "besser" : "schlechter"}`;
+      }
+      if (z.endWert != null) vorher = z.endWert;
+      const mitZaehl = D.stunden.length ? `${z.zaehl["+"]} / ${z.zaehl.o} / ${z.zaehl["−"]}${z.fehlt ? `, ${z.fehlt} fehlt` : ""}` : "";
+      tb.append(el("tr", {},
+        el("td", { text: P.Z.titel || "Ohne Titel" }),
+        el("td", { text: zahl(z.werte.arbeiten) }), el("td", { text: zahl(z.werte.tests) }), el("td", { text: zahl(z.werte.mappe) }),
+        el("td", {}, chip(z.mitarbeit), mitZaehl ? el("span", { klasse: "klein", text: mitZaehl }) : null),
+        el("td", {}, chip(z.endnote), z.endWert != null ? el("span", { klasse: "klein", text: komma2(z.endWert) }) : null,
+          z.endEigen && z.endVorschlag && z.endEigen !== z.endVorschlag ? el("span", { klasse: "klein", text: `Vorschlag ${z.endVorschlag}` }) : null),
+        el("td", { text: aenderung })));
+      // Rechenweg mit den Anteilen, wie sie für diese Person gelten
+      const da = BEREICHE.filter((b) => D.anteile[b.id] > 0 && z.werte[b.id] != null);
+      const summe = da.reduce((a, b) => a + D.anteile[b.id], 0);
+      if (da.length && summe) {
+        const weg = da.map((b) => `${Math.round(D.anteile[b.id] / summe * 100)} % ${b.name} ${b.id === "mitarbeit" ? `${z.mitarbeit} (${komma2(z.werte.mitarbeit)})` : komma2(z.werte[b.id])}`).join(" + ");
+        tb.append(el("tr", { klasse: "rechenweg" }, el("td", { colspan: 7, text: `${weg} = ${komma2(z.endWert)}, gerundet ${z.endVorschlag}${z.endEigen ? `, eingetragen ${z.endEigen}` : ""}` })));
+      }
+    });
+    if (!v.perioden.length) return el("p", { klasse: "hint", text: "In keinem Zeitraum gibt es Noten für diese Person." });
+    return el("div", { klasse: "tabelle-rahmen", stil: "padding:2px 6px" },
+      el("table", { klasse: "liste" }, el("thead", {}, el("tr", {}, ["Zeitraum", "Arbeiten", "Tests", "Mappe", "Mitarbeit", "Endnote", "Änderung"].map((t) => el("th", { text: t })))), tb));
+  }
+
+  // Alle Noten der Reihe nach, mit Punkten und Kursschnitt
+  function karteListe(v, noten) {
+    const art = { arbeit: "Arbeit", test: "Test", mappe: "Mappe" };
+    const tb = el("tbody");
+    v.ereignisse.forEach((e) => {
+      const n = noteLesen(e.note);
+      tb.append(el("tr", {},
+        el("td", { text: datumKurz(e.datum) }),
+        el("td", {}, svgEl("svg", { viewBox: "0 0 16 16", width: 14, height: 14, style: "vertical-align:-2px;margin-right:6px" }, karteMarke(e.art, 8, 8, 5)), art[e.art]),
+        el("td", { text: e.titel }),
+        el("td", {}, n.note != null ? noteChip(n.note, n.tendenz, noten) : el("span", { klasse: "klein", stil: "margin:0", text: e.vermerk || "fehlt" })),
+        el("td", { text: e.punkte ? (e.max != null ? `${e.punkte} von ${deG(e.max)}` : e.punkte) : "" }),
+        el("td", { text: e.schnitt != null ? komma2(e.schnitt) : "" })));
+    });
+    if (!v.ereignisse.length) return el("p", { klasse: "hint", text: "Noch keine Arbeit, kein Test und keine Mappe." });
+    return el("div", { klasse: "tabelle-rahmen", stil: "padding:2px 6px" },
+      el("table", { klasse: "liste" }, el("thead", {}, el("tr", {}, ["Datum", "Art", "Titel", "Note", "Punkte", "Kursschnitt"].map((t) => el("th", { text: t })))), tb));
+  }
+
+  function karteZeigen() {
+    const { k, reihe } = karte;
+    const s = k.schueler.find((x) => x.id === reihe[karte.i]);
+    if (!s) { $("karte-dialog").close(); return; }
+    const noten = notenspiegel(einst).noten;
+    const titel = $("karte-titel");
+    titel.innerHTML = "";
+    titel.append(el("span", { "data-sid": fotoId(s), text: anzeige(s.name) }), el("span", { klasse: "unter", text: [s.klasse, k.name].filter(Boolean).join(" · ") }));
+    $("karte-pos").textContent = `${karte.i + 1} von ${reihe.length}`;
+    const inhalt = $("karte-inhalt");
+    inhalt.innerHTML = "";
+    const v = karteVerlauf(k, s);
+    if (!v.ereignisse.length && !v.stunden.length) {
+      inhalt.append(el("p", { klasse: "leer", text: "Für diese Person gibt es noch keine Noten und keine Mitarbeit." }));
+      return;
+    }
+    inhalt.append(el("div", { klasse: "abschnitt-titel", text: "Verlauf" }), karteDiagramm(v, noten), karteLegende(v),
+      el("div", { klasse: "abschnitt-titel", text: "Zeiträume" }), karteZeitraeume(v, noten),
+      el("div", { klasse: "abschnitt-titel", text: "Alle Noten" }), karteListe(v, noten));
+  }
+
   function leistungAufbauen() {
     const p = $("panel-leistung");
     p.innerHTML = "";
@@ -5035,12 +5319,14 @@ if (typeof document !== "undefined") {
       const notenZelle = (liste, wert) => el("td", { klasse: "noten" }, liste.map((n) => n || "–").join(", "),
         liste.filter(Boolean).length > 1 && wert != null ? el("span", { klasse: "schnitt", text: `Ø ${komma2(wert)}` }) : null);
       const refs = [], tbody = el("tbody"), notenFarben = notenspiegel(einst).noten;
+      const reihe = zeilenSortiert(D).map((z) => z.s.id);
       zeilenSortiert(D).forEach((z, zi) => {
         const mitIn = feld(eigene.mitarbeit, z.s, "Mitarbeit", "m", zi), endIn = feld(eigene.note, z.s, "Endnote", "e", zi);
         const zaehl = el("span", { klasse: "zaehl" }), dez = el("span", { klasse: "dezimal" });
         refs.push({ id: z.s.id, mitIn, endIn, zaehl, dez });
         tbody.append(el("tr", {},
-          el("td", { klasse: "name", "data-sid": fotoId(z.s), text: anzeige(z.s.name) }), el("td", { klasse: "klasse", text: z.s.klasse || "" }),
+          el("td", { klasse: "name" }, el("span", { klasse: "zur-karte", "data-sid": fotoId(z.s), text: anzeige(z.s.name),
+            onclick: () => { if (!fotoGeradeGezeigt()) karteOeffnen(k, reihe, zi); } })), el("td", { klasse: "klasse", text: z.s.klasse || "" }),
           D.aktiv.arbeiten ? notenZelle(z.arb, z.werte.arbeiten) : null,
           D.aktiv.tests ? notenZelle(z.tst, z.werte.tests) : null,
           D.aktiv.mappe ? notenZelle(z.mpp, z.werte.mappe) : null,
@@ -5069,7 +5355,7 @@ if (typeof document !== "undefined") {
       inhalt.append(el("div", { klasse: "tabelle-rahmen fest", stil: "padding:2px 6px;margin-top:12px" },
         el("table", { klasse: "leistung-tab" }, el("thead", {}, el("tr", {}, kopf.map((t) => el("th", { text: t })))), tbody)));
       inhalt.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px",
-        text: "Grau steht der Vorschlag: bei Mitarbeit aus den Zeichen im Zeitraum, bei der Endnote nach dem Schlüssel aus den Schnitten der Bereiche. Eine eigene Note ersetzt den Vorschlag. Enter springt eine Zeile weiter. Wie die Zeichen zählen und wie die Endnote gerundet wird, steht in den Einstellungen." }));
+        text: "Grau steht der Vorschlag: bei Mitarbeit aus den Zeichen im Zeitraum, bei der Endnote nach dem Schlüssel aus den Schnitten der Bereiche. Eine eigene Note ersetzt den Vorschlag. Enter springt eine Zeile weiter. Ein Name öffnet die Schülerkarte mit dem Verlauf über alle Zeiträume. Wie die Zeichen zählen und wie die Endnote gerundet wird, steht in den Einstellungen." }));
     }
 
     // Statistik der Endnoten und der Bereiche, direkt hier und auf Wunsch im Word-Export
@@ -5314,7 +5600,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "05.11.2026 11:42";
+  const STAND = "05.11.2026 11:59";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
