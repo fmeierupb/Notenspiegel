@@ -407,7 +407,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 06.11.2026 17:36</span>
+      <span>Fassung 06.11.2026 17:39</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -5272,7 +5272,6 @@ if (typeof document !== "undefined") {
     p.append(el("div", { klasse: "reihe", stil: "margin-top:10px" }, el("label", { klasse: "feld", stil: "flex:1 1 220px" }, "Titel", titelIn),
       el("label", { klasse: "feld", stil: "flex:0 1 170px" }, "Von", vonIn), el("label", { klasse: "feld", stil: "flex:0 1 170px" }, "Bis", bisIn), loeschK));
     // Schlüssel für die Endnote, gilt im ganzen Zeitraum für alle Kurse
-    const anteilZeile = el("div", { klasse: "summe" });
     const schl = el("div", { klasse: "schluessel" }, el("div", { klasse: "titel", text: "Schlüssel für die Endnote in diesem Zeitraum, für alle Kurse" }));
     BEREICHE.forEach((b) => {
       const f = el("input", { type: "number", min: "0", max: "100", step: "5", inputmode: "numeric", "aria-label": `Anteil ${b.name} in Prozent` });
@@ -5294,7 +5293,6 @@ if (typeof document !== "undefined") {
       if (k && k.schueler.length) inhaltZeigen();
     });
     schl.append(el("label", { klasse: "feld" }, "Je Berichtigung als 1", el("span", { klasse: "prozent" }, berIn, "%")));
-    schl.append(anteilZeile);
     // Rundung der Endnote: ganze Noten oder mit + und −, die Grenzen stehen am Beispiel der 2
     const R = Z.rundung;
     const artWahl = el("select", { "aria-label": "Rundung der Endnote" });
@@ -5362,24 +5360,6 @@ if (typeof document !== "undefined") {
     p.append(schl);
     if (!k || !k.schueler.length) { ohneKurs(p); return; }
     const eigene = eigeneVon(k, Z);
-    const anteilZeigen = (D) => {
-      const t = anteilText(D);
-      const leer = BEREICHE.filter((b) => Z.schluessel[b.id] > 0 && !D.aktiv[b.id]).map((b) => b.name);
-      const bp = berichtigungProzent(Z);
-      // Warum ein Bereich mit Anteil im Schlüssel nicht zählt, damit klar ist, was fehlt
-      const grund = (b) => {
-        const alle = (k[b.id] || []).filter((a) => a && a.datum);
-        const im = { arbeiten: D.arbeiten, tests: D.tests, mappe: D.mappe, mitarbeit: D.stunden }[b.id];
-        const zaehlt = b.id === "arbeiten" ? " Eine Arbeit zählt, sobald sie mit „Im Kurs speichern“ im Kurs liegt."
-          : b.id === "tests" ? " Ein Test zählt, sobald er mit „Im Kurs speichern“ im Kurs liegt." : "";
-        if (!alle.length) return `${b.name} zählt noch nicht, weil in diesem Kurs dazu noch nichts gespeichert ist.${zaehlt}`;
-        if (!im.length) return `${b.name} zählt nicht, weil alles dazu Gespeicherte außerhalb des Zeitraums liegt (${alle.map((a) => datumKurz(a.datum)).join(", ")}).`;
-        return `${b.name} zählt noch nicht, weil dort noch keine Noten eingetragen sind.`;
-      };
-      anteilZeile.textContent = (t ? `Gerechnet wird mit ${t}.` : "Im Zeitraum stehen noch keine Noten.") +
-        (leer.length ? " " + BEREICHE.filter((b) => leer.includes(b.name)).map(grund).join(" ") + (t ? " Bis dahin verteilt sich der Anteil auf die anderen Bereiche." : "") : "") +
-        (D.berichtigungen.length && bp ? ` Jede abgegebene Berichtigung zählt mit ${deG(bp)} % als 1, die anderen Anteile werden dafür kleiner. Wer nicht abgibt, verliert nichts.` : "");
-    };
     // Ansicht: Noten oder Statistik
     const knopfNoten = el("button", { type: "button", role: "tab", text: "Noten" });
     const knopfStat = el("button", { type: "button", role: "tab", text: "Statistik" });
@@ -5407,7 +5387,6 @@ if (typeof document !== "undefined") {
       if (D.mappe.length) teile.push(`Mappe: ${titel(D.mappe)}`);
       teile.push(`Mitarbeit: ${D.stunden.length} ${D.stunden.length === 1 ? "Stunde" : "Stunden"}`);
       info.textContent = teile.join(". ") + ".";
-      anteilZeigen(D);
       inhalt.innerHTML = "";
       if (uebersichtAnsicht === "statistik") statistikZeigen(D); else notenZeigen(D);
     }
@@ -5471,7 +5450,6 @@ if (typeof document !== "undefined") {
           r.endIn.style.color = schrift;
           r.endIn.style.setProperty("--ph", schrift);
         });
-        anteilZeigen(N);
       };
       aktualisieren();
       const kopf = ["Name", "Klasse", ...(D.aktiv.arbeiten ? ["Arbeiten"] : []), ...(D.aktiv.tests ? ["Tests"] : []), ...(D.aktiv.mappe ? ["Mappe"] : []), "Mitarbeit", ...(D.berichtigungen.length ? ["Berichtigung"] : []), "Endnote"];
@@ -5723,7 +5701,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "06.11.2026 17:36";
+  const STAND = "06.11.2026 17:39";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
