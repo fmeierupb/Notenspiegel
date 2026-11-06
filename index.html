@@ -269,6 +269,7 @@
   .liste tr.fehlt td { color: var(--muted); }
   .liste td.name { white-space: nowrap; }
   .chip { display: inline-block; min-width: 2.4em; text-align: center; padding: 2px 8px; border-radius: 6px; font-weight: 700; }
+  .chip.vermerk { background: var(--knopf-aus); color: var(--text); }
   .notenwort { color: var(--muted); font-size: 13px; margin-left: 6px; }
 
   /* Dialoge */
@@ -401,7 +402,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 05.11.2026 12:02</span>
+      <span>Fassung 06.11.2026 05:17</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -855,6 +856,11 @@ function noteLesen(text) {
   const m = /^([1-6])([+−]?)$/.exec(t);
   return m ? { note: +m[1] - 1, tendenz: m[2], text: m[1] + m[2] } : { fehler: true };
 }
+// Ein Vermerk statt einer Note, etwa „Zd“: Text ohne Ziffern. Er zählt in keinem Schnitt
+function vermerkLesen(text) {
+  const t = String(text || "").trim();
+  return t && noteLesen(t).fehler && !/\d/.test(t) ? t : "";
+}
 // Bewertet ist, wer Punkte hat. "fehlt" heißt nachschreiben, ein Vermerk heißt: schreibt nicht mit
 const bewertet = (z) => !z.fehlt && !z.vermerk;
 
@@ -1004,10 +1010,12 @@ function zeitraumBerechnen(k, Z, eigene, o) {
     let fehlt = 0;
     stunden.forEach((m) => { const v = m.werte && m.werte[s.id]; if (v in zaehl) zaehl[v]++; else if (v === "f") fehlt++; });
     const mitVorschlag = alsNote(mitarbeitWert(zaehl, o.wert), o.mitTendenz ? RUNDUNG_DRITTEL : RUNDUNG_GANZ);
-    const mitEigen = gueltig(eig.mitarbeit[s.id]);
+    // Ein Vermerk bei Mitarbeit nimmt sie für diese Person aus der Endnote heraus
+    const mitVermerk = vermerkLesen(eig.mitarbeit[s.id]);
+    const mitEigen = mitVermerk || gueltig(eig.mitarbeit[s.id]);
     const mitarbeit = mitEigen || mitVorschlag;
-    const werte = { arbeiten: schnittVon(arb), tests: schnittVon(tst), mitarbeit: mitarbeit ? notenWert(mitarbeit) : null, mappe: schnittVon(mpp) };
-    return { s, nr: i + 1, arb, arbFehlt, tst, tstFehlt, mpp, zaehl, fehlt, mitVorschlag, mitEigen, mitarbeit, werte };
+    const werte = { arbeiten: schnittVon(arb), tests: schnittVon(tst), mitarbeit: mitarbeit && !mitVermerk ? notenWert(mitarbeit) : null, mappe: schnittVon(mpp) };
+    return { s, nr: i + 1, arb, arbFehlt, tst, tstFehlt, mpp, zaehl, fehlt, mitVorschlag, mitEigen, mitVermerk, mitarbeit, werte };
   });
   const aktiv = {};
   BEREICHE.forEach((b) => { aktiv[b.id] = zeilen.some((z) => z.werte[b.id] != null); });
@@ -1021,7 +1029,8 @@ function zeitraumBerechnen(k, Z, eigene, o) {
     BEREICHE.forEach((b) => { if (z.werte[b.id] != null && gewicht(b.id)) { g += gewicht(b.id); w += gewicht(b.id) * z.werte[b.id]; } });
     z.endWert = g ? w / g : null;
     z.endVorschlag = alsNote(z.endWert, rundungPruefen(Z.rundung), o.endSechs);
-    z.endEigen = gueltig(eig.note[z.s.id]);
+    z.endVermerk = vermerkLesen(eig.note[z.s.id]);
+    z.endEigen = z.endVermerk || gueltig(eig.note[z.s.id]);
     z.endnote = z.endEigen || z.endVorschlag;
   });
   return { arbeiten, tests, mappe, stunden, aktiv, anteile, zeilen };
@@ -1032,7 +1041,7 @@ const bereichsText = (z, D) => BEREICHE.filter((b) => D.anteile[b.id] > 0 && z.w
 // Statistik eines Zeitraums, für Bildschirm und Word gleich
 function zeitraumStatistik(D) {
   const ganz = (t) => noteLesen(t).note;
-  const mit = D.zeilen.filter((z) => z.endnote);
+  const mit = D.zeilen.filter((z) => notenWert(z.endnote) != null);
   const anzahl = [0, 0, 0, 0, 0, 0];
   mit.forEach((z) => { anzahl[ganz(z.endnote)]++; });
   const schnitt = mittelwert(mit.map((z) => notenWert(z.endnote)));
@@ -1052,7 +1061,7 @@ function zeitraumStatistik(D) {
   const klassenNamen = [...new Set(D.zeilen.map((z) => z.s.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
   const klassen = klassenNamen.length > 1 ? klassenNamen.map((kl) => {
     const zz = mit.filter((z) => z.s.klasse === kl);
-    return { klasse: kl, n: zz.length, gesamt: D.zeilen.filter((z) => z.s.klasse === kl).length,
+    return { klasse: kl, n: zz.length, gesamt: D.zeilen.filter((z) => z.s.klasse === kl && !z.endVermerk).length,
       schnitt: mittelwert(zz.map((z) => notenWert(z.endnote))), schwach: zz.filter((z) => ganz(z.endnote) >= 4).length };
   }) : [];
   const schwach = mit.filter((z) => ganz(z.endnote) >= 4)
@@ -1072,7 +1081,7 @@ function zeitraumStatistik(D) {
     D.mappe.forEach((t, i) => { if (!z.mpp[i] && D.zeilen.some((x) => x.mpp[i])) f.push(t.titel || "Mappe"); });
     return f.length ? { z, fehlt: f } : null;
   }).filter(Boolean).sort(nachName);
-  return { n: mit.length, gesamt: D.zeilen.length, anzahl, schnitt, bereiche, klassen, schwach, abstand, selten, fehlend };
+  return { n: mit.length, gesamt: D.zeilen.filter((z) => !z.endVermerk).length, anzahl, schnitt, bereiche, klassen, schwach, abstand, selten, fehlend };
 }
 
 // Vergleich mit der letzten früher gespeicherten Arbeit desselben Kurses
@@ -4672,6 +4681,7 @@ if (typeof document !== "undefined") {
         c.note.innerHTML = "";
         const n = noteLesen(z.mitarbeit);
         if (n.note != null) c.note.append(...[noteChip(n.note, n.tendenz, noten), z.mitEigen ? el("span", { klasse: "notenwort", text: "eigene" }) : null].filter(Boolean));
+        else if (z.mitVermerk) c.note.append(el("span", { klasse: "chip vermerk", text: z.mitVermerk }));
       });
     };
     const tbody = el("tbody");
@@ -4836,7 +4846,7 @@ if (typeof document !== "undefined") {
     ];
   }
   // Diagramm der Endnoten mit den Einstellungen der Arbeiten, nur mit passender Achsenbeschriftung
-  const endnotenDaten = (D) => endnotenDiagramm(D.zeilen.filter((z) => z.endnote).map((z) => notenWert(z.endnote)), notenspiegel(einst).noten,
+  const endnotenDaten = (D) => endnotenDiagramm(D.zeilen.map((z) => notenWert(z.endnote)).filter((w) => w != null), notenspiegel(einst).noten,
     { ...einst.diagramm, xTitel: einst.diagramm.xTitel ? "Endnoten [Grenzen im Schnitt]" : "" });
   function diagrammPng(daten, breite) {
     const c = document.createElement("canvas");
@@ -4986,11 +4996,12 @@ if (typeof document !== "undefined") {
       if (pkt.length > 1) g.append(svgEl("polyline", { points: pkt.join(" "), style: "fill:none;stroke:var(--text);stroke-width:2;opacity:.45;stroke-linejoin:round" }));
       P.stand.forEach((p) => g.append(svgEl("circle", { cx: x(p.datum), cy: y(p.wert), r: 2.2, style: "fill:var(--text);opacity:.45" })));
       const n = noteLesen(P.z.endnote);
-      if (n.note == null) return;
-      const letzte = P.stand[P.stand.length - 1], farbe = noten[n.note] ? noten[n.note].farbe : "#888";
-      const cx = Math.min(B - 20, x(letzte.datum) + 26), cy = y(letzte.wert);
-      g.append(svgEl("rect", { x: cx - 16, y: cy - 10, width: 32, height: 20, rx: 6, style: `fill:${farbe}` }));
-      g.append(svgEl("text", { x: cx, y: cy + 4.5, "text-anchor": "middle", style: `fill:${helligkeit(farbe) < 0.5 ? "#fff" : "#1c1c1c"};font-weight:700;font-size:13px` }, n.text));
+      if (n.note == null && !P.z.endVermerk) return;
+      const letzte = P.stand[P.stand.length - 1], farbe = n.note != null && noten[n.note] ? noten[n.note].farbe : "#c9ced6";
+      const text = n.note != null ? n.text : P.z.endVermerk, breit = Math.max(32, text.length * 8 + 14);
+      const cx = Math.min(B - breit / 2 - 2, x(letzte.datum) + 10 + breit / 2), cy = y(letzte.wert);
+      g.append(svgEl("rect", { x: cx - breit / 2, y: cy - 10, width: breit, height: 20, rx: 6, style: `fill:${farbe}` }));
+      g.append(svgEl("text", { x: cx, y: cy + 4.5, "text-anchor": "middle", style: `fill:${helligkeit(farbe) < 0.5 ? "#fff" : "#1c1c1c"};font-weight:700;font-size:13px` }, text));
     });
     // Noten der Person, bei gleichem Tag und gleicher Note leicht versetzt
     const belegt = new Map();
@@ -5034,7 +5045,7 @@ if (typeof document !== "undefined") {
 
   // Je Zeitraum: Schnitte der Bereiche, Mitarbeit, Endnote mit Rechenweg und der Unterschied zum Zeitraum davor
   function karteZeitraeume(v, noten) {
-    const chip = (t) => { const n = noteLesen(t); return n.note != null ? noteChip(n.note, n.tendenz, noten) : null; };
+    const chip = (t) => { const n = noteLesen(t); return n.note != null ? noteChip(n.note, n.tendenz, noten) : vermerkLesen(t) ? el("span", { klasse: "chip vermerk", text: t }) : null; };
     const zahl = (w) => (w != null ? komma2(w) : "");
     const tb = el("tbody");
     let vorher = null;
@@ -5294,7 +5305,7 @@ if (typeof document !== "undefined") {
       const feld = (map, s, name, spalte, zeile) => {
         const f = el("input", { type: "text", autocomplete: "off", "aria-label": `${name} ${anzeige(s.name)}`, "data-spalte": spalte, "data-zeile": zeile });
         f.value = map[s.id] || "";
-        const pruefen = () => f.classList.toggle("ungueltig", !!noteLesen(f.value).fehler);
+        const pruefen = () => f.classList.toggle("ungueltig", !!noteLesen(f.value).fehler && !vermerkLesen(f.value));
         f.addEventListener("input", () => { if (f.value.trim()) map[s.id] = f.value; else delete map[s.id]; pruefen(); kurseSpeichern(); aktualisieren(); });
         f.addEventListener("keydown", (e) => {
           const ziel = e.key === "Enter" || e.key === "ArrowDown" ? zeile + 1 : e.key === "ArrowUp" ? zeile - 1 : null;
@@ -5343,7 +5354,7 @@ if (typeof document !== "undefined") {
       inhalt.append(el("div", { klasse: "tabelle-rahmen fest", stil: "padding:2px 6px;margin-top:12px" },
         el("table", { klasse: "leistung-tab" }, el("thead", {}, el("tr", {}, kopf.map((t) => el("th", { text: t })))), tbody)));
       inhalt.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px",
-        text: "Grau steht der Vorschlag: bei Mitarbeit aus den Zeichen im Zeitraum, bei der Endnote nach dem Schlüssel aus den Schnitten der Bereiche. Eine eigene Note ersetzt den Vorschlag. Enter springt eine Zeile weiter. Wie die Zeichen zählen und wie die Endnote gerundet wird, steht in den Einstellungen." }));
+        text: "Grau steht der Vorschlag: bei Mitarbeit aus den Zeichen im Zeitraum, bei der Endnote nach dem Schlüssel aus den Schnitten der Bereiche. Eine eigene Note ersetzt den Vorschlag. Statt einer Note geht auch ein Vermerk ohne Ziffern, etwa Zd. Er zählt in keinem Schnitt und keiner Statistik, bei Mitarbeit fällt sie dann aus der Endnote heraus. Enter springt eine Zeile weiter. Wie die Zeichen zählen und wie die Endnote gerundet wird, steht in den Einstellungen." }));
     }
 
     // Statistik der Endnoten und der Bereiche, direkt hier und auf Wunsch im Word-Export
@@ -5588,7 +5599,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "05.11.2026 12:02";
+  const STAND = "06.11.2026 05:17";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
