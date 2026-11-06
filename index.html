@@ -407,7 +407,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 06.11.2026 17:30</span>
+      <span>Fassung 06.11.2026 17:36</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -5366,8 +5366,18 @@ if (typeof document !== "undefined") {
       const t = anteilText(D);
       const leer = BEREICHE.filter((b) => Z.schluessel[b.id] > 0 && !D.aktiv[b.id]).map((b) => b.name);
       const bp = berichtigungProzent(Z);
+      // Warum ein Bereich mit Anteil im Schlüssel nicht zählt, damit klar ist, was fehlt
+      const grund = (b) => {
+        const alle = (k[b.id] || []).filter((a) => a && a.datum);
+        const im = { arbeiten: D.arbeiten, tests: D.tests, mappe: D.mappe, mitarbeit: D.stunden }[b.id];
+        const zaehlt = b.id === "arbeiten" ? " Eine Arbeit zählt, sobald sie mit „Im Kurs speichern“ im Kurs liegt."
+          : b.id === "tests" ? " Ein Test zählt, sobald er mit „Im Kurs speichern“ im Kurs liegt." : "";
+        if (!alle.length) return `${b.name} zählt noch nicht, weil in diesem Kurs dazu noch nichts gespeichert ist.${zaehlt}`;
+        if (!im.length) return `${b.name} zählt nicht, weil alles dazu Gespeicherte außerhalb des Zeitraums liegt (${alle.map((a) => datumKurz(a.datum)).join(", ")}).`;
+        return `${b.name} zählt noch nicht, weil dort noch keine Noten eingetragen sind.`;
+      };
       anteilZeile.textContent = (t ? `Gerechnet wird mit ${t}.` : "Im Zeitraum stehen noch keine Noten.") +
-        (leer.length ? ` ${undListe(leer)} ${leer.length === 1 ? "hat" : "haben"} hier keine Noten und ${leer.length === 1 ? "zählt" : "zählen"} nicht.` : "") +
+        (leer.length ? " " + BEREICHE.filter((b) => leer.includes(b.name)).map(grund).join(" ") + (t ? " Bis dahin verteilt sich der Anteil auf die anderen Bereiche." : "") : "") +
         (D.berichtigungen.length && bp ? ` Jede abgegebene Berichtigung zählt mit ${deG(bp)} % als 1, die anderen Anteile werden dafür kleiner. Wer nicht abgibt, verliert nichts.` : "");
     };
     // Ansicht: Noten oder Statistik
@@ -5713,7 +5723,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "06.11.2026 17:30";
+  const STAND = "06.11.2026 17:36";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
