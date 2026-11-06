@@ -161,7 +161,7 @@
   .leistung-tab { font-size: 15px; }
   .leistung-tab td { padding: 5px 4px; border-bottom: 1px solid var(--linie); text-align: center; white-space: nowrap; }
   .leistung-tab th:nth-child(-n+2), .leistung-tab td:nth-child(-n+2) { text-align: left; }
-  .leistung-tab td.klasse { color: var(--muted); }
+  .leistung-tab td.klasse, .leistung-tab td.ber { color: var(--muted); }
   .leistung-tab td.name, .leistung-tab td.mit { white-space: normal; }
   .leistung-tab td.name { min-width: 8em; }
   .leistung-tab td.noten { white-space: normal; min-width: 4.5em; }
@@ -407,7 +407,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 06.11.2026 08:54</span>
+      <span>Fassung 06.11.2026 17:30</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -961,6 +961,9 @@ const BEREICHE = [
   { id: "mappe", name: "Mappe" },
 ];
 const STANDARD_SCHLUESSEL = { arbeiten: 50, tests: 20, mitarbeit: 20, mappe: 10 };
+// Jede abgegebene Berichtigung zählt mit diesem Anteil als 1, die übrigen Anteile werden dafür kleiner. Wer nicht abgibt, verliert nichts
+const STANDARD_BERICHTIGUNG = 5;
+const berichtigungProzent = (Z) => { const w = Number(Z && Z.berichtigung); return Number.isFinite(w) && w >= 0 && w <= 50 ? w : STANDARD_BERICHTIGUNG; };
 const mittelwert = (w) => (w.length ? w.reduce((a, b) => a + b, 0) / w.length : null);
 const zweiStellen = (w) => w.toFixed(2).replace(".", ",");
 // Rundung eines Schnitts zur Note, beschrieben an der 2 und für alle Noten entsprechend verschoben:
@@ -999,6 +1002,7 @@ function zeitraumBerechnen(k, Z, eigene, o) {
   const tests = (k.tests || []).filter((t) => t && Array.isArray(t.punkte) && drin(t.datum)).sort(nachDatum);
   const mappe = (k.mappe || []).filter((t) => t && drin(t.datum)).sort(nachDatum);
   const stunden = (k.mitarbeit || []).filter((m) => drin(m.datum)).sort(nachDatum);
+  const berichtigungen = (k.berichtigung || []).filter((t) => t && drin(t.datum)).sort(nachDatum);
   const eig = { mitarbeit: (eigene && eigene.mitarbeit) || {}, note: (eigene && eigene.note) || {} };
   const eintrag = (a, s) => a.punkte.find((x) => x.id && x.id === s.id) ||
     a.punkte.find((x) => namensSchluessel(x.name) === namensSchluessel(s.name) && (x.klasse || "") === (s.klasse || ""));
@@ -1032,13 +1036,16 @@ function zeitraumBerechnen(k, Z, eigene, o) {
   zeilen.forEach((z) => {
     let g = 0, w = 0;
     BEREICHE.forEach((b) => { if (z.werte[b.id] != null && gewicht(b.id)) { g += gewicht(b.id); w += gewicht(b.id) * z.werte[b.id]; } });
-    z.endWert = g ? w / g : null;
+    z.endBasis = g ? w / g : null;
+    z.berAb = berichtigungen.filter((t) => t.ab && t.ab[z.s.id]).length;
+    z.berAnteil = z.endBasis != null ? Math.min(0.5, z.berAb * berichtigungProzent(Z) / 100) : 0;
+    z.endWert = z.endBasis != null ? (1 - z.berAnteil) * z.endBasis + z.berAnteil : null;
     z.endVorschlag = alsNote(z.endWert, rundungPruefen(Z.rundung), o.endSechs);
     z.endVermerk = vermerkLesen(eig.note[z.s.id]);
     z.endEigen = z.endVermerk || gueltig(eig.note[z.s.id]);
     z.endnote = z.endEigen || z.endVorschlag;
   });
-  return { arbeiten, tests, mappe, stunden, aktiv, anteile, zeilen };
+  return { arbeiten, tests, mappe, stunden, berichtigungen, aktiv, anteile, zeilen };
 }
 // Die Bereiche einer Person kurz als Text, etwa „Arbeiten 4,67 · Mitarbeit 4−“
 const bereichsText = (z, D) => BEREICHE.filter((b) => D.anteile[b.id] > 0 && z.werte[b.id] != null)
@@ -4035,7 +4042,7 @@ if (typeof document !== "undefined") {
     }
     if (daten.zeitraeume && Array.isArray(daten.zeitraeume.liste)) {
       daten.zeitraeume.liste.filter((Z) => Z && typeof Z === "object" && Z.id).forEach((Z) => {
-        const neu = { id: String(Z.id), titel: String(Z.titel || ""), von: String(Z.von || ""), bis: String(Z.bis || ""), schluessel: schluesselPruefen(Z.schluessel), rundung: rundungPruefen(Z.rundung) };
+        const neu = { id: String(Z.id), titel: String(Z.titel || ""), von: String(Z.von || ""), bis: String(Z.bis || ""), schluessel: schluesselPruefen(Z.schluessel), berichtigung: berichtigungProzent(Z), rundung: rundungPruefen(Z.rundung) };
         const i = zr.liste.findIndex((x) => x.id === neu.id);
         if (i >= 0) zr.liste[i] = neu; else zr.liste.push(neu);
       });
@@ -4565,7 +4572,7 @@ if (typeof document !== "undefined") {
     return r;
   }
   // Ein neuer Zeitraum übernimmt den Schlüssel des gerade gewählten
-  const neuerZeitraum = (vorlage) => ({ id: neueId(), titel: "Neuer Zeitraum", ...halbjahr(), schluessel: { ...(vorlage ? vorlage.schluessel : STANDARD_SCHLUESSEL) },
+  const neuerZeitraum = (vorlage) => ({ id: neueId(), titel: "Neuer Zeitraum", ...halbjahr(), schluessel: { ...(vorlage ? vorlage.schluessel : STANDARD_SCHLUESSEL) }, berichtigung: berichtigungProzent(vorlage),
     rundung: { ...(vorlage && vorlage.rundung ? vorlage.rundung : rundungAusEinst()) } });
   // Ausgangswert für die Rundung aus der Einstellung der vorigen Fassung: ganze Noten oder + und − mit fester Breite
   function rundungAusEinst() {
@@ -4579,6 +4586,7 @@ if (typeof document !== "undefined") {
       if (!Z.id) Z.id = neueId();
       if (typeof Z.titel !== "string") Z.titel = "";
       Z.schluessel = schluesselPruefen(Z.schluessel);
+      Z.berichtigung = berichtigungProzent(Z);
       Z.rundung = rundungPruefen(Z.rundung && typeof Z.rundung === "object" ? Z.rundung : rundungAusEinst());
     });
     if (!zr.liste.some((Z) => Z.id === zr.aktiv)) zr.aktiv = zr.liste[0].id;
@@ -4877,7 +4885,8 @@ if (typeof document !== "undefined") {
       const offen = reihe.filter((s) => !x.ab[s.id]);
       info.textContent = `${reihe.length - offen.length} von ${reihe.length} abgegeben. ` +
         (!offen.length ? "Alle haben abgegeben. " : offen.length <= 10 ? `Noch offen: ${offen.map((s) => anzeige(s.name)).join(" · ")}. ` : "") +
-        "Antippen hakt ab, nochmal tippen nimmt es zurück. Alles wird sofort gespeichert.";
+        "Antippen hakt ab, nochmal tippen nimmt es zurück. Alles wird sofort gespeichert. " +
+        "In der Endnote zählt jede abgegebene Berichtigung mit dem Anteil aus dem Schlüssel der Übersicht als 1. Wer nicht abgibt, verliert nichts.";
     };
     const gesamt = new Map();
     const gesamtZeigen = () => reihe.forEach((s) => {
@@ -4928,6 +4937,7 @@ if (typeof document !== "undefined") {
       ...(D.aktiv.tests ? [{ titel: "Tests", wert: (z) => liste(z.tst) }] : []),
       ...(D.aktiv.mappe ? [{ titel: "Mappe", wert: (z) => liste(z.mpp) }] : []),
       ...(D.aktiv.mitarbeit ? [{ titel: "Mitarbeit", wert: (z) => z.mitarbeit }] : []),
+      ...(D.berichtigungen.length ? [{ titel: "Berichtigung", wert: (z) => `${z.berAb} von ${D.berichtigungen.length}` }] : []),
       { titel: "Endnote", wert: (z) => z.endnote },
     ];
   }
@@ -5155,7 +5165,9 @@ if (typeof document !== "undefined") {
       const da = BEREICHE.filter((b) => D.anteile[b.id] > 0 && z.werte[b.id] != null);
       const summe = da.reduce((a, b) => a + D.anteile[b.id], 0);
       if (da.length && summe) {
-        const weg = da.map((b) => `${Math.round(D.anteile[b.id] / summe * 100)} % ${b.name} ${b.id === "mitarbeit" ? `${z.mitarbeit} (${komma2(z.werte.mitarbeit)})` : komma2(z.werte[b.id])}`).join(" + ");
+        const pz = (x) => `${deG(Math.round(x * 1000) / 10)} %`, rest = 1 - z.berAnteil;
+        const weg = da.map((b) => `${pz(D.anteile[b.id] / summe * rest)} ${b.name} ${b.id === "mitarbeit" ? `${z.mitarbeit} (${komma2(z.werte.mitarbeit)})` : komma2(z.werte[b.id])}`)
+          .concat(z.berAnteil ? [`${pz(z.berAnteil)} Berichtigung 1 (${z.berAb} abgegeben)`] : []).join(" + ");
         tb.append(el("tr", { klasse: "rechenweg" }, el("td", { colspan: 7, text: `${weg} = ${komma2(z.endWert)}, gerundet ${z.endVorschlag}${z.endEigen ? `, eingetragen ${z.endEigen}` : ""}` })));
       }
     });
@@ -5273,6 +5285,15 @@ if (typeof document !== "undefined") {
       });
       schl.append(el("label", { klasse: "feld" }, b.name, el("span", { klasse: "prozent" }, f, "%")));
     });
+    const berIn = el("input", { type: "number", min: "0", max: "50", step: "1", inputmode: "numeric", "aria-label": "Anteil je abgegebener Berichtigung in Prozent" });
+    berIn.value = berichtigungProzent(Z);
+    berIn.addEventListener("input", () => {
+      const w = parseFloat(String(berIn.value).replace(",", "."));
+      Z.berichtigung = Number.isFinite(w) && w >= 0 ? Math.min(50, w) : 0;
+      zeitraeumeSpeichern();
+      if (k && k.schueler.length) inhaltZeigen();
+    });
+    schl.append(el("label", { klasse: "feld" }, "Je Berichtigung als 1", el("span", { klasse: "prozent" }, berIn, "%")));
     schl.append(anteilZeile);
     // Rundung der Endnote: ganze Noten oder mit + und −, die Grenzen stehen am Beispiel der 2
     const R = Z.rundung;
@@ -5344,8 +5365,10 @@ if (typeof document !== "undefined") {
     const anteilZeigen = (D) => {
       const t = anteilText(D);
       const leer = BEREICHE.filter((b) => Z.schluessel[b.id] > 0 && !D.aktiv[b.id]).map((b) => b.name);
+      const bp = berichtigungProzent(Z);
       anteilZeile.textContent = (t ? `Gerechnet wird mit ${t}.` : "Im Zeitraum stehen noch keine Noten.") +
-        (leer.length ? ` ${undListe(leer)} ${leer.length === 1 ? "hat" : "haben"} hier keine Noten und ${leer.length === 1 ? "zählt" : "zählen"} nicht.` : "");
+        (leer.length ? ` ${undListe(leer)} ${leer.length === 1 ? "hat" : "haben"} hier keine Noten und ${leer.length === 1 ? "zählt" : "zählen"} nicht.` : "") +
+        (D.berichtigungen.length && bp ? ` Jede abgegebene Berichtigung zählt mit ${deG(bp)} % als 1, die anderen Anteile werden dafür kleiner. Wer nicht abgibt, verliert nichts.` : "");
     };
     // Ansicht: Noten oder Statistik
     const knopfNoten = el("button", { type: "button", role: "tab", text: "Noten" });
@@ -5418,7 +5441,9 @@ if (typeof document !== "undefined") {
           D.aktiv.arbeiten ? notenZelle(z.arb, z.werte.arbeiten) : null,
           D.aktiv.tests ? notenZelle(z.tst, z.werte.tests) : null,
           D.aktiv.mappe ? notenZelle(z.mpp, z.werte.mappe) : null,
-          el("td", { klasse: "mit" }, zaehl, " ", mitIn), el("td", { klasse: "endnote" }, dez, endIn)));
+          el("td", { klasse: "mit" }, zaehl, " ", mitIn),
+          D.berichtigungen.length ? el("td", { klasse: "ber", text: `${z.berAb} von ${D.berichtigungen.length}` }) : null,
+          el("td", { klasse: "endnote" }, dez, endIn)));
       });
       aktualisieren = () => {
         const N = berechnen(k, Z), nach = new Map(N.zeilen.map((x) => [x.s.id, x]));
@@ -5439,7 +5464,7 @@ if (typeof document !== "undefined") {
         anteilZeigen(N);
       };
       aktualisieren();
-      const kopf = ["Name", "Klasse", ...(D.aktiv.arbeiten ? ["Arbeiten"] : []), ...(D.aktiv.tests ? ["Tests"] : []), ...(D.aktiv.mappe ? ["Mappe"] : []), "Mitarbeit", "Endnote"];
+      const kopf = ["Name", "Klasse", ...(D.aktiv.arbeiten ? ["Arbeiten"] : []), ...(D.aktiv.tests ? ["Tests"] : []), ...(D.aktiv.mappe ? ["Mappe"] : []), "Mitarbeit", ...(D.berichtigungen.length ? ["Berichtigung"] : []), "Endnote"];
       inhalt.append(el("div", { klasse: "tabelle-rahmen fest", stil: "padding:2px 6px;margin-top:12px" },
         el("table", { klasse: "leistung-tab" }, el("thead", {}, el("tr", {}, kopf.map((t) => el("th", { text: t })))), tbody)));
       inhalt.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px",
@@ -5688,7 +5713,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "06.11.2026 08:54";
+  const STAND = "06.11.2026 17:30";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
