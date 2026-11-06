@@ -148,6 +148,9 @@
   .wahl3 button { min-width: 46px; padding: 6px 0; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 17px; }
   .wahl3 button.an { background: var(--accent); color: #fff; border-color: var(--accent); }
   .wahl3 button.fehlt { min-width: 0; padding: 6px 10px; font-size: 14px; margin-left: 6px; color: var(--muted); }
+  .haken { min-width: 130px; padding: 6px 12px; background: var(--card); color: var(--muted); border: 1px solid var(--border); font-size: 15px; }
+  .haken.an { background: var(--k-plus); border-color: var(--k-plus); color: #fff; }
+  .chip.ab { background: var(--k-plus); color: #fff; }
   .wahl3 button.fehlt.an { background: var(--muted); border-color: var(--muted); color: var(--card); }
   .mitarbeit-tab tr.abwesend td.name, .mitarbeit-tab tr.abwesend td.klasse { color: var(--muted); text-decoration: line-through; }
   .zaehlung { color: var(--muted); font-size: 13px; white-space: nowrap; }
@@ -373,6 +376,7 @@
       <button id="bereich-tests" role="tab" aria-selected="false" type="button">Tests</button>
       <button id="bereich-mitarbeit" role="tab" aria-selected="false" type="button">Mitarbeit</button>
       <button id="bereich-mappe" role="tab" aria-selected="false" type="button">Mappe</button>
+      <button id="bereich-berichtigung" role="tab" aria-selected="false" type="button">Berichtigung</button>
       <button id="bereich-leistung" role="tab" aria-selected="false" type="button">Übersicht</button>
       <button id="bereich-karte" role="tab" aria-selected="false" type="button">Schülerkarte</button>
     </div>
@@ -393,6 +397,7 @@
     </div>
     <div id="panel-mitarbeit" hidden></div>
     <div id="panel-mappe" hidden></div>
+    <div id="panel-berichtigung" hidden></div>
     <div id="panel-leistung" hidden></div>
     <div id="panel-karte" hidden></div>
     <div class="knoepfe">
@@ -402,7 +407,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 06.11.2026 05:17</span>
+      <span>Fassung 06.11.2026 08:54</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -3643,6 +3648,8 @@ if (typeof document !== "undefined") {
         return { id: s.id, name: s.name, klasse: s.klasse, punkte: deG(pk), note: `${j + 1}${tendenz(pk, j, r0, STANDARD_EINST.tendenzen, ns0.noten.length - 1)}` };
       }),
     }];
+    k.berichtigung = [{ id: neueId(), titel: "Berichtigung 1. Klassenarbeit", datum: new Date(Date.now() - 21 * 864e5).toISOString().slice(0, 10),
+      ab: Object.fromEntries(k.schueler.filter((_, i) => i % 6 !== 2 && i !== 7).map((s) => [s.id, true])) }];
     kurse.push(k);
     aktiverKurs = k.id; bearbeitet = k.id;
     kurseSpeichern();
@@ -4002,6 +4009,10 @@ if (typeof document !== "undefined") {
       })),
       tests: (Array.isArray(k.tests) ? k.tests : []).filter((t) => t && typeof t === "object").map((t) => (Array.isArray(t.punkte) ? arbeitLesen(t) : listeLesen([t])[0])),
       mappe: listeLesen(k.mappe),
+      berichtigung: (Array.isArray(k.berichtigung) ? k.berichtigung : []).filter((t) => t && typeof t === "object").map((t) => ({
+        id: String(t.id || neueId()), titel: String(t.titel || ""), datum: /^\d{4}-\d{2}-\d{2}$/.test(t.datum || "") ? t.datum : "",
+        ab: Object.fromEntries(Object.entries(t.ab && typeof t.ab === "object" ? t.ab : {}).filter(([, v]) => v === true)),
+      })),
       zeitraum: k.zeitraum && typeof k.zeitraum === "object" ? k.zeitraum : {},
       ...(Array.isArray(k.leistungen) ? { leistungen: k.leistungen.filter((L) => L && typeof L === "object"), leistungAktiv: String(k.leistungAktiv || "") }
         : k.leistung && typeof k.leistung === "object" ? { leistung: k.leistung } : {}),
@@ -4485,7 +4496,7 @@ if (typeof document !== "undefined") {
   // ----- Bereiche: Arbeiten, Tests, Mitarbeit, Mappe, Übersicht -----
   const MARKEN = ["+", "o", "−"];
   const FEHLT = "f";
-  const BEREICH_IDS = ["arbeit", "tests", "mitarbeit", "mappe", "leistung", "karte"];
+  const BEREICH_IDS = ["arbeit", "tests", "mitarbeit", "mappe", "berichtigung", "leistung", "karte"];
   const BEREICH_KEY = "notenauswertung-bereich";
   const isoDatum = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const heuteISO = () => isoDatum(new Date());
@@ -4498,11 +4509,12 @@ if (typeof document !== "undefined") {
     aktiverBereich = b;
     schreiben(BEREICH_KEY, b);
     const panel = b === "tests" ? "arbeit" : b;
-    ["arbeit", "mitarbeit", "mappe", "leistung", "karte"].forEach((x) => { $("panel-" + x).hidden = x !== panel; });
+    ["arbeit", "mitarbeit", "mappe", "berichtigung", "leistung", "karte"].forEach((x) => { $("panel-" + x).hidden = x !== panel; });
     BEREICH_IDS.forEach((x) => $("bereich-" + x).setAttribute("aria-selected", String(x === b)));
     if (panel === "arbeit") modusSetzen(b === "tests" ? "test" : "arbeit");
     if (b === "mitarbeit") mitarbeitAufbauen();
     else if (b === "mappe") notenlisteAufbauen(b);
+    else if (b === "berichtigung") berichtigungAufbauen();
     else if (b === "leistung") leistungAufbauen();
     else if (b === "karte") karteAufbauen();
     else eintragAufbauen();
@@ -4818,6 +4830,80 @@ if (typeof document !== "undefined") {
         el("th", { klasse: "zaehlung", text: "Alle im Zeitraum" }))), tbody)));
   }
 
+  // ----- Berichtigung: wer sie abgegeben hat, ohne Note und ohne Einfluss auf die Endnote -----
+  const berichtigungAuswahl = {};
+  function berichtigungAufbauen() {
+    const p = $("panel-berichtigung");
+    p.innerHTML = "";
+    const k = kurs();
+    p.append(el("div", { klasse: "reihe" }, kursFeld()));
+    if (!k || !k.schueler.length) { ohneKurs(p); return; }
+    if (!Array.isArray(k.berichtigung)) k.berichtigung = [];
+    k.berichtigung.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
+    const liste = k.berichtigung;
+    const x = liste.find((t) => t.id === berichtigungAuswahl[k.id]) || liste[liste.length - 1];
+    // Titel zum Antippen: zu jeder Arbeit und jedem Test, die neueste noch ohne Berichtigung zuerst
+    const vorschlaege = [...(k.arbeiten || []), ...(k.tests || [])].filter((a) => a && a.arbeit)
+      .sort((a, b) => (b.datum || "").localeCompare(a.datum || "")).map((a) => `Berichtigung ${a.arbeit}`);
+    const neu = () => {
+      const frei = vorschlaege.find((t) => !liste.some((b) => b.titel === t));
+      const t = { id: neueId(), titel: frei || `${liste.length + 1}. Berichtigung`, datum: heuteISO(), ab: {} };
+      liste.push(t); berichtigungAuswahl[k.id] = t.id; kurseSpeichern(); berichtigungAufbauen();
+    };
+    p.append(el("div", { klasse: "stunden" }, liste.length ? `Berichtigungen (${liste.length}):` : "",
+      ...liste.map((t) => el("button", { type: "button", klasse: "zweit" + (x && t.id === x.id ? " an" : ""), text: `${t.titel || "Ohne Titel"} · ${datumKurz(t.datum)}`,
+        onclick: () => { berichtigungAuswahl[k.id] = t.id; berichtigungAufbauen(); } })),
+      el("button", { type: "button", klasse: "zweit", text: "+ Neue Berichtigung", onclick: neu })));
+    if (!x) {
+      p.append(el("div", { klasse: "karte leer", stil: "margin-top:14px" }, el("p", { text: "Noch keine Berichtigung in diesem Kurs." }),
+        el("div", { klasse: "knoepfe" }, el("button", { type: "button", text: "Neue Berichtigung", onclick: neu }))));
+      return;
+    }
+    if (!x.ab || typeof x.ab !== "object") x.ab = {};
+    const titelIn = el("input", { type: "text", list: "berichtigung-titel" }); titelIn.value = x.titel || "";
+    const datumIn = el("input", { type: "date" }); datumIn.value = x.datum || "";
+    titelIn.addEventListener("input", () => { x.titel = titelIn.value; kurseSpeichern(); });
+    titelIn.addEventListener("change", () => berichtigungAufbauen());
+    datumIn.addEventListener("change", () => { if (datumIn.value) { x.datum = datumIn.value; kurseSpeichern(); berichtigungAufbauen(); } });
+    const weg = loeschKnopf("Berichtigung löschen", "Wirklich löschen?", () => {
+      k.berichtigung = k.berichtigung.filter((t) => t !== x); delete berichtigungAuswahl[k.id]; kurseSpeichern(); berichtigungAufbauen();
+    });
+    p.append(el("datalist", { id: "berichtigung-titel" }, vorschlaege.map((t) => el("option", { value: t }))),
+      el("div", { klasse: "reihe", stil: "margin-top:10px" }, el("label", { klasse: "feld", stil: "flex:1 1 240px" }, "Titel", titelIn),
+        el("label", { klasse: "feld", stil: "flex:0 1 190px" }, "Datum", datumIn), weg));
+    const info = el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px" });
+    const reihe = personenReihenfolge(k);
+    const infoZeigen = () => {
+      const offen = reihe.filter((s) => !x.ab[s.id]);
+      info.textContent = `${reihe.length - offen.length} von ${reihe.length} abgegeben. ` +
+        (!offen.length ? "Alle haben abgegeben. " : offen.length <= 10 ? `Noch offen: ${offen.map((s) => anzeige(s.name)).join(" · ")}. ` : "") +
+        "Antippen hakt ab, nochmal tippen nimmt es zurück. Alles wird sofort gespeichert.";
+    };
+    const gesamt = new Map();
+    const gesamtZeigen = () => reihe.forEach((s) => {
+      const n = liste.filter((t) => t.ab && t.ab[s.id]).length;
+      gesamt.get(s.id).textContent = `${n} von ${liste.length}`;
+    });
+    const tbody = el("tbody");
+    reihe.forEach((s, idx) => {
+      const knopf = el("button", { type: "button", klasse: "haken", "aria-label": `Berichtigung von ${anzeige(s.name)} abgegeben` });
+      const zeigen = () => { const an = !!x.ab[s.id]; knopf.classList.toggle("an", an); knopf.textContent = an ? "✓ abgegeben" : "offen"; knopf.setAttribute("aria-pressed", String(an)); };
+      knopf.addEventListener("click", () => {
+        if (x.ab[s.id]) delete x.ab[s.id]; else x.ab[s.id] = true;
+        kurseSpeichern(); zeigen(); infoZeigen(); gesamtZeigen();
+      });
+      zeigen();
+      const zelle = el("td", { klasse: "zaehlung" });
+      gesamt.set(s.id, zelle);
+      tbody.append(el("tr", {}, el("td", { klasse: "nr", text: String(idx + 1) }), el("td", { klasse: "name", "data-sid": fotoId(s), text: anzeige(s.name) }),
+        el("td", { klasse: "klasse", text: s.klasse || "" }), el("td", {}, knopf), zelle));
+    });
+    infoZeigen(); gesamtZeigen();
+    p.append(info, el("div", { klasse: "eintrag-rahmen" }, el("table", { klasse: "mitarbeit-tab" },
+      el("thead", {}, el("tr", {}, el("th", { klasse: "nr", text: "Nr." }), el("th", { text: "Name" }), el("th", { text: "Klasse" }), el("th", { text: "Abgegeben" }),
+        el("th", { klasse: "zaehlung", text: "Alle Berichtigungen" }))), tbody)));
+  }
+
   // ----- Übersicht: alle Bereiche eines Zeitraums, Endnote nach Schlüssel, Statistik -----
   const UEBERSICHT_SORT = [["eingabe", "Reihenfolge im Kurs"], ["nachname", "Nachname"], ["vorname", "Vorname"], ["klasse", "Klasse, dann Nachname"], ["endnote", "Endnote"]];
   const uebersichtSortierung = () => (einst.uebersichtSortierung === "endnote" ? "endnote"
@@ -5104,13 +5190,16 @@ if (typeof document !== "undefined") {
     inhalt.append(el("div", { klasse: "karte-name" }, el("span", { "data-sid": fotoId(s), text: anzeige(s.name) })),
       el("div", { klasse: "karte-unter", text: [s.klasse, k.name].filter(Boolean).join(" · ") }));
     const v = karteVerlauf(k, s);
-    if (!v.ereignisse.length && !v.stunden.length) {
-      inhalt.append(el("p", { klasse: "leer", text: "Für diese Person gibt es noch keine Noten und keine Mitarbeit." }));
-      return;
-    }
-    inhalt.append(el("div", { klasse: "abschnitt-titel", text: "Verlauf" }), karteDiagramm(v, noten), karteLegende(v),
+    if (!v.ereignisse.length && !v.stunden.length) inhalt.append(el("p", { klasse: "leer", text: "Für diese Person gibt es noch keine Noten und keine Mitarbeit." }));
+    else inhalt.append(el("div", { klasse: "abschnitt-titel", text: "Verlauf" }), karteDiagramm(v, noten), karteLegende(v),
       el("div", { klasse: "abschnitt-titel", text: "Zeiträume" }), karteZeitraeume(v, noten),
       el("div", { klasse: "abschnitt-titel", text: "Alle Noten" }), karteListe(v, noten));
+    const ber = (Array.isArray(k.berichtigung) ? k.berichtigung : []).slice().sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
+    if (ber.length) inhalt.append(el("div", { klasse: "abschnitt-titel", text: "Berichtigungen" }),
+      el("div", { klasse: "tabelle-rahmen", stil: "padding:2px 6px" }, el("table", { klasse: "liste" },
+        el("thead", {}, el("tr", {}, ["Datum", "Titel", "Stand"].map((t) => el("th", { text: t })))),
+        el("tbody", {}, ber.map((t) => el("tr", {}, el("td", { text: datumKurz(t.datum) }), el("td", { text: t.titel || "Ohne Titel" }),
+          el("td", {}, t.ab && t.ab[s.id] ? el("span", { klasse: "chip ab", text: "abgegeben" }) : el("span", { klasse: "chip vermerk", text: "offen" }))))))));
   }
 
   function leistungAufbauen() {
@@ -5599,7 +5688,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "06.11.2026 05:17";
+  const STAND = "06.11.2026 08:54";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
