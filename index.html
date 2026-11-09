@@ -174,9 +174,6 @@
   .leistung-tab td.klasse, .leistung-tab td.ber { color: var(--muted); }
   .leistung-tab td.name, .leistung-tab td.mit { white-space: normal; }
   .leistung-tab td.name { min-width: 8em; }
-  .leistung-tab.ohne-dezimal .schnitt, .leistung-tab.ohne-dezimal .dezimal { display: none; }
-  .dezimal-wahl { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; align-self: flex-end; padding-bottom: 8px; }
-  .dezimal-wahl input { width: 20px; height: 20px; margin: 0; }
   .leistung-tab td.noten { white-space: normal; min-width: 4.5em; }
   .leistung-tab .zaehl, .leistung-tab .schnitt { white-space: nowrap; display: inline-block; }
   .leistung-tab input { width: 3.6em; text-align: center; padding: 5px 6px; }
@@ -420,7 +417,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 09.11.2026 09:07</span>
+      <span>Fassung 09.11.2026 09:20</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -1771,36 +1768,35 @@ function zeitraumDokument({ titel, unterzeile, datumText, angaben, grundwerte, k
   return docxPaket(body, { titel, kurs, beschreibung: "Leistung im Zeitraum", bild });
 }
 
-// Kommentare eines Zeitraums: Name, bei mehreren Klassen die Klasse, die gewählten Noten, Kommentar mit seinen Absätzen.
-// Bleibt für den Kommentar zu wenig Platz, wird die Seite quer gelegt
+// Kommentare eines Zeitraums, immer hochkant und dicht gesetzt: Name, bei mehreren Klassen die Klasse, die gewählten Noten
+// in schmalen Spalten, dann der Kommentar mit seinen Absätzen. 1,5 cm Rand, 9 pt, knappe Zellränder
 function kommentarDokument({ titel, unterzeile, datumText, kurs, mitKlasse, noten = [], zeilen }) {
-  const nb = namensBreite(zeilen.map((z) => z.name), 2200), kb = mitKlasse ? 900 : 0;
-  const nbreite = noten.map((t, i) => {
-    const laengste = Math.max(t.length * 95, ...zeilen.map((z) => String(z.noten[i] || "").length * 120));
-    return Math.min(2200, Math.max(950, laengste + 260));
-  });
+  const RAND = 850, BREITE = 11906 - 2 * RAND, GR = 9;
+  const laengste = (liste) => Math.max(0, ...liste.map((t) => String(t || "").length));
+  const nb = Math.min(2600, Math.max(1500, laengste(zeilen.map((z) => z.name)) * 95 + 180));
+  // Kopfzeile ohne Großbuchstaben, damit die Spalten schmal bleiben und kein Wort umbricht
+  const kopfB = (t) => t.length * 95 + 170;
+  const kb = mitKlasse ? Math.max(kopfB("Klasse"), laengste(zeilen.map((z) => z.klasse)) * 95 + 160) : 0;
+  const nbreite = noten.map((t, i) => Math.min(1800, Math.max(kopfB(t), laengste(zeilen.map((z) => z.noten[i])) * 100 + 160)));
   const summe = nb + kb + nbreite.reduce((a, x) => a + x, 0);
-  const quer = TEXTBREITE - summe < 3600;
-  const breite = quer ? TEXTBREITE_QUER : TEXTBREITE;
-  let body = wTitel(titel, datumText, unterzeile, breite);
-  body += wP("", { nach: 160 });
-  const spalten = [{ breite: nb }, ...(mitKlasse ? [{ breite: kb }] : []), ...nbreite.map((x) => ({ breite: x, mitte: true })), { breite: breite - summe }];
-  const absaetze = (text) => text.split(/\n+/).map((t) => t.trim()).filter(Boolean).map((t, i) => wP(wR(t, { gr: 10 }), { vor: i ? 60 : 0 }));
+  let body = wTitel(titel, datumText, unterzeile, BREITE);
+  body += wP("", { nach: 80 });
+  const spalten = [{ breite: nb }, ...(mitKlasse ? [{ breite: kb }] : []), ...nbreite.map((x) => ({ breite: x, mitte: true })), { breite: BREITE - summe }];
+  const absaetze = (text) => text.split(/\n+/).map((t) => t.trim()).filter(Boolean).map((t, i) => wP(wR(t, { gr: GR }), { vor: i ? 30 : 0 }));
   body += wTab(spalten, [
-    { ...W_KOPF, zellen: ["Name", ...(mitKlasse ? ["Klasse"] : []), ...noten, "Kommentar"] },
+    { ...W_KOPF, caps: false, gr: 7.5, zellen: ["Name", ...(mitKlasse ? ["Klasse"] : []), ...noten, "Kommentar"] },
     ...zeilen.map((z, i) => ({
-      fuellung: i % 2 ? W_HELL : null, gr: 10,
+      fuellung: i % 2 ? W_HELL : null, gr: GR,
       zellen: [{ text: z.name, fett: true }, ...(mitKlasse ? [{ text: z.klasse, farbe: W_GRAU }] : []),
         ...z.noten.map((n, j) => (noten[j] === "Endnote" ? { text: n, fett: true } : n)), { absaetze: absaetze(z.text) }],
     })),
-  ], { rand: [60, 110] });
-  return docxPaket(body, { titel, kurs, beschreibung: "Kommentare im Zeitraum", bild: null, quer });
+  ], { rand: [25, 70] });
+  return docxPaket(body, { titel, kurs, beschreibung: "Kommentare im Zeitraum", bild: null, rand: RAND });
 }
 
 // Fertige .docx-Datei aus dem Seiteninhalt
-const TEXTBREITE_QUER = 16838 - 2 * 1134; // A4 quer mit 2 cm Rand
-function docxPaket(body, { titel, kurs, beschreibung, bild, quer }) {
-  body += `<w:sectPr>${quer ? '<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>' : '<w:pgSz w:w="11906" w:h="16838"/>'}<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>`;
+function docxPaket(body, { titel, kurs, beschreibung, bild, rand = 1134 }) {
+  body += `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="${rand}" w:right="${rand}" w:bottom="${rand}" w:left="${rand}" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>`;
   const dokument = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
     'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
@@ -5512,13 +5508,7 @@ if (typeof document !== "undefined") {
         else { einst.uebersichtSortierung = ""; einst.sortierung = sortWahl.value; }
         einstSpeichern(); inhaltZeigen();
       });
-      // Dezimalwerte (Schnitte und Endwert) nur auf Wunsch, sonst nur Noten
-      const mitDezimal = lesen("notenauswertung-dezimal") === true;
-      const dezKnopf = el("input", { type: "checkbox" });
-      dezKnopf.checked = mitDezimal;
-      dezKnopf.addEventListener("change", () => { schreiben("notenauswertung-dezimal", dezKnopf.checked); tabelle.classList.toggle("ohne-dezimal", !dezKnopf.checked); });
-      inhalt.append(el("div", { klasse: "reihe", stil: "margin-top:12px;align-items:center" }, el("label", { klasse: "feld", stil: "flex:0 1 240px" }, "Sortierung", sortWahl),
-        el("label", { klasse: "dezimal-wahl" }, dezKnopf, "Dezimalwerte zeigen")));
+      inhalt.append(el("div", { klasse: "reihe", stil: "margin-top:12px" }, el("label", { klasse: "feld", stil: "flex:0 1 240px" }, "Sortierung", sortWahl)));
       let aktualisieren = () => {};
       const feld = (map, s, name, spalte, zeile) => {
         const f = el("input", { type: "text", autocomplete: "off", "aria-label": `${name} ${anzeige(s.name)}`, "data-spalte": spalte, "data-zeile": zeile });
@@ -5570,8 +5560,8 @@ if (typeof document !== "undefined") {
       };
       aktualisieren();
       const kopf = ["Name", "Klasse", ...(D.aktiv.arbeiten ? ["Arbeiten"] : []), ...(D.aktiv.tests ? ["Tests"] : []), ...(D.aktiv.mappe ? ["Mappe"] : []), "Mitarbeit", ...(D.berichtigungen.length ? ["Berichtigung"] : []), "Endnote"];
-      const tabelle = el("table", { klasse: "leistung-tab" + (mitDezimal ? "" : " ohne-dezimal") }, el("thead", {}, el("tr", {}, kopf.map((t) => el("th", { text: t })))), tbody);
-      inhalt.append(el("div", { klasse: "tabelle-rahmen fest", stil: "padding:2px 6px;margin-top:12px" }, tabelle));
+      inhalt.append(el("div", { klasse: "tabelle-rahmen fest", stil: "padding:2px 6px;margin-top:12px" },
+        el("table", { klasse: "leistung-tab" }, el("thead", {}, el("tr", {}, kopf.map((t) => el("th", { text: t })))), tbody)));
       inhalt.append(el("p", { klasse: "hint", stil: "margin:10px 0 0;font-size:13px",
         text: "Grau steht der Vorschlag: bei Mitarbeit aus den Zeichen im Zeitraum, bei der Endnote nach dem Schlüssel aus den Schnitten der Bereiche. Eine eigene Note ersetzt den Vorschlag. Statt einer Note geht auch ein Vermerk ohne Ziffern, etwa Zd. Er zählt in keinem Schnitt und keiner Statistik, bei Mitarbeit fällt sie dann aus der Endnote heraus. Enter springt eine Zeile weiter. Wie die Zeichen zählen und wie die Endnote gerundet wird, steht in den Einstellungen." }));
     }
@@ -5818,7 +5808,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "09.11.2026 09:07";
+  const STAND = "09.11.2026 09:20";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
