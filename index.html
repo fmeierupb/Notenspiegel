@@ -418,7 +418,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 09.11.2026 13:10</span>
+      <span>Fassung 09.11.2026 13:28</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -1564,17 +1564,17 @@ const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr
   { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
 // Kopf einer Seite: Titel links, Datum rechts, darunter grau die Unterzeile. Bündig mit dem Text der Tabellen
+// Titel allein in seiner Zeile, damit ein langer Titel nie ans Datum stößt. Darunter die Unterzeile links, das Datum rechts
 function wTitel(titel, datumText, unterzeile, breite = TEXTBREITE) {
-  let b = `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${breite - 110}"/></w:tabs><w:spacing w:before="0" w:after="40"/><w:ind w:left="110" w:right="110"/></w:pPr>` +
-    wR(titel, { fett: true, gr: 24, serif: true }) + (datumText ? `<w:r><w:tab/></w:r>` + wR(datumText, { gr: 10.5, farbe: W_GRAU }) : "") + "</w:p>";
-  if (unterzeile) b += wP(wR(unterzeile, { gr: 10.5, farbe: W_GRAU }), { nach: 0, einzug: 110 });
+  let b = `<w:p><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="40"/><w:ind w:left="110" w:right="110"/></w:pPr>` + wR(titel, { fett: true, gr: 24, serif: true }) + "</w:p>";
+  if (unterzeile || datumText) b += `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${breite - 110}"/></w:tabs><w:spacing w:before="0" w:after="0"/><w:ind w:left="110" w:right="110"/></w:pPr>` +
+    (unterzeile ? wR(unterzeile, { gr: 10.5, farbe: W_GRAU }) : "") + (datumText ? `<w:r><w:tab/></w:r>` + wR(datumText, { gr: 10.5, farbe: W_GRAU }) : "") + "</w:p>";
   return b;
 }
 function wordDokument(info) {
   const { titel, unterzeile, datumText, grundwerte, notenBereich, liste, bild, verteilung, kennzahlen, klassen, unterBez, grenzfaelle, verlauf, tendenzen, farben, meta } = info;
   const toenung = (i) => gemischtHex(farben[Math.max(0, Math.min(farben.length - 1, i))], 0.35);
   // ----- Seite 1: Titel, Grundwerte, Liste in Graustufen -----
-  // Titel links, Datum klein und grau rechts in derselben Zeile (rechtsbündiger Tabulator am Textrand)
   let body = wTitel(titel, datumText, unterzeile);
   body += wP("", { nach: 180 });
   // Gleiche Breite und gleiche Zellränder wie die Notenliste darunter, damit Text und Linien bündig stehen
@@ -5811,7 +5811,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "09.11.2026 13:10";
+  const STAND = "09.11.2026 13:28";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
