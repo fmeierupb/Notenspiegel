@@ -149,6 +149,10 @@
   .wahl3 button.an { background: var(--accent); color: #fff; border-color: var(--accent); }
   .wahl3 button.fehlt { min-width: 0; padding: 6px 10px; font-size: 14px; margin-left: 6px; color: var(--muted); }
   .kommentare { display: grid; gap: 10px; margin-top: 12px; }
+  .kommentar-wahl { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-top: 12px; font-size: 15px; }
+  .kommentar-wahl span { color: var(--muted); }
+  .kommentar-wahl label { display: inline-flex; align-items: center; gap: 6px; }
+  .kommentar-wahl input { width: 20px; height: 20px; margin: 0; }
   .kommentar { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
   .kommentar .kopf { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 6px; }
   .kommentar .kopf .name { font-weight: 600; }
@@ -413,7 +417,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 09.11.2026 06:41</span>
+      <span>Fassung 09.11.2026 09:02</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -1559,8 +1563,8 @@ const wAbschnitt = (titel, o = {}) => wP(wR(titel, { caps: true, sperren: 30, gr
   { vor: 260, nach: 80, keepNext: true, linie: { sz: 8, farbe: W_DUNKEL, abstand: 4 }, ...o });
 
 // Kopf einer Seite: Titel links, Datum rechts, darunter grau die Unterzeile. Bündig mit dem Text der Tabellen
-function wTitel(titel, datumText, unterzeile) {
-  let b = `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${TEXTBREITE - 110}"/></w:tabs><w:spacing w:before="0" w:after="40"/><w:ind w:left="110" w:right="110"/></w:pPr>` +
+function wTitel(titel, datumText, unterzeile, breite = TEXTBREITE) {
+  let b = `<w:p><w:pPr><w:tabs><w:tab w:val="right" w:pos="${breite - 110}"/></w:tabs><w:spacing w:before="0" w:after="40"/><w:ind w:left="110" w:right="110"/></w:pPr>` +
     wR(titel, { fett: true, gr: 24, serif: true }) + (datumText ? `<w:r><w:tab/></w:r>` + wR(datumText, { gr: 10.5, farbe: W_GRAU }) : "") + "</w:p>";
   if (unterzeile) b += wP(wR(unterzeile, { gr: 10.5, farbe: W_GRAU }), { nach: 0, einzug: 110 });
   return b;
@@ -1764,26 +1768,36 @@ function zeitraumDokument({ titel, unterzeile, datumText, angaben, grundwerte, k
   return docxPaket(body, { titel, kurs, beschreibung: "Leistung im Zeitraum", bild });
 }
 
-// Kommentare eines Zeitraums: Name, bei mehreren Klassen die Klasse, Kommentar mit seinen Absätzen
-function kommentarDokument({ titel, unterzeile, datumText, kurs, mitKlasse, zeilen }) {
-  let body = wTitel(titel, datumText, unterzeile);
+// Kommentare eines Zeitraums: Name, bei mehreren Klassen die Klasse, die gewählten Noten, Kommentar mit seinen Absätzen.
+// Bleibt für den Kommentar zu wenig Platz, wird die Seite quer gelegt
+function kommentarDokument({ titel, unterzeile, datumText, kurs, mitKlasse, noten = [], zeilen }) {
+  const nb = namensBreite(zeilen.map((z) => z.name), 2200), kb = mitKlasse ? 900 : 0;
+  const nbreite = noten.map((t, i) => {
+    const laengste = Math.max(t.length * 95, ...zeilen.map((z) => String(z.noten[i] || "").length * 120));
+    return Math.min(2200, Math.max(950, laengste + 260));
+  });
+  const summe = nb + kb + nbreite.reduce((a, x) => a + x, 0);
+  const quer = TEXTBREITE - summe < 3600;
+  const breite = quer ? TEXTBREITE_QUER : TEXTBREITE;
+  let body = wTitel(titel, datumText, unterzeile, breite);
   body += wP("", { nach: 160 });
-  const nb = namensBreite(zeilen.map((z) => z[0]), 2200), kb = mitKlasse ? 900 : 0;
-  const spalten = [{ breite: nb }, ...(mitKlasse ? [{ breite: kb }] : []), { breite: TEXTBREITE - nb - kb }];
+  const spalten = [{ breite: nb }, ...(mitKlasse ? [{ breite: kb }] : []), ...nbreite.map((x) => ({ breite: x, mitte: true })), { breite: breite - summe }];
   const absaetze = (text) => text.split(/\n+/).map((t) => t.trim()).filter(Boolean).map((t, i) => wP(wR(t, { gr: 10 }), { vor: i ? 60 : 0 }));
   body += wTab(spalten, [
-    { ...W_KOPF, zellen: ["Name", ...(mitKlasse ? ["Klasse"] : []), "Kommentar"] },
-    ...zeilen.map(([name, klasse, text], i) => ({
+    { ...W_KOPF, zellen: ["Name", ...(mitKlasse ? ["Klasse"] : []), ...noten, "Kommentar"] },
+    ...zeilen.map((z, i) => ({
       fuellung: i % 2 ? W_HELL : null, gr: 10,
-      zellen: [{ text: name, fett: true }, ...(mitKlasse ? [{ text: klasse, farbe: W_GRAU }] : []), { absaetze: absaetze(text) }],
+      zellen: [{ text: z.name, fett: true }, ...(mitKlasse ? [{ text: z.klasse, farbe: W_GRAU }] : []),
+        ...z.noten.map((n, j) => (noten[j] === "Endnote" ? { text: n, fett: true } : n)), { absaetze: absaetze(z.text) }],
     })),
   ], { rand: [60, 110] });
-  return docxPaket(body, { titel, kurs, beschreibung: "Kommentare im Zeitraum", bild: null });
+  return docxPaket(body, { titel, kurs, beschreibung: "Kommentare im Zeitraum", bild: null, quer });
 }
 
 // Fertige .docx-Datei aus dem Seiteninhalt
-function docxPaket(body, { titel, kurs, beschreibung, bild }) {
-  body += `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>`;
+const TEXTBREITE_QUER = 16838 - 2 * 1134; // A4 quer mit 2 cm Rand
+function docxPaket(body, { titel, kurs, beschreibung, bild, quer }) {
+  body += `<w:sectPr>${quer ? '<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>' : '<w:pgSz w:w="11906" w:h="16838"/>'}<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>`;
   const dokument = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
     'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
@@ -5443,10 +5457,26 @@ if (typeof document !== "undefined") {
       });
       const wordK = el("button", { type: "button", text: "Word-Export Kommentare" });
       const statusK = el("span", { klasse: "status", stil: "margin:0" });
+      // Welche Noten mit in den Export kommen, gemerkt auf diesem Gerät
+      const notenSpalten = ausgabeSpalten(D, ", ").filter((x) => x.titel !== "Name" && x.titel !== "Klasse");
+      let gewaehlt = lesen("notenauswertung-kommentar-noten");
+      if (!Array.isArray(gewaehlt)) gewaehlt = ["Endnote"];
+      const wahl = el("div", { klasse: "kommentar-wahl" }, el("span", { text: "Mit in den Export:" }),
+        ...notenSpalten.map((x) => {
+          const c = el("input", { type: "checkbox" });
+          c.checked = gewaehlt.includes(x.titel);
+          c.addEventListener("change", () => {
+            gewaehlt = c.checked ? [...new Set([...gewaehlt, x.titel])] : gewaehlt.filter((t) => t !== x.titel);
+            schreiben("notenauswertung-kommentar-noten", gewaehlt);
+          });
+          return el("label", {}, c, x.titel);
+        }));
       wordK.addEventListener("click", async () => {
         statusK.textContent = "";
         statusK.classList.remove("fehler");
-        const mit = zeilenSortiert(berechnen(k, Z)).filter((z) => (eigene.kommentar[z.s.id] || "").trim());
+        const D2 = berechnen(k, Z);
+        const mit = zeilenSortiert(D2).filter((z) => (eigene.kommentar[z.s.id] || "").trim());
+        const sp = ausgabeSpalten(D2, ", ").filter((x) => x.titel !== "Name" && x.titel !== "Klasse" && gewaehlt.includes(x.titel));
         if (!mit.length) { statusK.textContent = "Noch kein Kommentar geschrieben."; return; }
         try {
           const klassen = [...new Set(k.schueler.map((s) => s.klasse).filter(Boolean))];
@@ -5454,7 +5484,8 @@ if (typeof document !== "undefined") {
             titel: `Kommentare ${Z.titel || ""}`.trim(), kurs: k.name, mitKlasse: klassen.length > 1,
             unterzeile: [k.name, Z.von || Z.bis ? `${datumDE(Z.von)} bis ${datumDE(Z.bis)}` : ""].filter(Boolean).join(" · "),
             datumText: new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }),
-            zeilen: mit.map((z) => [anzeige(z.s.name), z.s.klasse || "", eigene.kommentar[z.s.id].trim()]),
+            noten: sp.map((x) => x.titel),
+            zeilen: mit.map((z) => ({ name: anzeige(z.s.name), klasse: z.s.klasse || "", noten: sp.map((x) => x.wert(z) || ""), text: eigene.kommentar[z.s.id].trim() })),
           });
           const ok = await herunterladen(blob, ["Kommentare", dateiTeil(Z.titel), dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".docx");
           statusK.textContent = ok ? `Word-Datei mit ${mit.length} ${mit.length === 1 ? "Kommentar" : "Kommentaren"} erstellt.` : "";
@@ -5464,7 +5495,7 @@ if (typeof document !== "undefined") {
         }
       });
       inhalt.append(el("p", { klasse: "hint", stil: "margin:12px 0 0;font-size:13px", text: "Ein Kommentar je Person für diesen Zeitraum. Alles wird sofort gespeichert." }),
-        el("div", { klasse: "knoepfe", stil: "margin-top:10px" }, wordK, statusK), liste);
+        wahl, el("div", { klasse: "knoepfe", stil: "margin-top:6px" }, wordK, statusK), liste);
       requestAnimationFrame(() => felder.forEach(hoehe));
     }
 
@@ -5778,7 +5809,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "09.11.2026 06:41";
+  const STAND = "09.11.2026 09:02";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
