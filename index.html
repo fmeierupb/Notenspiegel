@@ -418,7 +418,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 09.11.2026 13:28</span>
+      <span>Fassung 09.11.2026 17:05</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -432,6 +432,7 @@
         <div id="untertitel" class="unter"></div>
       </div>
       <div class="aktionen rechts">
+        <select id="ergebnis-klasse" aria-label="Klasse für Anzeige und Export" hidden></select>
         <button id="einstellungen-ergebnis" class="zweit" type="button">Einstellungen</button>
         <button id="speichern" class="zweit" type="button">Im Kurs speichern</button>
         <button id="word" type="button">Word-Export</button>
@@ -3215,11 +3216,35 @@ if (typeof document !== "undefined") {
 
 
   // ----- Auswerten -----
-  function auswertungErstellen() {
+  // Bei gewählter Klasse zeigen Auswertung und alle Exporte nur diese Klasse. Gespeichert wird immer der ganze Kurs
+  let ergebnisKlasse = "";
+  const klassenVon = (k) => (k ? [...new Set(k.schueler.map((s) => s.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true })) : []);
+  function ergebnisKlassenFuellen() {
+    const w = $("ergebnis-klasse"), kl = klassenVon(kurs());
+    w.innerHTML = "";
+    w.append(el("option", { value: "", text: "Alle Klassen" }), ...kl.map((x) => el("option", { value: x, text: `Klasse ${x}` })));
+    if (!kl.includes(ergebnisKlasse)) ergebnisKlasse = "";
+    w.value = ergebnisKlasse;
+    w.hidden = kl.length < 2;
+  }
+  $("ergebnis-klasse").addEventListener("change", () => {
+    const vorher = ergebnisKlasse;
+    ergebnisKlasse = $("ergebnis-klasse").value;
+    const neu = auswertungErstellen();
+    if (!neu.zeilen.some(bewertet)) {
+      $("hinweis").textContent = `In Klasse ${ergebnisKlasse} hat niemand mitgeschrieben.`;
+      ergebnisKlasse = vorher; $("ergebnis-klasse").value = vorher;
+      return;
+    }
+    $("hinweis").textContent = "";
+    ergebnis = neu;
+    ergebnisAnzeigen();
+  });
+  function auswertungErstellen(klasse = ergebnisKlasse) {
     const k = kurs();
     const ns = notenspiegel(einst);
     const werte = punkteVon(k);
-    const eintraege = k.schueler.map((s, i) => {
+    const eintraege = k.schueler.map((s, i) => [s, i]).filter(([s]) => !klasse || (s.klasse || "") === klasse).map(([s, i]) => {
       const l = leseEingabe(werte.get(s.id), ns.maxPunkte);
       const nm = l.vermerk ? noteLesen(manuellVon(k).get(s.id)) : {};
       return { id: s.id, nr: i + 1, name: s.name, klasse: s.klasse || "", punkte: l.wert == null ? null : l.wert, vermerk: l.vermerk || "",
@@ -3234,6 +3259,8 @@ if (typeof document !== "undefined") {
 
   $("auswerten").addEventListener("click", () => {
     if (!pruefe()) return;
+    ergebnisKlasse = "";
+    ergebnisKlassenFuellen();
     ergebnis = auswertungErstellen();
     $("hinweis").textContent = "";
     $("hinweis").classList.remove("fehler");
@@ -3459,7 +3486,7 @@ if (typeof document !== "undefined") {
 
   // Mit Uhrzeit des Exports, damit eine neue Datei nie wie eine ältere heißt
   const stempel = () => { const j = new Date(); return `Stand_${String(j.getHours()).padStart(2, "0")}-${String(j.getMinutes()).padStart(2, "0")}-${String(j.getSeconds()).padStart(2, "0")}`; };
-  const dateiname = (art, endung) => [art, dateiTeil(ergebnis.kursName), dateiTeil(ergebnis.arbeit), ergebnis.datum, stempel()].filter(Boolean).join("_") + "." + endung;
+  const dateiname = (art, endung) => [art, dateiTeil(ergebnis.kursName), ergebnisKlasse ? "Klasse_" + dateiTeil(ergebnisKlasse) : "", dateiTeil(ergebnis.arbeit), ergebnis.datum, stempel()].filter(Boolean).join("_") + "." + endung;
   function bildBlob(breite, grau = false) {
     const c = document.createElement("canvas");
     c.width = breite; c.height = Math.round(breite * HOEHE / BREITE);
@@ -3473,7 +3500,7 @@ if (typeof document !== "undefined") {
   function arbeitSichern() {
     const k = kurs();
     if (!k || !ergebnis) return null;
-    const e = ergebnis;
+    const e = ergebnisKlasse ? auswertungErstellen("") : ergebnis;
     const eintrag = {
       id: neueId(), arbeit: e.arbeit, datum: e.datum, gesichert: new Date().toISOString(),
       einst: { noten: kopie(einst.noten), gesamt: einst.gesamt, rundung: einst.rundung, tendenzen: kopie(einst.tendenzen) },
@@ -4989,6 +5016,7 @@ if (typeof document !== "undefined") {
     return new Promise((ok) => c.toBlob(ok, "image/png"));
   }
   const anteilText = (D) => BEREICHE.filter((b) => D.anteile[b.id] > 0).map((b) => `${b.name} ${Math.round(D.anteile[b.id] * 100)} %`).join(", ");
+  const uebersichtKlasse = {};
   let uebersichtAnsicht = ["statistik", "kommentare"].includes(lesen("notenauswertung-uebersicht")) ? lesen("notenauswertung-uebersicht") : "noten";
   // ----- Schülerkarte: wie sich eine Person über die Zeit entwickelt, über alle Zeiträume -----
   let karteId = null;
@@ -5258,6 +5286,20 @@ if (typeof document !== "undefined") {
     const k = kurs(), Z = aktiverZeitraum();
     const kf = kursFeld(); kf.style.flex = "1 1 220px";
     const zf = zeitraumFeld(leistungAufbauen), zSel = zf.querySelector("select");
+    // Klasse: Ansicht und alle Exporte der Übersicht nur für diese Klasse
+    const kursKlassen = klassenVon(k);
+    if (k && !kursKlassen.includes(uebersichtKlasse[k.id])) delete uebersichtKlasse[k.id];
+    const klasse = () => (k && uebersichtKlasse[k.id]) || "";
+    const rechnen = () => { const D = berechnen(k, Z), kl = klasse(); return kl ? { ...D, zeilen: D.zeilen.filter((z) => (z.s.klasse || "") === kl) } : D; };
+    const klasseTeil = () => (klasse() ? "Klasse_" + dateiTeil(klasse()) : "");
+    let klassenFeld = null;
+    if (kursKlassen.length > 1) {
+      const w = el("select");
+      w.append(el("option", { value: "", text: "Alle Klassen" }), ...kursKlassen.map((x) => el("option", { value: x, text: x })));
+      w.value = klasse();
+      w.addEventListener("change", () => { if (w.value) uebersichtKlasse[k.id] = w.value; else delete uebersichtKlasse[k.id]; inhaltZeigen(); });
+      klassenFeld = el("label", { klasse: "feld", stil: "flex:0 1 150px" }, "Klasse", w);
+    }
     const neuK = el("button", { type: "button", klasse: "zweit", text: "Neuer Zeitraum" });
     // Neuer Zeitraum: 1. oder 2. Halbjahr des laufenden Schuljahrs, das Ende frei wählbar, etwa für einen Leistungsstand bis zu einem Stichtag
     const neuBox = el("div", { klasse: "neu-zeitraum", hidden: true });
@@ -5295,7 +5337,7 @@ if (typeof document !== "undefined") {
         el("p", { klasse: "hint", stil: "margin:8px 0 0;font-size:13px", text: `Beginnt am ${datumDE(hj[1].von)} oder ${datumDE(hj[2].von)}, je nach Halbjahr. Schlüssel und Rundung übernimmt der neue Zeitraum vom gewählten.` }));
       zeigen(true);
     }
-    p.append(el("div", { klasse: "reihe" }, kf, zf, neuK), neuBox);
+    p.append(el("div", { klasse: "reihe" }, kf, klassenFeld, zf, neuK), neuBox);
     const titelIn = el("input", { type: "text", id: "zeitraum-titel" }); titelIn.value = Z.titel || "";
     const vonIn = el("input", { type: "date" }); vonIn.value = Z.von || "";
     const bisIn = el("input", { type: "date" }); bisIn.value = Z.bis || "";
@@ -5411,14 +5453,14 @@ if (typeof document !== "undefined") {
     const word = el("button", { type: "button", text: "Word-Export" });
     const status = el("span", { klasse: "status", stil: "margin:0" });
     const tabelleText = () => {
-      const D = berechnen(k, Z), sp = ausgabeSpalten(D, ", ");
+      const D = rechnen(), sp = ausgabeSpalten(D, ", ");
       return [sp.map((x) => x.titel).join("\t"), ...zeilenSortiert(D).map((z) => sp.map((x) => x.wert(z)).join("\t"))].join("\n");
     };
     const knoepfe = el("div", { klasse: "knoepfe" }, word, kopierKnopf(tabelleText, "Tabelle kopieren"), status);
     p.append(el("div", { klasse: "reiter klein", role: "tablist" }, knopfNoten, knopfStat, knopfKomm), info, inhalt, knoepfe);
 
     function inhaltZeigen() {
-      const D = berechnen(k, Z);
+      const D = rechnen();
       knopfNoten.setAttribute("aria-selected", String(uebersichtAnsicht === "noten"));
       knopfStat.setAttribute("aria-selected", String(uebersichtAnsicht === "statistik"));
       knopfKomm.setAttribute("aria-selected", String(uebersichtAnsicht === "kommentare"));
@@ -5476,20 +5518,19 @@ if (typeof document !== "undefined") {
       wordK.addEventListener("click", async () => {
         statusK.textContent = "";
         statusK.classList.remove("fehler");
-        const D2 = berechnen(k, Z);
+        const D2 = rechnen();
         const mit = zeilenSortiert(D2).filter((z) => (eigene.kommentar[z.s.id] || "").trim());
         const sp = ausgabeSpalten(D2, ", ").filter((x) => x.titel !== "Name" && x.titel !== "Klasse" && gewaehlt.includes(x.titel));
         if (!mit.length) { statusK.textContent = "Noch kein Kommentar geschrieben."; return; }
         try {
-          const klassen = [...new Set(k.schueler.map((s) => s.klasse).filter(Boolean))];
           const blob = kommentarDokument({
-            titel: `Kommentare ${Z.titel || ""}`.trim(), kurs: k.name, mitKlasse: klassen.length > 1,
-            unterzeile: [k.name, Z.von || Z.bis ? `${datumDE(Z.von)} bis ${datumDE(Z.bis)}` : ""].filter(Boolean).join(" · "),
+            titel: `Kommentare ${Z.titel || ""}`.trim(), kurs: k.name, mitKlasse: !klasse() && kursKlassen.length > 1,
+            unterzeile: [k.name, klasse() ? `Klasse ${klasse()}` : "", Z.von || Z.bis ? `${datumDE(Z.von)} bis ${datumDE(Z.bis)}` : ""].filter(Boolean).join(" · "),
             datumText: new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }),
             noten: sp.map((x) => x.titel),
             zeilen: mit.map((z) => ({ name: anzeige(z.s.name), klasse: z.s.klasse || "", noten: sp.map((x) => x.wert(z) || ""), text: eigene.kommentar[z.s.id].trim() })),
           });
-          const ok = await herunterladen(blob, ["Kommentare", dateiTeil(Z.titel), dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".docx");
+          const ok = await herunterladen(blob, ["Kommentare", dateiTeil(Z.titel), dateiTeil(k.name), klasseTeil(), stempel()].filter(Boolean).join("_") + ".docx");
           statusK.textContent = ok ? `Word-Datei mit ${mit.length} ${mit.length === 1 ? "Kommentar" : "Kommentaren"} erstellt.` : "";
         } catch (err) {
           statusK.textContent = "Export fehlgeschlagen: " + (err && err.message ? err.message : err);
@@ -5545,7 +5586,7 @@ if (typeof document !== "undefined") {
           el("td", { klasse: "endnote" }, dez, endIn)));
       });
       aktualisieren = () => {
-        const N = berechnen(k, Z), nach = new Map(N.zeilen.map((x) => [x.s.id, x]));
+        const N = rechnen(), nach = new Map(N.zeilen.map((x) => [x.s.id, x]));
         refs.forEach((r) => {
           const x = nach.get(r.id);
           if (!x) return;
@@ -5598,7 +5639,7 @@ if (typeof document !== "undefined") {
       };
       new ResizeObserver(() => requestAnimationFrame(malen)).observe(box);
       inhalt.append(box, el("div", { klasse: "knoepfe" }, el("button", { type: "button", klasse: "zweit rechts", text: "Bild speichern",
-        onclick: async () => herunterladen(await diagrammPng(diagramm, 2000), [dateiTeil(Z.titel) || "Endnoten", dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".png") })));
+        onclick: async () => herunterladen(await diagrammPng(diagramm, 2000), [dateiTeil(Z.titel) || "Endnoten", dateiTeil(k.name), klasseTeil(), stempel()].filter(Boolean).join("_") + ".png") })));
       requestAnimationFrame(malen);
 
       abschnitt("Notenverteilung der Endnoten");
@@ -5653,9 +5694,9 @@ if (typeof document !== "undefined") {
       status.textContent = "";
       status.classList.remove("fehler");
       try {
-        const D = berechnen(k, Z), st = zeitraumStatistik(D), sp = ausgabeSpalten(D, ", ");
-        const klassen = [...new Set(k.schueler.map((s) => s.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
-        const schonDrin = klassen.length && klassen.every((x) => (k.name || "").toLowerCase().includes(x.toLowerCase()));
+        const D = rechnen(), st = zeitraumStatistik(D), sp = ausgabeSpalten(D, ", ");
+        const klassen = klasse() ? [klasse()] : kursKlassen;
+        const schonDrin = !klasse() && klassen.length && klassen.every((x) => (k.name || "").toLowerCase().includes(x.toLowerCase()));
         const unter = [k.name, !schonDrin && klassen.length ? klassen.join(", ") : "", Z.von || Z.bis ? `${datumDE(Z.von)} bis ${datumDE(Z.bis)}` : ""].filter(Boolean).join(" · ");
         const titel = (arr) => arr.map((a) => `${a.arbeit || a.titel || "Ohne Titel"} (${datumDE(a.datum)})`).join(", ");
         const angaben = [];
@@ -5677,7 +5718,7 @@ if (typeof document !== "undefined") {
           statistik: einst.word.statistik ? { ...st, schwach: st.schwach.map((z) => ({ name: anzeige(z.s.name), klasse: z.s.klasse || "", note: z.endnote, bereiche: bereichsText(z, D) })) } : null,
           bild: einst.word.statistik && einst.word.diagramm && st.n ? new Uint8Array(await (await diagrammPng(endnotenDaten(D), 2400)).arrayBuffer()) : null,
         });
-        const ok = await herunterladen(blob, [dateiTeil(Z.titel) || "Leistung", dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".docx");
+        const ok = await herunterladen(blob, [dateiTeil(Z.titel) || "Leistung", dateiTeil(k.name), klasseTeil(), stempel()].filter(Boolean).join("_") + ".docx");
         status.textContent = ok ? "Word-Datei erstellt." : "";
       } catch (err) {
         status.textContent = "Der Word-Export hat nicht geklappt: " + err.message;
@@ -5811,7 +5852,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "09.11.2026 13:28";
+  const STAND = "09.11.2026 17:05";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
