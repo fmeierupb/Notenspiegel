@@ -156,7 +156,8 @@
   .kommentar { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
   .kommentar .kopf { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 6px; }
   .kommentar .kopf .name { font-weight: 600; }
-  .kommentar .kopf .klein { color: var(--muted); font-size: 13px; }
+  .kommentar .kopf .klein { color: var(--muted); font-size: 14px; }
+  .kommentar .kopf .klein.end { color: var(--text); font-weight: 700; }
   .kommentar textarea { font: 16px/1.45 system-ui, -apple-system, sans-serif; min-height: 3.4em; overflow: hidden; }
   .haken { min-width: 130px; padding: 6px 12px; background: var(--card); color: var(--muted); border: 1px solid var(--border); font-size: 15px; }
   .haken.an { background: var(--k-plus); border-color: var(--k-plus); color: #fff; }
@@ -417,7 +418,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 09.11.2026 09:20</span>
+      <span>Fassung 09.11.2026 13:10</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -5439,6 +5440,8 @@ if (typeof document !== "undefined") {
       const liste = el("div", { klasse: "kommentare" });
       const hoehe = (t) => { t.style.height = "auto"; t.style.height = t.scrollHeight + 2 + "px"; };
       const felder = [];
+      // Alle Noten, aus denen sich die Endnote zusammensetzt, damit sie beim Schreiben im Blick sind
+      const notenTeile = ausgabeSpalten(D, ", ").filter((x) => x.titel !== "Name" && x.titel !== "Klasse");
       zeilenSortiert(D).forEach((z) => {
         const t = el("textarea", { rows: "2", placeholder: "Kommentar", "aria-label": `Kommentar zu ${anzeige(z.s.name)}` });
         t.value = eigene.kommentar[z.s.id] || "";
@@ -5451,7 +5454,7 @@ if (typeof document !== "undefined") {
         liste.append(el("div", { klasse: "kommentar" },
           el("div", { klasse: "kopf" }, el("span", { klasse: "name", "data-sid": fotoId(z.s), text: anzeige(z.s.name) }),
             z.s.klasse ? el("span", { klasse: "klein", text: z.s.klasse }) : null,
-            z.endnote ? el("span", { klasse: "klein", text: `Endnote ${z.endnote}` }) : null),
+            ...notenTeile.map((x) => { const w = x.wert(z); return w ? el("span", { klasse: "klein" + (x.titel === "Endnote" ? " end" : ""), text: `${x.titel} ${w}` }) : null; })),
           t));
       });
       const wordK = el("button", { type: "button", text: "Word-Export Kommentare" });
@@ -5808,7 +5811,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "09.11.2026 09:20";
+  const STAND = "09.11.2026 13:10";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
