@@ -148,6 +148,12 @@
   .wahl3 button { min-width: 46px; padding: 6px 0; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 17px; }
   .wahl3 button.an { background: var(--accent); color: #fff; border-color: var(--accent); }
   .wahl3 button.fehlt { min-width: 0; padding: 6px 10px; font-size: 14px; margin-left: 6px; color: var(--muted); }
+  .kommentare { display: grid; gap: 10px; margin-top: 12px; }
+  .kommentar { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .kommentar .kopf { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 6px; }
+  .kommentar .kopf .name { font-weight: 600; }
+  .kommentar .kopf .klein { color: var(--muted); font-size: 13px; }
+  .kommentar textarea { font: 16px/1.45 system-ui, -apple-system, sans-serif; min-height: 3.4em; overflow: hidden; }
   .haken { min-width: 130px; padding: 6px 12px; background: var(--card); color: var(--muted); border: 1px solid var(--border); font-size: 15px; }
   .haken.an { background: var(--k-plus); border-color: var(--k-plus); color: #fff; }
   .chip.ab { background: var(--k-plus); color: #fff; }
@@ -407,7 +413,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 06.11.2026 17:39</span>
+      <span>Fassung 09.11.2026 06:41</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -1756,6 +1762,23 @@ function zeitraumDokument({ titel, unterzeile, datumText, angaben, grundwerte, k
     } else body += wP(wR("Niemand.", { gr: 9.5 }), { nach: 0 });
   }
   return docxPaket(body, { titel, kurs, beschreibung: "Leistung im Zeitraum", bild });
+}
+
+// Kommentare eines Zeitraums: Name, bei mehreren Klassen die Klasse, Kommentar mit seinen Absätzen
+function kommentarDokument({ titel, unterzeile, datumText, kurs, mitKlasse, zeilen }) {
+  let body = wTitel(titel, datumText, unterzeile);
+  body += wP("", { nach: 160 });
+  const nb = namensBreite(zeilen.map((z) => z[0]), 2200), kb = mitKlasse ? 900 : 0;
+  const spalten = [{ breite: nb }, ...(mitKlasse ? [{ breite: kb }] : []), { breite: TEXTBREITE - nb - kb }];
+  const absaetze = (text) => text.split(/\n+/).map((t) => t.trim()).filter(Boolean).map((t, i) => wP(wR(t, { gr: 10 }), { vor: i ? 60 : 0 }));
+  body += wTab(spalten, [
+    { ...W_KOPF, zellen: ["Name", ...(mitKlasse ? ["Klasse"] : []), "Kommentar"] },
+    ...zeilen.map(([name, klasse, text], i) => ({
+      fuellung: i % 2 ? W_HELL : null, gr: 10,
+      zellen: [{ text: name, fett: true }, ...(mitKlasse ? [{ text: klasse, farbe: W_GRAU }] : []), { absaetze: absaetze(text) }],
+    })),
+  ], { rand: [60, 110] });
+  return docxPaket(body, { titel, kurs, beschreibung: "Kommentare im Zeitraum", bild: null });
 }
 
 // Fertige .docx-Datei aus dem Seiteninhalt
@@ -4600,6 +4623,7 @@ if (typeof document !== "undefined") {
     const e = k.zeitraum[Z.id];
     if (!e.mitarbeit || typeof e.mitarbeit !== "object") e.mitarbeit = {};
     if (!e.note || typeof e.note !== "object") e.note = {};
+    if (!e.kommentar || typeof e.kommentar !== "object") e.kommentar = {};
     return e;
   }
   function rechenOptionen() {
@@ -4951,7 +4975,7 @@ if (typeof document !== "undefined") {
     return new Promise((ok) => c.toBlob(ok, "image/png"));
   }
   const anteilText = (D) => BEREICHE.filter((b) => D.anteile[b.id] > 0).map((b) => `${b.name} ${Math.round(D.anteile[b.id] * 100)} %`).join(", ");
-  let uebersichtAnsicht = lesen("notenauswertung-uebersicht") === "statistik" ? "statistik" : "noten";
+  let uebersichtAnsicht = ["statistik", "kommentare"].includes(lesen("notenauswertung-uebersicht")) ? lesen("notenauswertung-uebersicht") : "noten";
   // ----- Schülerkarte: wie sich eine Person über die Zeit entwickelt, über alle Zeiträume -----
   let karteId = null;
   function karteAufbauen() {
@@ -5363,9 +5387,11 @@ if (typeof document !== "undefined") {
     // Ansicht: Noten oder Statistik
     const knopfNoten = el("button", { type: "button", role: "tab", text: "Noten" });
     const knopfStat = el("button", { type: "button", role: "tab", text: "Statistik" });
+    const knopfKomm = el("button", { type: "button", role: "tab", text: "Kommentare" });
     const ansicht = (a) => { uebersichtAnsicht = a; schreiben("notenauswertung-uebersicht", a); inhaltZeigen(); };
     knopfNoten.addEventListener("click", () => ansicht("noten"));
     knopfStat.addEventListener("click", () => ansicht("statistik"));
+    knopfKomm.addEventListener("click", () => ansicht("kommentare"));
     const info = el("p", { klasse: "hint", stil: "margin:12px 0 0;font-size:13px" });
     const inhalt = el("div");
     const word = el("button", { type: "button", text: "Word-Export" });
@@ -5374,13 +5400,15 @@ if (typeof document !== "undefined") {
       const D = berechnen(k, Z), sp = ausgabeSpalten(D, ", ");
       return [sp.map((x) => x.titel).join("\t"), ...zeilenSortiert(D).map((z) => sp.map((x) => x.wert(z)).join("\t"))].join("\n");
     };
-    p.append(el("div", { klasse: "reiter klein", role: "tablist" }, knopfNoten, knopfStat), info, inhalt,
-      el("div", { klasse: "knoepfe" }, word, kopierKnopf(tabelleText, "Tabelle kopieren"), status));
+    const knoepfe = el("div", { klasse: "knoepfe" }, word, kopierKnopf(tabelleText, "Tabelle kopieren"), status);
+    p.append(el("div", { klasse: "reiter klein", role: "tablist" }, knopfNoten, knopfStat, knopfKomm), info, inhalt, knoepfe);
 
     function inhaltZeigen() {
       const D = berechnen(k, Z);
       knopfNoten.setAttribute("aria-selected", String(uebersichtAnsicht === "noten"));
       knopfStat.setAttribute("aria-selected", String(uebersichtAnsicht === "statistik"));
+      knopfKomm.setAttribute("aria-selected", String(uebersichtAnsicht === "kommentare"));
+      knoepfe.hidden = uebersichtAnsicht === "kommentare";
       const titel = (arr) => arr.map((a) => `${a.arbeit || a.titel || "Ohne Titel"} (${datumKurz(a.datum)})`).join(", ");
       const teile = [D.arbeiten.length ? `Arbeiten: ${titel(D.arbeiten)}` : "Keine Arbeit im Zeitraum"];
       if (D.tests.length) teile.push(`Tests: ${titel(D.tests)}`);
@@ -5388,7 +5416,56 @@ if (typeof document !== "undefined") {
       teile.push(`Mitarbeit: ${D.stunden.length} ${D.stunden.length === 1 ? "Stunde" : "Stunden"}`);
       info.textContent = teile.join(". ") + ".";
       inhalt.innerHTML = "";
-      if (uebersichtAnsicht === "statistik") statistikZeigen(D); else notenZeigen(D);
+      if (uebersichtAnsicht === "statistik") statistikZeigen(D);
+      else if (uebersichtAnsicht === "kommentare") kommentareZeigen(D);
+      else notenZeigen(D);
+    }
+
+    // Kommentare: ein freier Text je Person für diesen Zeitraum, mit eigenem Word-Export
+    function kommentareZeigen(D) {
+      const liste = el("div", { klasse: "kommentare" });
+      const hoehe = (t) => { t.style.height = "auto"; t.style.height = t.scrollHeight + 2 + "px"; };
+      const felder = [];
+      zeilenSortiert(D).forEach((z) => {
+        const t = el("textarea", { rows: "2", placeholder: "Kommentar", "aria-label": `Kommentar zu ${anzeige(z.s.name)}` });
+        t.value = eigene.kommentar[z.s.id] || "";
+        t.addEventListener("input", () => {
+          if (t.value.trim()) eigene.kommentar[z.s.id] = t.value; else delete eigene.kommentar[z.s.id];
+          kurseSpeichern();
+          hoehe(t);
+        });
+        felder.push(t);
+        liste.append(el("div", { klasse: "kommentar" },
+          el("div", { klasse: "kopf" }, el("span", { klasse: "name", "data-sid": fotoId(z.s), text: anzeige(z.s.name) }),
+            z.s.klasse ? el("span", { klasse: "klein", text: z.s.klasse }) : null,
+            z.endnote ? el("span", { klasse: "klein", text: `Endnote ${z.endnote}` }) : null),
+          t));
+      });
+      const wordK = el("button", { type: "button", text: "Word-Export Kommentare" });
+      const statusK = el("span", { klasse: "status", stil: "margin:0" });
+      wordK.addEventListener("click", async () => {
+        statusK.textContent = "";
+        statusK.classList.remove("fehler");
+        const mit = zeilenSortiert(berechnen(k, Z)).filter((z) => (eigene.kommentar[z.s.id] || "").trim());
+        if (!mit.length) { statusK.textContent = "Noch kein Kommentar geschrieben."; return; }
+        try {
+          const klassen = [...new Set(k.schueler.map((s) => s.klasse).filter(Boolean))];
+          const blob = kommentarDokument({
+            titel: `Kommentare ${Z.titel || ""}`.trim(), kurs: k.name, mitKlasse: klassen.length > 1,
+            unterzeile: [k.name, Z.von || Z.bis ? `${datumDE(Z.von)} bis ${datumDE(Z.bis)}` : ""].filter(Boolean).join(" · "),
+            datumText: new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" }),
+            zeilen: mit.map((z) => [anzeige(z.s.name), z.s.klasse || "", eigene.kommentar[z.s.id].trim()]),
+          });
+          const ok = await herunterladen(blob, ["Kommentare", dateiTeil(Z.titel), dateiTeil(k.name), stempel()].filter(Boolean).join("_") + ".docx");
+          statusK.textContent = ok ? `Word-Datei mit ${mit.length} ${mit.length === 1 ? "Kommentar" : "Kommentaren"} erstellt.` : "";
+        } catch (err) {
+          statusK.textContent = "Export fehlgeschlagen: " + (err && err.message ? err.message : err);
+          statusK.classList.add("fehler");
+        }
+      });
+      inhalt.append(el("p", { klasse: "hint", stil: "margin:12px 0 0;font-size:13px", text: "Ein Kommentar je Person für diesen Zeitraum. Alles wird sofort gespeichert." }),
+        el("div", { klasse: "knoepfe", stil: "margin-top:10px" }, wordK, statusK), liste);
+      requestAnimationFrame(() => felder.forEach(hoehe));
     }
 
     // Noten: Mitarbeit und Endnote mit Vorschlag in Grau, eine eigene Note ersetzt ihn
@@ -5701,7 +5778,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "06.11.2026 17:39";
+  const STAND = "09.11.2026 06:41";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
