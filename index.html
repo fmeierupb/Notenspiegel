@@ -418,7 +418,7 @@
     </div>
     <div id="backup-hinweis" class="hinweisbox" style="margin-top:16px" hidden></div>
     <div class="fassung">
-      <span>Fassung 09.11.2026 17:05</span>
+      <span>Fassung 10.11.2026 08:23</span>
       <button id="aktualisieren" class="zweit" type="button">Neueste Fassung laden</button>
       <span id="fassung-status"></span>
     </div>
@@ -2935,15 +2935,34 @@ if (typeof document !== "undefined") {
   const ENTWURF_KEY = "notenauswertung-entwurf-v1";
   const alsObjekt = (m) => { const o = {}; if (m) m.forEach((v, id) => { if (String(v || "").trim()) o[id] = String(v); }); return o; };
   let entwurfTimer = 0;
-  const kopfLeer = () => ({ arbeit: "", datum: new Date().toISOString().slice(0, 10), ungesichert: false });
-  const kopfFelder = { arbeit: kopfLeer(), test: kopfLeer() };
-  function kopfMerken() { kopfFelder[modus] = { arbeit: $("arbeit").value, datum: $("datum").value, ungesichert }; }
-  function kopfAnwenden() { const f = kopfFelder[modus]; $("arbeit").value = f.arbeit; $("datum").value = f.datum; ungesichert = f.ungesichert; }
   const kursDa = (id) => kurse.some((k) => k.id === id.replace(/^t:/, ""));
+  // Jeder Kurs hat je Art (Arbeit oder Test) seinen eigenen Arbeitsstand: Titel, Datum und Notenspiegel.
+  // Beim Wechsel von Kurs oder Art wird der alte Stand gemerkt und der neue hergestellt, so hat jede Arbeit ihren Notenspiegel
+  const zustand = new Map();
+  let zustandId = null;
+  const heuteDatum = () => new Date().toISOString().slice(0, 10);
+  const kernPruefen = (x) => (x && typeof x === "object" && Array.isArray(x.noten) && x.noten.length && Number(x.gesamt) > 0 ? x : null);
+  function zustandMerken() {
+    if (zustandId) zustand.set(zustandId, { arbeit: $("arbeit").value, datum: $("datum").value, ungesichert, kern: KERN(einst) });
+  }
+  function zustandPruefen(merken = true) {
+    const k = kurs(), id = k ? entwurfId(k) : null;
+    if (id === zustandId) return;
+    if (merken) zustandMerken();
+    const erstes = zustandId === null;
+    zustandId = id;
+    if (!id) return;
+    const z = zustand.get(id);
+    if (z) { $("arbeit").value = z.arbeit || ""; $("datum").value = z.datum || heuteDatum(); ungesichert = !!z.ungesichert; }
+    else if (!erstes) { $("arbeit").value = ""; $("datum").value = heuteDatum(); ungesichert = false; }
+    if (z && z.kern) { einst = zusammenfuehren(STANDARD_EINST, { ...einst, ...kopie(z.kern) }); einstSpeichern(); }
+    $("gesamt-start").value = einst.gesamt;
+  }
   function entwurfSchreiben() {
     clearTimeout(entwurfTimer);
-    kopfMerken();
-    const d = { kopf: kopfFelder, kurse: {} };
+    zustandMerken();
+    const d = { zustand: {}, kurse: {} };
+    zustand.forEach((z, id) => { if (kursDa(id)) d.zustand[id] = z; });
     new Set([...punkte.keys(), ...manuell.keys()]).forEach((id) => {
       if (!kursDa(id)) return;
       const pk = alsObjekt(punkte.get(id)), mk = alsObjekt(manuell.get(id));
@@ -2960,13 +2979,16 @@ if (typeof document !== "undefined") {
       punkte.set(id, new Map(Object.entries(x.punkte || {})));
       manuell.set(id, new Map(Object.entries(x.manuell || {})));
     });
-    const kopf = d.kopf && typeof d.kopf === "object" ? d.kopf : { arbeit: { arbeit: d.arbeit, datum: d.datum, ungesichert: d.ungesichert } };
-    ["arbeit", "test"].forEach((m) => {
-      const x = kopf[m];
-      if (!x || typeof x !== "object") return;
-      kopfFelder[m] = { arbeit: typeof x.arbeit === "string" ? x.arbeit : "", datum: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || "") ? x.datum : kopfFelder[m].datum, ungesichert: !!x.ungesichert };
-    });
-    kopfAnwenden();
+    const zLesen = (x) => ({ arbeit: typeof x.arbeit === "string" ? x.arbeit : "", datum: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || "") ? x.datum : heuteDatum(),
+      ungesichert: !!x.ungesichert, kern: kernPruefen(x.kern) });
+    if (d.zustand && typeof d.zustand === "object") {
+      Object.entries(d.zustand).forEach(([id, x]) => { if (x && typeof x === "object" && kursDa(id)) zustand.set(id, zLesen(x)); });
+    } else if (aktiverKurs) {
+      // Ältere Fassung: Titel und Datum je Art, sie gehören zum zuletzt offenen Kurs
+      const kopf = d.kopf && typeof d.kopf === "object" ? d.kopf : { arbeit: { arbeit: d.arbeit, datum: d.datum, ungesichert: d.ungesichert } };
+      if (kopf.arbeit && typeof kopf.arbeit === "object") zustand.set(aktiverKurs, zLesen(kopf.arbeit));
+      if (kopf.test && typeof kopf.test === "object") zustand.set("t:" + aktiverKurs, zLesen(kopf.test));
+    }
   }
   // Wörter je Art, damit Hinweise zu Arbeit oder Test passen
   const WORTE = {
@@ -2985,8 +3007,8 @@ if (typeof document !== "undefined") {
   const listeVon = (k, art = modus) => { const f = art === "test" ? "tests" : "arbeiten"; if (!Array.isArray(k[f])) k[f] = []; return k[f]; };
   // Arbeiten und Tests nutzen dieselbe Eingabe. Beim Wechsel tauschen Titel, Datum, Eingaben und Notenschlüssel
   function modusSetzen(m) {
-    if (m !== modus) { kopfMerken(); modus = m; kopfAnwenden(); }
-    schluesselWechseln(m);
+    if (m !== modus) { zustandMerken(); modus = m; schluesselWechseln(m); zustandPruefen(false); }
+    else { schluesselWechseln(m); zustandPruefen(); }
     $("gesamt-start").value = einst.gesamt;
     $("arbeit-name").textContent = worte().titel;
     $("arbeit").placeholder = worte().platzhalter;
@@ -3038,6 +3060,7 @@ if (typeof document !== "undefined") {
   }
 
   function eintragAufbauen() {
+    zustandPruefen();
     backupStand();
     const bereich = $("eintragbereich");
     bereich.innerHTML = "";
@@ -5852,7 +5875,7 @@ if (typeof document !== "undefined") {
   });
 
   // ----- Neueste Fassung laden: Programm neu vom Server holen. Eingaben bleiben erhalten, sie liegen im Entwurf -----
-  const STAND = "09.11.2026 17:05";
+  const STAND = "10.11.2026 08:23";
   $("aktualisieren").addEventListener("click", async () => {
     if (!navigator.onLine) { $("fassung-status").textContent = "Kein Netz. Es bleibt bei dieser Fassung."; return; }
     $("fassung-status").textContent = "Lade …";
